@@ -1,6 +1,7 @@
 # Utility functions for DNA and amino acid sequences
 # Mario Stanke, August 2021
 import numpy as np
+import pandas as pd
 
 dna_alphabet = "ACGT"
 complements = "TGCA"
@@ -51,3 +52,14 @@ aa_idx = dict((c,i) for i,c in enumerate(aa_alphabet))
 
 def to_idx(seq, idx = aa_idx): # used later to one-hot encode
     return np.array(list(idx[c] for c in seq))
+
+def makeDFs(P):
+    (k, s, u) = P.shape
+    dfs = []
+    for j in range(u):
+        profile_matrix = P[:,:,j]
+        df = pd.DataFrame(profile_matrix)
+        df.columns = aa_alphabet
+        df = df.drop([' ', '*'], axis=1)
+        dfs.append(df)
+    return dfs

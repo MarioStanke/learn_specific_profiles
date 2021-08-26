@@ -16,10 +16,10 @@ def getRandomGenomes(N, tile_size, genome_sizes):
     return genomes
 
 # ### Convert genomes to tensor
-# Let $$X \in \{0,1\}^{B\times N\times 6 \times T \times 22}$$ be a batch of **one-hot encoded input translated sequences**,
+# Let $$X \in \{0,1\}^{B\times N\times 6 \times T \times 21}$$ be a batch of **one-hot-like encoded input translated sequences**,
 # where $B$ is `batch_size`, $N$ is the number of genomes and $T$ is the `tile_size` (in aa).
 # The 6 is here the number of translated frames in order (0,+),(1,+),(2,+),(0,-),(1,-),(2,-).
-# The 22 is here the size of the considered amino acid alphabet.
+# The 21 is here the size of the considered amino acid alphabet.
 
 
 def getNextBatch(genomes, batch_size, tile_size, verbose:bool = False):
@@ -44,7 +44,7 @@ def getNextBatch(genomes, batch_size, tile_size, verbose:bool = False):
         return None
     
     X = np.zeros([batch_size, N, 6, tile_size, su.aa_alphabet_size], dtype=np.float32)
-    I = np.eye(su.aa_alphabet_size) # for numpy-style one-hot encoding
+    I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
     for b in range(batch_size):
         for i in range(N):
             # get next up to tile_size amino acids from genome i
@@ -63,10 +63,13 @@ def getNextBatch(genomes, batch_size, tile_size, verbose:bool = False):
                 x = su.to_idx(aa_seq)
                 num_aa = x.shape[0]
                 if (num_aa > 0):
-                    one_hot = I[x]
+                    one_hot = I[x] # here still aa_alphabet_size + 1 entries
+                    # missing sequence will be represented by an all-zero vector
+                    one_hot = one_hot[:,1:] 
                     X[b,i,frame,0:num_aa,:] = one_hot
                 if verbose:
                     print (f"b={b} i={i} f={frame} len={len(aa_seq):>2} {aa_seq:<{tile_size}} ", x)
+                    # print(X[b,i,frame])
 
             # remove from genome sequence, what has been used
             if len(genomes[i][0]) > 3 * tile_size:
@@ -87,7 +90,7 @@ def backGroundAAFreqs(genomes, verbose:bool = False):
     vector Q of shape aa_alphabet_size
     """
     N = len(genomes)
-    I = np.eye(su.aa_alphabet_size)
+    I = np.eye(su.aa_alphabet_size + 1)
     Q = np.zeros(su.aa_alphabet_size, dtype=np.float32)
     for i in range(N):
         for ctg in genomes[i]:
@@ -95,12 +98,12 @@ def backGroundAAFreqs(genomes, verbose:bool = False):
             for frame in range(6):
                 aa_seq = aa_seqs[frame]
                 x = su.to_idx(aa_seq)
-                Q += I[x].sum(axis=0)
+                Q += I[x].sum(axis=0)[1:]
     sum = Q.sum()
     if sum > 0:
         Q /= Q.sum()
     if verbose:
         print ("background freqs: ", sum, "*")
         for c in range(su.aa_alphabet_size):
-            print (f"{su.aa_alphabet[c]} {Q[c]:.4f}")
+            print (f"{su.aa_alphabet[c+1]} {Q[c]:.4f}")
     return Q

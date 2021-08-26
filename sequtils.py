@@ -34,7 +34,7 @@ aa_alphabet =[' ', # missing value, 0 used for padding
               'V', 'H', 'S', 'D', 'F', 'M', 'R', 'L', 'P', 'Q', # amino acids
              '*' # stop codon
              ]
-aa_alphabet_size = len(aa_alphabet)
+aa_alphabet_size = len(aa_alphabet) - 1 # do not count ' '
 
 def six_frame_translation(S):
     """ return all 6 conceptually translated protein sequences """
@@ -59,7 +59,7 @@ def makeDFs(P):
     for j in range(u):
         profile_matrix = P[:,:,j]
         df = pd.DataFrame(profile_matrix)
-        df.columns = aa_alphabet
-        df = df.drop([' ', '*'], axis=1)
+        df.columns = aa_alphabet[1:]
+        df = df.drop(['*'], axis=1)
         dfs.append(df)
     return dfs

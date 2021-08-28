@@ -9,10 +9,55 @@ import numpy as np
 # import own modules
 import sequtils as su
 
-def getRandomGenomes(N, tile_size, genome_sizes):
+def getRandomGenomes(N, genome_sizes,
+                    insertPatterns:list = None,
+                    mutationProb = 0,
+                    verbose=False):
+    """ 
+      Parameters:
+        N              number of genomes
+        genome_sizes   list of N lists of sizes in nucleotides
+        insertPatterns list of nucleotide strings
+        mutationProb   probability of mutation of inserted pattern at an average site
+      
+      Returns:
+        genomes        list of N nucleotide strings
+    """
+    # construct random genome sequences
     genomes = [[''.join(np.random.choice(list(su.dna_alphabet), ctglen))
            for ctglen in genome_sizes[i]]
            for i in range(N)]
+    
+    # insert relevant patterns
+    if insertPatterns:
+        for pattern in insertPatterns:
+            plen = len(pattern)
+            if verbose: # print translated peptide
+                print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
+            for i in range(N):
+                # mutate pattern
+                mutatedPattern = ""
+                for (r,a) in enumerate(pattern):
+                    if r%3==2 and np.random.binomial(1, 3*mutationProb): # mutate
+                        # the mutated character is not allowed to be the same as a
+                        c = np.random.choice(su.dna_alphabet_size - 1)
+                        d = (su.nuc_idx[a] + c ) % su.dna_alphabet_size
+                        b = su.dna_alphabet[d]
+                        mutatedPattern += b
+                    else: # keep the original character
+                        mutatedPattern += a
+                # insert mutated pattern in random place in genome under uniform distribution
+                relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
+                # chose a random contig j proportional to its size
+                j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)
+                # next, choose a random position in that contig
+                pos = np.random.choice(genome_sizes[i][j] - plen)
+                # replace the string starting at pos in genomes[i][j] with mutatedPattern
+                s = genomes[i][j]
+                genomes[i][j] = s[0:pos] + mutatedPattern + s[pos+plen:]
+                if verbose:
+                    print (f"  mutated to {mutatedPattern} and inserted in genome {i}" +
+                          f" contig {j} at position {pos}")
     return genomes
 
 # ### Convert genomes to tensor
@@ -68,8 +113,8 @@ def getNextBatch(genomes, batch_size, tile_size, verbose:bool = False):
                     one_hot = one_hot[:,1:] 
                     X[b,i,frame,0:num_aa,:] = one_hot
                 if verbose:
-                    print (f"b={b} i={i} f={frame} len={len(aa_seq):>2} {aa_seq:<{tile_size}} ", x)
-                    # print(X[b,i,frame])
+                    print (f"b={b} i={i} f={frame} len={len(aa_seq):>2} {aa_seq:<{tile_size}}")
+                    # print(x, X[b,i,frame])
 
             # remove from genome sequence, what has been used
             if len(genomes[i][0]) > 3 * tile_size:

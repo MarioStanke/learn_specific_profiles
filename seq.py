@@ -9,15 +9,52 @@ import numpy as np
 # import own modules
 import sequtils as su
 
+def insertPatternsToGenomes(patterns:list, genomes,
+                            N, genome_sizes, mutationProb = 0, 
+                            multiple = False, verbose = False):
+    for pattern in patterns:
+        plen = len(pattern)
+        if verbose: # print translated peptide
+            print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
+        for i in range(N):
+            # mutate pattern
+            mutatedPattern = ""
+            for (r,a) in enumerate(pattern):
+                if r%3==2 and np.random.binomial(1, 3*mutationProb): # mutate
+                    # the mutated character is not allowed to be the same as a
+                    c = np.random.choice(su.dna_alphabet_size - 1)
+                    d = (su.nuc_idx[a] + c ) % su.dna_alphabet_size
+                    b = su.dna_alphabet[d]
+                    mutatedPattern += b
+                else: # keep the original character
+                    mutatedPattern += a
+            # insert mutated pattern in random place in genome under uniform distribution
+            relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
+            # chose a random contig j proportional to its size
+            j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)
+            # next, choose a random position in that contig
+            pos = np.random.choice(genome_sizes[i][j] - plen)
+            # if multiple, insert multiple copies of mutatedPattern
+            if multiple:
+                mutatedPattern = mutatedPattern*np.random.choice(range(2,100))
+            # replace the string starting at pos in genomes[i][j] with mutatedPattern
+            s = genomes[i][j]
+            genomes[i][j] = s[0:pos] + mutatedPattern + s[pos+plen:]
+            if verbose:
+                print (f"  mutated to {mutatedPattern} and inserted in genome {i}" +
+                      f" contig {j} at position {pos}")
+
 def getRandomGenomes(N, genome_sizes,
                     insertPatterns:list = None,
+                    repeatPatterns:list = None, 
                     mutationProb = 0,
-                    verbose=False):
+                    verbose = False):
     """ 
       Parameters:
         N              number of genomes
         genome_sizes   list of N lists of sizes in nucleotides
         insertPatterns list of nucleotide strings
+        repeatPatterns list of nucleotide strings
         mutationProb   probability of mutation of inserted pattern at an average site
       
       Returns:
@@ -28,36 +65,41 @@ def getRandomGenomes(N, genome_sizes,
            for ctglen in genome_sizes[i]]
            for i in range(N)]
     
+    if repeatPatterns:
+        insertPatternsToGenomes(repeatPatterns, genomes, N, genome_sizes, mutationProb, True, verbose)
+    
     # insert relevant patterns
     if insertPatterns:
-        for pattern in insertPatterns:
-            plen = len(pattern)
-            if verbose: # print translated peptide
-                print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
-            for i in range(N):
-                # mutate pattern
-                mutatedPattern = ""
-                for (r,a) in enumerate(pattern):
-                    if r%3==2 and np.random.binomial(1, 3*mutationProb): # mutate
-                        # the mutated character is not allowed to be the same as a
-                        c = np.random.choice(su.dna_alphabet_size - 1)
-                        d = (su.nuc_idx[a] + c ) % su.dna_alphabet_size
-                        b = su.dna_alphabet[d]
-                        mutatedPattern += b
-                    else: # keep the original character
-                        mutatedPattern += a
-                # insert mutated pattern in random place in genome under uniform distribution
-                relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
-                # chose a random contig j proportional to its size
-                j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)
-                # next, choose a random position in that contig
-                pos = np.random.choice(genome_sizes[i][j] - plen)
-                # replace the string starting at pos in genomes[i][j] with mutatedPattern
-                s = genomes[i][j]
-                genomes[i][j] = s[0:pos] + mutatedPattern + s[pos+plen:]
-                if verbose:
-                    print (f"  mutated to {mutatedPattern} and inserted in genome {i}" +
-                          f" contig {j} at position {pos}")
+        insertPatternsToGenomes(insertPatterns, genomes, N, genome_sizes, mutationProb, False, verbose)
+        
+        #for pattern in insertPatterns:
+        #    plen = len(pattern)
+        #    if verbose: # print translated peptide
+        #        print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
+        #    for i in range(N):
+        #        # mutate pattern
+        #        mutatedPattern = ""
+        #        for (r,a) in enumerate(pattern):
+        #            if r%3==2 and np.random.binomial(1, 3*mutationProb): # mutate
+        #                # the mutated character is not allowed to be the same as a
+        #                c = np.random.choice(su.dna_alphabet_size - 1)
+        #                d = (su.nuc_idx[a] + c ) % su.dna_alphabet_size
+        #                b = su.dna_alphabet[d]
+        #                mutatedPattern += b
+        #            else: # keep the original character
+        #                mutatedPattern += a
+        #        # insert mutated pattern in random place in genome under uniform distribution
+        #        relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
+        #        # chose a random contig j proportional to its size
+        #        j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)
+        #        # next, choose a random position in that contig
+        #        pos = np.random.choice(genome_sizes[i][j] - plen)
+        #        # replace the string starting at pos in genomes[i][j] with mutatedPattern
+        #        s = genomes[i][j]
+        #        genomes[i][j] = s[0:pos] + mutatedPattern + s[pos+plen:]
+        #        if verbose:
+        #            print (f"  mutated to {mutatedPattern} and inserted in genome {i}" +
+        #                  f" contig {j} at position {pos}")
     return genomes
 
 # ### Convert genomes to tensor

@@ -53,6 +53,16 @@ aa_idx = dict((c,i) for i,c in enumerate(aa_alphabet))
 def to_idx(seq, idx = aa_idx): # used later to one-hot encode
     return np.array(list(idx[c] for c in seq))
 
+def to_aa_seq(profile, aa_alphabet = aa_alphabet):
+    assert len(profile.shape) == 2
+    assert profile.shape[1] == 21
+    aaseq = ""
+    for i in range(profile.shape[0]):        
+        aa = aa_alphabet[ np.argmax(profile[i,:])+1 ]
+        aaseq += aa
+        
+    return aaseq
+
 def makeDFs(P):
     (k, s, u) = P.shape
     dfs = []

@@ -10,8 +10,11 @@ import numpy as np
 import sequtils as su
 
 def insertPatternsToGenomes(patterns:list, genomes,
-                            N, genome_sizes, mutationProb = 0, 
+                            N, genome_sizes, 
+                            dna_alphabet,
+                            mutationProb = 0, 
                             multiple = False, verbose = False):
+    dna_alphabet_size = len(dna_alphabet)
     for pattern in patterns:
         plen = len(pattern)
         if verbose: # print translated peptide
@@ -22,9 +25,9 @@ def insertPatternsToGenomes(patterns:list, genomes,
             for (r,a) in enumerate(pattern):
                 if r%3==2 and np.random.binomial(1, 3*mutationProb): # mutate
                     # the mutated character is not allowed to be the same as a
-                    c = np.random.choice(su.dna_alphabet_size - 1)
-                    d = (su.nuc_idx[a] + c ) % su.dna_alphabet_size
-                    b = su.dna_alphabet[d]
+                    c = np.random.choice(dna_alphabet_size - 1)
+                    d = (su.nuc_idx[a] + c ) % dna_alphabet_size
+                    b = dna_alphabet[d]
                     mutatedPattern += b
                 else: # keep the original character
                     mutatedPattern += a
@@ -61,16 +64,17 @@ def getRandomGenomes(N, genome_sizes,
         genomes        list of N nucleotide strings
     """
     # construct random genome sequences
-    genomes = [[''.join(np.random.choice(list(su.dna_alphabet), ctglen))
+    basic_dna_alphabet = "ACGT"
+    genomes = [[''.join(np.random.choice(list(basic_dna_alphabet), ctglen))
            for ctglen in genome_sizes[i]]
            for i in range(N)]
     
-    if repeatPatterns:
-        insertPatternsToGenomes(repeatPatterns, genomes, N, genome_sizes, mutationProb, True, verbose)
+    if repeatPatterns is not None:
+        insertPatternsToGenomes(repeatPatterns, genomes, N, genome_sizes, basic_dna_alphabet, mutationProb, True, verbose)
     
     # insert relevant patterns
-    if insertPatterns:
-        insertPatternsToGenomes(insertPatterns, genomes, N, genome_sizes, mutationProb, False, verbose)
+    if insertPatterns is not None:
+        insertPatternsToGenomes(insertPatterns, genomes, N, genome_sizes, basic_dna_alphabet, mutationProb, False, verbose)
         
         #for pattern in insertPatterns:
         #    plen = len(pattern)

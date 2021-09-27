@@ -3,8 +3,8 @@
 import numpy as np
 import pandas as pd
 
-dna_alphabet = "ACGT"
-complements = "TGCA"
+dna_alphabet = "ACGTacgtNWSMKRYBDHVNZ" # for real sequences, need to know about softmask and ambiguous bases
+complements =  "TGCAtgcaNNNNNNNNNNNNN" # also map softmask, map ambiguous to N
 rctbl = str.maketrans(dna_alphabet, complements)
 dna_alphabet_size = len(dna_alphabet)
 
@@ -43,7 +43,12 @@ def six_frame_translation(S):
         for f in range(3): # frame
             prot = ""
             for i in range(f, len(S) - codon_len + 1, codon_len):
-                prot += genetic_code[seq[i:i+codon_len]]
+                codon = seq[i:i+codon_len]
+                if codon not in genetic_code: # real sequences may contain N's or softmasking or ambiguous bases
+                    prot += ' '                    # use null aa in that case
+                else:
+                    prot += genetic_code[codon]
+                #prot += genetic_code[seq[i:i+codon_len]]
             T.append(prot)
     return T
 

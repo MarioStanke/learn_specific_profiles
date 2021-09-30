@@ -132,6 +132,7 @@ def getNextBatch(genomes, batch_size, tile_size, verbose:bool = False):
     while i<N and not genomes[i]:
         i += 1
     if i == N: # all lists empty, genomes is exhausted
+        print("returning none")
         return None
     
     X = np.zeros([batch_size, N, 6, tile_size, su.aa_alphabet_size], dtype=np.float32)
@@ -167,6 +168,8 @@ def getNextBatch(genomes, batch_size, tile_size, verbose:bool = False):
                 genomes[i][0] = genomes[i][0][3 * tile_size : ]
             else: # the rest of the sequence has been used
                 genomes[i].pop(0)
+                
+    print("returning X")
     return X
 
 

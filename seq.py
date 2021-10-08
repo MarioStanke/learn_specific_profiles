@@ -13,15 +13,22 @@ def insertPatternsToGenomes(patterns:list, genomes,
                             N, genome_sizes, 
                             dna_alphabet,
                             mutationProb = 0, 
-                            repeat = False, verbose = False):
+                            repeat = False, 
+                            repeatMultiple = range(2,10), # if repeat, sample from this range to concatenate multiple repeat copies
+                            repeatInsert = range(5,10),   # if repeat, sample from this range to insert multiple repeats
+                            verbose = False):
+    
+    # dict of dicts of dict, for each genome, map each contig to a dict that collects insert positions and patterns
+    tracking = dict([(i, dict([(j, {'pos': [], 'pattern': []}) for j in range(len(genomes[i]))])) for i in range(len(genomes))])
+    
     dna_alphabet_size = len(dna_alphabet)
     for pattern in patterns:
-        plen = len(pattern)
         if verbose: # print translated peptide
             print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
             
         # if multiple, insert multiple copies of pattern
-        pattern = pattern*np.random.choice(range(2,10)) if repeat else pattern
+        pattern = pattern*np.random.choice(repeatMultiple) if repeat else pattern
+        plen = len(pattern)
         for i in range(N):
             # mutate pattern
             mutatedPattern = ""
@@ -42,7 +49,7 @@ def insertPatternsToGenomes(patterns:list, genomes,
                     
             # insert mutated pattern in random place in genome under uniform distribution
             relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
-            ninserts = np.random.choice(range(5,10)) if repeat else 1
+            ninserts = np.random.choice(repeatInsert) if repeat else 1
             for _ in range(ninserts):
                 # chose a random contig j proportional to its size
                 j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)
@@ -51,15 +58,21 @@ def insertPatternsToGenomes(patterns:list, genomes,
                 # replace the string starting at pos in genomes[i][j] with mutatedPattern
                 s = genomes[i][j]
                 genomes[i][j] = s[0:pos] + mutatedPattern + s[pos+plen:]
+                tracking[i][j]['pos'].append(pos)
+                tracking[i][j]['pattern'].append(mutatedPattern)
                 if verbose:
                     print (f"  mutated to {mutatedPattern} and inserted in genome {i}" +
-                          f" contig {j} at position {pos}")
+                           f" contig {j} at position {pos}")
+                    
+    return tracking
 
 def getRandomGenomes(N, genome_sizes,
-                    insertPatterns:list = None,
-                    repeatPatterns:list = None, 
-                    mutationProb = 0,
-                    verbose = False):
+                     insertPatterns:list = None,
+                     repeatPatterns:list = None, 
+                     mutationProb = 0,
+                     repeatMultiple = range(2,10), # if repeat, sample from this range to concatenate multiple repeat copies
+                     repeatInsert = range(5,10),   # if repeat, sample from this range to insert multiple repeats
+                     verbose = False):
     """ 
       Parameters:
         N              number of genomes
@@ -77,13 +90,31 @@ def getRandomGenomes(N, genome_sizes,
            for ctglen in genome_sizes[i]]
            for i in range(N)]
     
+    repeatTracking = None
     if repeatPatterns is not None:
-        insertPatternsToGenomes(repeatPatterns, genomes, N, genome_sizes, basic_dna_alphabet, mutationProb/10, True, verbose)
-    
+        repeatTracking = insertPatternsToGenomes(repeatPatterns, 
+                                                 genomes, 
+                                                 N, 
+                                                 genome_sizes, 
+                                                 basic_dna_alphabet, 
+                                                 mutationProb*10, 
+                                                 True,
+                                                 repeatMultiple,
+                                                 repeatInsert,
+                                                 verbose)
+
     # insert relevant patterns
+    insertTracking = None
     if insertPatterns is not None:
-        insertPatternsToGenomes(insertPatterns, genomes, N, genome_sizes, basic_dna_alphabet, mutationProb, False, verbose)
-        
+        insertTracking = insertPatternsToGenomes(insertPatterns, 
+                                                 genomes, 
+                                                 N, 
+                                                 genome_sizes, 
+                                                 basic_dna_alphabet, 
+                                                 mutationProb, 
+                                                 False, 
+                                                 verbose = verbose)
+
         #for pattern in insertPatterns:
         #    plen = len(pattern)
         #    if verbose: # print translated peptide
@@ -112,7 +143,7 @@ def getRandomGenomes(N, genome_sizes,
         #        if verbose:
         #            print (f"  mutated to {mutatedPattern} and inserted in genome {i}" +
         #                  f" contig {j} at position {pos}")
-    return genomes
+    return genomes, repeatTracking, insertTracking
 
 # ### Convert genomes to tensor
 # Let $$X \in \{0,1\}^{B\times N\times 6 \times T \times 21}$$ be a batch of **one-hot-like encoded input translated sequences**,

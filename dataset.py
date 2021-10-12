@@ -2,11 +2,11 @@ import numpy as np
 from tqdm import tqdm
 import sequtils as su
 
-# manually handle reverse complements, assume that len(S) = x*3 + 2
-def three_frame_translation(S):
-    assert len(S) % 3 == 2, str(len(S))+" % 3 = "+str(len(S)%3)+"\n\n'"+str(S)+"'"
+# allow for custom frame offsets, see 20211011_profileFindingBatchTranslationSketch2.png 
+def three_frame_translation(S, offsets=range(3)):
+    #assert len(S) % 3 == 2, str(len(S))+" % 3 = "+str(len(S)%3)+"\n\n'"+str(S)+"'"
     T = []
-    for f in range(3): # frame
+    for f in offsets: # frame
         prot = ""
         for i in range(f, len(S)-3+1, 3):
             codon = S[i:i+3]
@@ -19,19 +19,34 @@ def three_frame_translation(S):
 
 
 
-def translateSequences(fwdSeq, pre_rcSeq, startPadding: bool):
-    rcSeq = pre_rcSeq[::-1].translate(su.rctbl)
-    if startPadding:
-        rcSeq += '  ' # add padding
-        
-    fwdSeq += ' '*(2-(len(fwdSeq)%3)) # add padding such that len%3==2
-    rcSeq = ' '*(2-(len(rcSeq)%3)) + rcSeq
-
-    # some nucleotides are part of both neighboring tiles
-    aa_seqs_fwd = three_frame_translation(fwdSeq)
-    aa_seqs_rc  = three_frame_translation(rcSeq)
-    aa_seqs_fwd.extend(aa_seqs_rc)
-    return aa_seqs_fwd
+def translateSequences(sequence, start, tilesize):
+    assert start >= 0, str(start)+" < 0"
+    assert tilesize % 3 == 0, str(tilesize)+" % 3 not 0 ("+str(tilesize%3)+")"
+    
+    seqlen = len(sequence)
+    assert start < seqlen, str(start)+", "+seqlen
+    
+    tileend = min(seqlen, start+tilesize+2)
+    
+    fwd_seq = sequence[start:tileend]
+    rc_seq = fwd_seq[::-1].translate(su.rctbl)
+    
+    sm3 = seqlen%3
+    tm3 = len(rc_seq)%3
+    if sm3 == tm3: # last tile has same mod as sequence
+        rc_offsets = range(3)
+    else:
+        if sm3 == 0:
+            rc_offsets = [2,0,1]
+        elif sm3 == 1:
+            rc_offsets = [1,2,0]
+        else:
+            rc_offsets = [0,1,2]
+    
+    
+    aa_seqs = three_frame_translation(fwd_seq)
+    aa_seqs.extend(three_frame_translation(rc_seq, rc_offsets))
+    return aa_seqs
 
 
 
@@ -44,6 +59,7 @@ def createBatch(ntiles, aa_tile_size: int, genomes):
     while not all(s['exhausted'] for s in state):
         X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)
         I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
+        #restore = [dict([(g, None) for g in range(N)]) for _ in range(ntiles)]
         for t in range(ntiles):
             for i in range(N):
                 if state[i]['exhausted']:
@@ -51,34 +67,22 @@ def createBatch(ntiles, aa_tile_size: int, genomes):
                     
                 sidx = state[i]['idx']
                 slen = len(genomes[i][sidx])
-                
+                sm3 = slen % 3
                 start = state[i]['pos']
                 end = min(slen, start+tile_size)
-                framestart = max(0, start-2)
-                frameend = min(slen, end+2)
-                assert start < end
-                assert framestart < end
+                #restore[t][i] = {'contig': sidx,
+                #                 '',
+                #                }
                 
-                # update state
-                state[i]['pos'] = end
-                if end == slen:
-                    state[i]['idx'] += 1
-                    state[i]['pos'] = 0
-                    
-                if state[i]['idx'] == len(genomes[i]):
-                    state[i]['exhausted'] = True
-                                
                 # translate and add tiles
                 sequence = genomes[i][sidx]
                 if type(sequence) is not str:
                     sequence = str(sequence) # with tf, input are byte-strings and need to be converted back
-                    
-                aa_seqs = translateSequences(sequence[start:frameend], 
-                                             sequence[framestart:end],
-                                             (start == 0))
+                
+                aa_seqs = translateSequences(sequence, start, tile_size)
                 for frame in range(6):
                     aa_seq = aa_seqs[frame]
-                    assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", start, end, frameend, slen, tile, genome, frame: "+str((start, end, frameend, slen, t, i, frame))                        
+                    assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", start, end, slen, tile, genome, frame: "+str((start, end, slen, t, i, frame))                        
                     x = su.to_idx(aa_seq, su.aa_idx)
                     num_aa = x.shape[0]
                     if (num_aa > 0):
@@ -87,6 +91,15 @@ def createBatch(ntiles, aa_tile_size: int, genomes):
                         one_hot = one_hot[:,1:] 
                         X[t,i,frame,0:num_aa,:] = one_hot
                         
+                # update state
+                state[i]['pos'] = end
+                if end >= slen-sm3:
+                    state[i]['idx'] += 1
+                    state[i]['pos'] = 0
+                    
+                if state[i]['idx'] == len(genomes[i]):
+                    state[i]['exhausted'] = True
+
         yield X
 
 
@@ -107,11 +120,11 @@ def to_aa(onehot):
             aa_idx += 1 # argmax + 1 as in translation, empty aa is cut out
             aa_seq += rev_aa_idx[aa_idx]
         
-    return aa_seq#.lstrip().rstrip()
+    return aa_seq
 
 
 
-def testGenerator(genomes, tile_size, limit = 10000):
+def testGenerator(genomes, ntiles, tile_size, limit = 10000):
     # limit test to subset of sequences for large genomes    
     if max([sum([len(s) for s in genome]) for genome in genomes]) > limit:
         testgenome = [[] for _ in range(len(genomes))]
@@ -127,6 +140,8 @@ def testGenerator(genomes, tile_size, limit = 10000):
             i += 1
     else:
         testgenome = [[s for s in genome] for genome in genomes]
+        
+    print("[INFO] >>> Test genome lengths:", [sum([len(s) for s in genome]) for genome in genomes])
 
     # translate and concatenate whole testgenome aa sequences
     genome_aa = [[""]*6 for _ in range(len(testgenome))]
@@ -134,12 +149,15 @@ def testGenerator(genomes, tile_size, limit = 10000):
         for i in range(len(testgenome[g])):
             aa_seqs = su.six_frame_translation(testgenome[g][i])
             for f in range(len(aa_seqs)):
-                genome_aa[g][f] += aa_seqs[f].replace(' ', '')#.lstrip().rstrip()
+                if f < 3:
+                    genome_aa[g][f] += aa_seqs[f].replace(' ', '')
+                else:
+                    genome_aa[g][f] = aa_seqs[f].replace(' ', '') + genome_aa[g][f]
 
     X_to_genome_aa = [[""]*6 for _ in range(len(testgenome))] # for each genome and each frame, concatenate translated aa seqs
 
     # create generator
-    Xgen = createBatch(5, tile_size, testgenome)
+    Xgen = createBatch(ntiles, tile_size, testgenome)
 
     # iterate through generator, transforming and concatenating aa sequences
     # X.shape [ntiles, N, 6, tile_size, su.aa_alphabet_size]

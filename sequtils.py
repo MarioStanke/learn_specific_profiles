@@ -3,8 +3,8 @@
 import numpy as np
 import pandas as pd
 
-dna_alphabet = "ACGTacgtNWSMKRYBDHVNZ" # for real sequences, need to know about softmask and ambiguous bases
-complements =  "TGCAtgcaNNNNNNNNNNNNN" # also map softmask, map ambiguous to N
+dna_alphabet = "ACGTacgtNWSMKRYBDHVNZ " # for real sequences, need to know about softmask and ambiguous bases and gaps (from padding)
+complements =  "TGCAtgcaNNNNNNNNNNNNN " # also map softmask, map ambiguous to N, keep padding
 rctbl = str.maketrans(dna_alphabet, complements)
 dna_alphabet_size = len(dna_alphabet)
 
@@ -32,7 +32,7 @@ genetic_code = { # translation table 1 of NCBI
 aa_alphabet =[' ', # missing value, 0 used for padding
               'C', 'K', 'E', 'W', 'T', 'G', 'Y', 'A', 'I', 'N', # 20 regular
               'V', 'H', 'S', 'D', 'F', 'M', 'R', 'L', 'P', 'Q', # amino acids
-             '*' # stop codon
+              '*' # stop codon
              ]
 aa_alphabet_size = len(aa_alphabet) - 1 # do not count ' '
 

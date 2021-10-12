@@ -19,6 +19,17 @@ def three_frame_translation(S, offsets=range(3)):
 
 
 
+def rcFrameOffsets(seqlen):
+    sm3 = seqlen%3
+    if sm3 == 0:
+        return [2,0,1]
+    elif sm3 == 1:
+        return [1,2,0]
+    else:
+        return [0,1,2]
+    
+    
+    
 def translateSequences(sequence, start, tilesize):
     assert start >= 0, str(start)+" < 0"
     assert tilesize % 3 == 0, str(tilesize)+" % 3 not 0 ("+str(tilesize%3)+")"
@@ -36,12 +47,7 @@ def translateSequences(sequence, start, tilesize):
     if sm3 == tm3: # last tile has same mod as sequence
         rc_offsets = range(3)
     else:
-        if sm3 == 0:
-            rc_offsets = [2,0,1]
-        elif sm3 == 1:
-            rc_offsets = [1,2,0]
-        else:
-            rc_offsets = [0,1,2]
+        rc_offsets = rcFrameOffsets(seqlen)
     
     
     aa_seqs = three_frame_translation(fwd_seq)
@@ -51,7 +57,7 @@ def translateSequences(sequence, start, tilesize):
 
 
 # Use a generator to get genome batches
-def createBatch(ntiles, aa_tile_size: int, genomes):
+def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = False):
     assert aa_tile_size >= 1, "aa_tile_size must be positive, non-zero (is: "+str(aa_tile_size)+")"
     tile_size = aa_tile_size * 3 # tile_size % 3 always 0
     N = len(genomes)
@@ -59,7 +65,9 @@ def createBatch(ntiles, aa_tile_size: int, genomes):
     while not all(s['exhausted'] for s in state):
         X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)
         I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
-        #restore = [dict([(g, None) for g in range(N)]) for _ in range(ntiles)]
+        if withPosTracking:
+            # [:,:,0] - contig IDs, [:,:,1] - tile start, [:,:,2] - tile size, -1: exhausted
+            posTrack = np.ones([ntiles, N, 3], dtype=np.int32) *-1 
         for t in range(ntiles):
             for i in range(N):
                 if state[i]['exhausted']:
@@ -70,9 +78,10 @@ def createBatch(ntiles, aa_tile_size: int, genomes):
                 sm3 = slen % 3
                 start = state[i]['pos']
                 end = min(slen, start+tile_size)
-                #restore[t][i] = {'contig': sidx,
-                #                 '',
-                #                }
+                if withPosTracking:
+                    posTrack[t,i,0] = sidx
+                    posTrack[t,i,1] = start
+                    posTrack[t,i,2] = end-start
                 
                 # translate and add tiles
                 sequence = genomes[i][sidx]
@@ -99,8 +108,11 @@ def createBatch(ntiles, aa_tile_size: int, genomes):
                     
                 if state[i]['idx'] == len(genomes[i]):
                     state[i]['exhausted'] = True
-
-        yield X
+        
+        if withPosTracking:
+            yield X, posTrack
+        else:
+            yield X
 
 
         

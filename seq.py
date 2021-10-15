@@ -42,7 +42,7 @@ def insertPatternsToGenomes(patterns:list, genomes,
                     
             # insert mutated pattern in random place in genome under uniform distribution
             relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
-            ninserts = np.random.choice(range(5,10)) if repeat else 1
+            ninserts = np.random.choice(range(10,11)) if repeat else 1
             for _ in range(ninserts):
                 # chose a random contig j proportional to its size
                 j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)

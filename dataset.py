@@ -82,6 +82,8 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                     posTrack[t,i,0] = sidx
                     posTrack[t,i,1] = start
                     posTrack[t,i,2] = end-start
+                    
+                assert sidx < len(genomes[i]), str(sidx)+" >= "+str(len(genomes[i]))+" for genome "+str(i)
                 
                 # translate and add tiles
                 sequence = genomes[i][sidx]

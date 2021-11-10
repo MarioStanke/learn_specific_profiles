@@ -2,10 +2,7 @@
 
 import argparse
 from Bio import SeqIO
-import datetime
-import json
 import numpy as np
-import os
 import pandas as pd
 import sequtils as su
 import seq

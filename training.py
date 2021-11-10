@@ -18,7 +18,9 @@ print("tf.test.is_built_with_gpu_support(): ", tf.test.is_built_with_gpu_support
 print("tf.test.is_built_with_cuda()", tf.test.is_built_with_cuda(), flush=True)
 print("", flush=True)
 
-
+tfV1, tfV2, _ = tf.__version__.split('.')
+assert int(tfV1) >= 2
+recentTF = True if int(tfV2) >= 4 else False # from_generator has deprecations from version >= 2.4
 
 # ## Parse Command Line Parameters
 
@@ -148,36 +150,42 @@ def getDataset(tilesPerX: int = args.tilesPerX,
                tileSize: int = args.tileSize,
                genomes = genomes,
                withPosTracking: bool = False):
-    if withPosTracking:
-        ds = tf.data.Dataset.from_generator(
-            dsg.createBatch,
-            args = (tf.constant(tilesPerX), tf.constant(tileSize), tf.constant(genomes, dtype=tf.string), 
-                    tf.constant(True)),
-
-            # vvv used in newer versions of TF vvv
-            output_signature = (tf.TensorSpec(shape = ([tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size], 
-                                                       [tilesPerX, len(genomes), 3]),
-                                              dtype = (tf.float32, tf.int32)))
-
-            # vvv deprecated in newer versions of TF vvv
-            # output_types = (tf.float32, tf.int32),
-            # output_shapes = (tf.TensorShape([tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size]),
-            #                  tf.TensorShape([tilesPerX, len(genomes), 3]))
-        )
-    else:
-        ds = tf.data.Dataset.from_generator(
-            dsg.createBatch,
-            args = (tf.constant(tilesPerX), tf.constant(tileSize), tf.constant(genomes, dtype=tf.string), 
-                    tf.constant(False)),
-
-            # vvv used in newer versions of TF vvv
-            output_signature = (tf.TensorSpec(shape = [tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size],
-                                              dtype = tf.float32))
-
-            # vvv deprecated in newer versions of TF vvv
-            # output_types = (tf.float32),
-            # output_shapes = (tf.TensorShape([tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size]))
-        )
+    if recentTF:
+        if withPosTracking:
+            ds = tf.data.Dataset.from_generator(
+                dsg.createBatch,
+                args = (tf.constant(tilesPerX), tf.constant(tileSize), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(True)),
+                output_signature = (tf.TensorSpec(shape = ([tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size], 
+                                                        [tilesPerX, len(genomes), 3]),
+                                                dtype = (tf.float32, tf.int32)))
+            )
+        else:
+            ds = tf.data.Dataset.from_generator(
+                dsg.createBatch,
+                args = (tf.constant(tilesPerX), tf.constant(tileSize), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(False)),
+                output_signature = (tf.TensorSpec(shape = [tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size],
+                                                dtype = tf.float32))
+            )
+    else: # uses deprecated arguments
+        if withPosTracking:
+            ds = tf.data.Dataset.from_generator(
+                dsg.createBatch,
+                args = (tf.constant(tilesPerX), tf.constant(tileSize), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(True)),
+                output_types = (tf.float32, tf.int32),
+                output_shapes = (tf.TensorShape([tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size]),
+                                 tf.TensorShape([tilesPerX, len(genomes), 3]))
+            )
+        else:
+            ds = tf.data.Dataset.from_generator(
+                dsg.createBatch,
+                args = (tf.constant(tilesPerX), tf.constant(tileSize), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(False)),
+                output_types = (tf.float32),
+                output_shapes = (tf.TensorShape([tilesPerX, len(genomes), 6, tileSize, su.aa_alphabet_size]))
+            )
 
     return ds
 

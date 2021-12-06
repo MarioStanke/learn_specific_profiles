@@ -30,7 +30,7 @@ def rcFrameOffsets(seqlen):
     
     
     
-def translateSequences(sequence, start, tilesize):
+def translateSequences_deprecated(sequence, start, tilesize):
     assert start >= 0, str(start)+" < 0"
     assert tilesize % 3 == 0, str(tilesize)+" % 3 not 0 ("+str(tilesize%3)+")"
     
@@ -56,8 +56,34 @@ def translateSequences(sequence, start, tilesize):
 
 
 
+def translateSequences(sequence, fwd_a, rc_b, tilesize):
+    assert fwd_a >= 0, str(fwd_a)+" < 0"
+    assert rc_b > 0, str(rc_b)+" <= 0"
+    assert tilesize % 3 == 0, str(tilesize)+" % 3 not 0 ("+str(tilesize%3)+")"
+    
+    seqlen = len(sequence)
+    assert fwd_a < seqlen, str(fwd_a)+", "+seqlen
+    assert rc_b <= seqlen, str(rc_b)+", "+seqlen
+    
+    fwd_b = min(seqlen, fwd_a+tilesize+2) # add two extra positions for frames 1 and 2
+    rc_a = max(0, rc_b-tilesize-2)
+    
+    fwd_seq = sequence[fwd_a:fwd_b]
+    rc_seq = sequence[rc_a:rc_b]
+    rc_seq = rc_seq[::-1].translate(su.rctbl)
+    assert len(fwd_seq) == len(rc_seq), "\nfwd: "+str(fwd_a)+" : "+str(fwd_b)+" -> "+str(len(fwd_seq))+"\n rc: "+str(rc_a)+" : "+str(rc_b)+" -> "+str(len(rc_seq))
+        
+    aa_seqs = three_frame_translation(fwd_seq)
+    aa_seqs.extend(three_frame_translation(rc_seq))
+    if fwd_b == seqlen:
+        assert rc_a == 0, str(rc_a)
+
+    return aa_seqs, fwd_b == seqlen
+
+
+
 # Use a generator to get genome batches
-def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = False):
+def createBatch_deprecated(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = False):
     assert aa_tile_size >= 1, "aa_tile_size must be positive, non-zero (is: "+str(aa_tile_size)+")"
     tile_size = aa_tile_size * 3 # tile_size % 3 always 0
     N = len(genomes)
@@ -66,8 +92,8 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
         X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)
         I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
         if withPosTracking:
-            # [:,:,0] - contig IDs, [:,:,1] - tile start, [:,:,2] - tile size, -1: exhausted
-            posTrack = np.ones([ntiles, N, 3], dtype=np.int32) *-1 
+            # [:,:,0] - genome IDs, [:,:,1] - contig IDs, [:,:,2] - tile start, [:,:,3] - tile size, [:,:,4] - seqlen, -1: exhausted
+            posTrack = np.ones([ntiles, N, 5], dtype=np.int32) *-1 
         for t in range(ntiles):
             for i in range(N):
                 if state[i]['exhausted']:
@@ -79,9 +105,11 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                 start = state[i]['pos']
                 end = min(slen, start+tile_size)
                 if withPosTracking:
-                    posTrack[t,i,0] = sidx
-                    posTrack[t,i,1] = start
-                    posTrack[t,i,2] = end-start
+                    posTrack[t,i,0] = i
+                    posTrack[t,i,1] = sidx
+                    posTrack[t,i,2] = start
+                    posTrack[t,i,3] = end-start
+                    posTrack[t,i,4] = slen
                     
                 assert sidx < len(genomes[i]), str(sidx)+" >= "+str(len(genomes[i]))+" for genome "+str(i)
                 
@@ -90,7 +118,7 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                 if type(sequence) is not str:
                     sequence = str(sequence) # with tf, input are byte-strings and need to be converted back
                 
-                aa_seqs = translateSequences(sequence, start, tile_size)
+                aa_seqs = translateSequences_deprecated(sequence, start, tile_size)
                 for frame in range(6):
                     aa_seq = aa_seqs[frame]
                     assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", start, end, slen, tile, genome, frame: "+str((start, end, slen, t, i, frame))                        
@@ -115,6 +143,98 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
             yield X, posTrack
         else:
             yield X
+
+
+
+# Use a generator to get genome batches, simplified position handling
+def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = False):
+    assert aa_tile_size >= 1, "aa_tile_size must be positive, non-zero (is: "+str(aa_tile_size)+")"
+    tile_size = aa_tile_size * 3 # tile_size % 3 always 0
+    N = len(genomes)
+    state = [{'idx': 0, 'fwd_a': 0, 'rc_b': None, 'exhausted': (len(seqs) == 0)} for seqs in genomes]
+
+    while not all(s['exhausted'] for s in state):
+        X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)
+        I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
+        if withPosTracking:
+            # [:,:,0] - genome IDs, [:,:,1] - contig IDs, [:,:,2] - fwd start, [:,:,3] - rc start, -1: exhausted
+            # fwd/rc start both refer to the 0-based position of the 0th position in the respective tile _on the fwd strand_
+            posTrack = np.ones([ntiles, N, 4], dtype=np.int32) *-1 
+        for t in range(ntiles):
+            for g in range(N):
+                if state[g]['exhausted']:
+                    continue
+                    
+                sidx = state[g]['idx']
+                slen = len(genomes[g][sidx])
+                if state[g]['rc_b'] is None:
+                    state[g]['rc_b'] = slen
+
+                fwd_a = state[g]['fwd_a']
+                fwd_b = min(slen, fwd_a+tile_size) # seq[fwd_a:fwd_b]   -> a>>>>>>>b
+                rc_b = state[g]['rc_b']
+                rc_a = max(0, rc_b-tile_size)      # rc(seq[rc_a:rc_b]) -> b<<<<<<<a
+                if withPosTracking:
+                    posTrack[t,g,0] = g
+                    posTrack[t,g,1] = sidx
+                    posTrack[t,g,2] = fwd_a
+                    posTrack[t,g,3] = rc_b-1
+                    
+                assert sidx < len(genomes[g]), str(sidx)+" >= "+str(len(genomes[g]))+" for genome "+str(g)
+                
+                # translate and add tiles
+                sequence = genomes[g][sidx]
+                if type(sequence) is not str:
+                    sequence = str(sequence) # with tf, input are byte-strings and need to be converted back
+                
+                aa_seqs, seqExhausted = translateSequences(sequence, fwd_a, rc_b, tile_size)
+                for frame in range(6):
+                    aa_seq = aa_seqs[frame]
+                    assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", start, end, slen, tile, genome, frame: "+str((start, end, slen, t, g, frame))                        
+                    x = su.to_idx(aa_seq, su.aa_idx)
+                    num_aa = x.shape[0]
+                    if (num_aa > 0):
+                        one_hot = I[x] # here still aa_alphabet_size + 1 entries
+                        # missing sequence will be represented by an all-zero vector
+                        one_hot = one_hot[:,1:] 
+                        X[t,g,frame,0:num_aa,:] = one_hot
+                        
+                # update state
+                state[g]['fwd_a'] = fwd_b
+                state[g]['rc_b'] = rc_a
+                if seqExhausted:
+                    state[g]['idx'] += 1
+                    state[g]['fwd_a'] = 0
+                    state[g]['rc_b'] = None
+                    
+                if state[g]['idx'] == len(genomes[g]):
+                    state[g]['exhausted'] = True
+        
+        if withPosTracking:
+            yield X, posTrack
+        else:
+            yield X
+
+
+
+# From a aa tile position (obtained from X of a batch created above), 
+#   together with frame and posTrack info, calculate original genome position
+def restoreGenomePosition(aaTilePos, frame, tileStart, tileLen, seqLen, k):
+    assert frame in range(6), str(frame)+" must be in [0,5]"
+    p = aaTilePos*3 # to dna coord
+    if frame < 3:
+        p += frame     # add frame shift
+        p += tileStart # add tile start to get absolute position
+    else:
+        # add appropriate frame shift
+        if seqLen%3 == tileLen%3:
+            p += frame-3
+        else:
+            p += rcFrameOffsets(seqLen)[frame-3]
+
+        p = tileLen - p - (k*3)
+
+    return p
 
 
         
@@ -163,10 +283,11 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
         for i in range(len(testgenome[g])):
             aa_seqs = su.six_frame_translation(testgenome[g][i])
             for f in range(len(aa_seqs)):
-                if f < 3:
-                    genome_aa[g][f] += aa_seqs[f].replace(' ', '')
-                else:
-                    genome_aa[g][f] = aa_seqs[f].replace(' ', '') + genome_aa[g][f]
+                genome_aa[g][f] += aa_seqs[f].replace(' ', '')
+                #if f < 3:
+                #    genome_aa[g][f] += aa_seqs[f].replace(' ', '')
+                #else:
+                #    genome_aa[g][f] = aa_seqs[f].replace(' ', '') + genome_aa[g][f]
 
     X_to_genome_aa = [[""]*6 for _ in range(len(testgenome))] # for each genome and each frame, concatenate translated aa seqs
 
@@ -180,10 +301,11 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
             for g in range(X.shape[1]):
                 for f in range(X.shape[2]):
                     x_aa_seq = to_aa(X[t,g,f,:,:])
-                    if f < 3:
-                        X_to_genome_aa[g][f] += x_aa_seq
-                    else:
-                        X_to_genome_aa[g][f] = x_aa_seq + X_to_genome_aa[g][f]
+                    X_to_genome_aa[g][f] += x_aa_seq
+                    #if f < 3:
+                    #    X_to_genome_aa[g][f] += x_aa_seq
+                    #else:
+                    #    X_to_genome_aa[g][f] = x_aa_seq + X_to_genome_aa[g][f]
 
     # compare aa sequences
     try:

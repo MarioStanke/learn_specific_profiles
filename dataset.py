@@ -1,5 +1,6 @@
 import numpy as np
 from numpy.lib.utils import source
+import tensorflow as tf
 from tqdm import tqdm
 import sequtils as su
 
@@ -75,7 +76,8 @@ def translateSequences(sequence, fwd_a, rc_b, tilesize):
     fwd_seq = sequence[fwd_a:fwd_b]
     rc_seq = sequence[rc_a:rc_b]
     rc_seq = rc_seq[::-1].translate(su.rctbl)
-    assert len(fwd_seq) == len(rc_seq), "\nfwd: "+str(fwd_a)+" : "+str(fwd_b)+" -> "+str(len(fwd_seq))+"\n rc: "+str(rc_a)+" : "+str(rc_b)+" -> "+str(len(rc_seq))
+    #print("DEBUG >>> Sequence:\n'"+sequence+"'")
+    assert len(fwd_seq) == len(rc_seq), "\nfwd: "+str(fwd_a)+" : "+str(fwd_b)+" -> "+str(len(fwd_seq))+"\n rc: "+str(rc_a)+" : "+str(rc_b)+" -> "+str(len(rc_seq))+"\nseqlen: "+str(seqlen)+"\n'"+str(fwd_seq)+"'"
         
     aa_seqs = three_frame_translation(fwd_seq)
     aa_seqs.extend(three_frame_translation(rc_seq))
@@ -189,7 +191,7 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                 # translate and add tiles
                 sequence = genomes[g][sidx]
                 if type(sequence) is not str:
-                    sequence = str(sequence) # with tf, input are byte-strings and need to be converted back
+                    sequence = tf.compat.as_str(sequence) # with tf, input are byte-strings and need to be converted back
                 
                 aa_seqs, seqExhausted = translateSequences(sequence, fwd_a, rc_b, tile_size)
                 for frame in range(6):
@@ -217,7 +219,46 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
         if withPosTracking:
             yield X, posTrack
         else:
-            yield X
+            yield X, []
+
+
+
+def getDataset(genomes,
+               tiles_per_X: int,
+               tile_size: int,
+               withPosTracking: bool = False):
+    if withPosTracking:
+        ds = tf.data.Dataset.from_generator(
+            createBatch,
+            args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
+                    tf.constant(True)),
+
+            # vvv used in newer versions of TF vvv
+            # output_signature = (tf.TensorSpec(shape = ([batch_size, len(genomes), 6, tile_size, su.aa_alphabet_size], 
+            #                                            [batch_size, len(genomes), 2]),
+            #                                   dtype = (tf.float32, tf.int32))
+
+            # vvv deprecated in newer versions of TF vvv
+            output_types = (tf.float32, tf.int32),
+            output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
+                             tf.TensorShape([tiles_per_X, len(genomes), 4]))
+        )
+    else:
+        ds = tf.data.Dataset.from_generator(
+            createBatch,
+            args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
+                    tf.constant(False)),
+
+            # vvv used in newer versions of TF vvv
+            # output_signature = (tf.TensorSpec(shape = [batch_size, len(genomes), 6, tile_size, su.aa_alphabet_size],
+            #                                   dtype = tf.float32))
+
+            # vvv deprecated in newer versions of TF vvv
+            output_types = (tf.float32, tf.float32),
+            output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
+                             tf.TensorShape(0))
+        )
+    return ds
 
 
 

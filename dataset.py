@@ -1,11 +1,15 @@
 import numpy as np
+from numpy.lib.utils import source
 from tqdm import tqdm
 import sequtils as su
 
 # allow for custom frame offsets, see 20211011_profileFindingBatchTranslationSketch2.png 
-def three_frame_translation(S, offsets=range(3)):
+def three_frame_translation(S, rc = False, offsets=range(3)):
     #assert len(S) % 3 == 2, str(len(S))+" % 3 = "+str(len(S)%3)+"\n\n'"+str(S)+"'"
     T = []
+    if rc:
+        S = S[::-1].translate(su.rctbl)
+
     for f in offsets: # frame
         prot = ""
         for i in range(f, len(S)-3+1, 3):
@@ -190,7 +194,7 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                 aa_seqs, seqExhausted = translateSequences(sequence, fwd_a, rc_b, tile_size)
                 for frame in range(6):
                     aa_seq = aa_seqs[frame]
-                    assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", start, end, slen, tile, genome, frame: "+str((start, end, slen, t, g, frame))                        
+                    assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", fwd_a, rc_b, slen, tile, genome, frame: "+str((fwd_a, rc_b, slen, t, g, frame))                        
                     x = su.to_idx(aa_seq, su.aa_idx)
                     num_aa = x.shape[0]
                     if (num_aa > 0):
@@ -219,7 +223,7 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
 
 # From a aa tile position (obtained from X of a batch created above), 
 #   together with frame and posTrack info, calculate original genome position
-def restoreGenomePosition(aaTilePos, frame, tileStart, tileLen, seqLen, k):
+def restoreGenomePosition_deprecated(aaTilePos, frame, tileStart, tileLen, seqLen, k):
     assert frame in range(6), str(frame)+" must be in [0,5]"
     p = aaTilePos*3 # to dna coord
     if frame < 3:
@@ -235,6 +239,18 @@ def restoreGenomePosition(aaTilePos, frame, tileStart, tileLen, seqLen, k):
         p = tileLen - p - (k*3)
 
     return p
+    
+def restoreGenomePosition(aaTilePos, frame, fwdStart, rcStart, k):
+    assert frame in range(6), str(frame)+" must be in [0,5]"
+    p = aaTilePos*3 # to dna coord
+    if frame < 3:
+        p += frame     # add frame shift
+        p += fwdStart
+    else:
+        p += frame-3   # add frame shift
+        p = rcStart - p - (k*3) + 1
+
+    return p
 
 
         
@@ -242,12 +258,14 @@ def restoreGenomePosition(aaTilePos, frame, tileStart, tileLen, seqLen, k):
 # Retranslate and assemble all batches, compare to translations of genome sequences
 
 rev_aa_idx = dict((i,c) for i,c in enumerate(su.aa_alphabet))
-def to_aa(onehot):
+def to_aa(onehot, dropEmptyColumns = True):
     assert onehot.shape[1] == 21, str(onehot.shape)
     aa_seq = ""
     for c in range(onehot.shape[0]):
-        if np.max(onehot[c,:]) != 1:
+        if dropEmptyColumns and np.max(onehot[c,:]) != 1:
             continue
+        elif np.max(onehot[c,:]) != 1:
+            aa_seq += ' '
         else:
             aa_idx = np.argmax(onehot[c,:])
             assert onehot[c, aa_idx] == 1, str(onehot[c,:])+", "+str(aa_idx)+", "+str(onehot[c,aa_idx])
@@ -281,7 +299,9 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
     genome_aa = [[""]*6 for _ in range(len(testgenome))]
     for g in range(len(testgenome)):
         for i in range(len(testgenome[g])):
-            aa_seqs = su.six_frame_translation(testgenome[g][i])
+            #aa_seqs = su.six_frame_translation(testgenome[g][i])
+            aa_seqs = three_frame_translation(testgenome[g][i])
+            aa_seqs.extend(three_frame_translation(testgenome[g][i], True))
             for f in range(len(aa_seqs)):
                 genome_aa[g][f] += aa_seqs[f].replace(' ', '')
                 #if f < 3:
@@ -310,7 +330,7 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
     # compare aa sequences
     try:
         assert np.all(genome_aa == X_to_genome_aa), str(genome_aa)+"\n\n!=\n\n"+str(X_to_genome_aa)
-        print("[INFO] >>> testGenerator: All good")
+        print("[INFO] >>> testGenerator - restore sequences: All good")
         
     except:
         # In case of failure, see where the sequences differ or if only frames were shifted (for some unknown reason)
@@ -332,4 +352,29 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
 
                         assert False
                         
-        print("[INFO] >>> testGenerator: rc frames shifted, otherwise all good")
+        print("[INFO] >>> testGenerator - restore sequences: rc frames shifted, otherwise all good")
+
+    # test position restoring
+    XgenPos = createBatch(ntiles, tile_size, testgenome, True)
+    k = 11
+    for X, P in tqdm(XgenPos):
+        for t in range(X.shape[0]):
+            for g in range(X.shape[1]):
+                for f in range(X.shape[2]):
+                    for p in range(X.shape[3]-k+1):
+                        if P[t,g,0] != -1:
+                            assert P[t,g,0] == g, str(P[t,g,:])
+                            c = P[t,g,1]
+                            kmerOH = X[t,g,f,p:(p+k),:]
+                            kmerAA = to_aa(kmerOH, False)
+                            assert len(kmerAA) == k, str(k)+", '"+str(kmerAA)+"' ("+str(len(kmerAA))+")\n"+str(kmerOH)
+                            pos = restoreGenomePosition(p, f, P[t,g,2], P[t,g,3], k)
+                            end = pos+(k*3)
+                            if pos >= 0 and end <= len(testgenome[g][c]): # sometimes negative for rc frames or reaching over the sequence for fwd frames, skip
+                                sourceKmer = testgenome[g][c][pos:end]
+                                sourceKmerAA = three_frame_translation(sourceKmer)[0] if f < 3 else three_frame_translation(sourceKmer, True)[0]
+                                #print("DEBUG >>> "+sourceKmerAA+" (source)\n          "+kmerAA+" (observed)\n"+str((g,c,t,f,pos)))
+                                assert len(kmerAA) == len(sourceKmerAA), "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,:]))
+                                assert kmerAA == sourceKmerAA, "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,:]))
+
+    print("[INFO] >>> testGenerator - restore positions: All good")

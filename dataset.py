@@ -357,7 +357,7 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
 
     # iterate through generator, transforming and concatenating aa sequences
     # X.shape [ntiles, N, 6, tile_size, su.aa_alphabet_size]
-    for X in tqdm(Xgen):
+    for X, _ in tqdm(Xgen):
         for t in range(X.shape[0]):
             for g in range(X.shape[1]):
                 for f in range(X.shape[2]):

@@ -4,6 +4,20 @@ import tensorflow as tf
 from tqdm import tqdm
 import sequtils as su
 
+# translate single DNA sequence to AA sequence
+def sequence_translation(S):
+    prot = ""
+    for i in range(0, len(S)-3+1, 3):
+        codon = S[i:i+3]
+        if codon not in su.genetic_code: # real sequences may contain N's or softmasking or ambiguous bases
+            prot += ' '                  # use null aa in that case
+        else:
+            prot += su.genetic_code[codon]
+            
+    return prot
+    
+    
+    
 # allow for custom frame offsets, see 20211011_profileFindingBatchTranslationSketch2.png 
 def three_frame_translation(S, rc = False, offsets=range(3)):
     T = []
@@ -24,7 +38,7 @@ def three_frame_translation(S, rc = False, offsets=range(3)):
 
 
 
-def translateSequences(sequence, fwd_a, rc_b, tilesize):
+def translateSequenceTiles(sequence, fwd_a, rc_b, tilesize):
     assert fwd_a >= 0, str(fwd_a)+" < 0"
     assert rc_b > 0, str(rc_b)+" <= 0"
     assert tilesize % 3 == 0, str(tilesize)+" % 3 not 0 ("+str(tilesize%3)+")"
@@ -48,6 +62,15 @@ def translateSequences(sequence, fwd_a, rc_b, tilesize):
         assert rc_a == 0, str(rc_a)
 
     return aa_seqs, fwd_b == seqlen
+
+
+
+def oneHot(aa_seq):
+    I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
+    x = su.to_idx(aa_seq, su.aa_idx)
+    one_hot = I[x] # here still aa_alphabet_size + 1 entries
+    one_hot = one_hot[:,1:] 
+    return one_hot
 
 
 
@@ -92,7 +115,7 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                 if type(sequence) is not str:
                     sequence = tf.compat.as_str(sequence) # with tf, input are byte-strings and need to be converted back
                 
-                aa_seqs, seqExhausted = translateSequences(sequence, fwd_a, rc_b, tile_size)
+                aa_seqs, seqExhausted = translateSequenceTiles(sequence, fwd_a, rc_b, tile_size)
                 for frame in range(6):
                     aa_seq = aa_seqs[frame]
                     assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", fwd_a, rc_b, slen, tile, genome, frame: "+str((fwd_a, rc_b, slen, t, g, frame))                        

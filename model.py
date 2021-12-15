@@ -248,8 +248,8 @@ class SpecificProfile(tf.keras.Model):
             #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
             for X in batch:
                 assert len(X.shape) == 5, str(X.shape)
-                S, _, _ = self.call(X)
-                scores = tf.maximum(tf.reduce_max(S, axis=(0,1)), scores)
+                S, _, _ = self.call(X)                                    # shape (ntiles, N, U)
+                scores = tf.maximum(tf.reduce_max(S, axis=(0,1)), scores) # shape (U)
                                     
         return scores
     
@@ -331,9 +331,11 @@ class SpecificProfile(tf.keras.Model):
                     sm = np.mean(profileHist['score'])
                     if all(np.logical_and(profileHist['score'] >= sm-profile_plateau_dev,
                                           profileHist['score'] <= sm+profile_plateau_dev)):
-                        tau = 0.8*self.k # arbitrary threshold
+                        ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
+                        maxscores = self.max_profile_scores(ds_score)
+                        tau = 0.8 * maxscores[p.numpy()]
                         print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
-                        print("cleaning up profile", p.numpy(), "with threshold", tau)
+                        print("cleaning up profile", p.numpy(), "with threshold", tau.numpy())
                         #print("[DEBUG]  >>> matches of "+str(p.numpy())+" with threshold "+str(tau)+":", self.get_profile_match_sites(ds_dbg, tau, p))
                         #print("[DEBUG2] >>> matches of "+str(p.numpy())+" with threshold "+str(tau)+":", self.get_profile_match_sites(ds_dbg2, tau, p))
                         self.profile_cleanup(p, tau, genomes, ds_seed, ds_cleanup)
@@ -392,7 +394,8 @@ class SpecificProfile(tf.keras.Model):
         #P_logit_new[:,:,sim] = Prand[:,:,sim] # replace similar profiles with new ones
         #self.P_logit.assign(P_logit_new)
         self.P_report.append(b)
-        self.P_logit.assign(self.seed_P_ds(ds_seed)) # completely new set of seeds
+        #self.P_logit.assign(self.seed_P_ds(ds_seed)) # completely new set of seeds
+        self.P_logit.assign(self.seed_P_genome(genomes)) # completely new set of seeds
 
 
     def seed_P_ds(self, ds):
@@ -445,6 +448,32 @@ class SpecificProfile(tf.keras.Model):
                     p += 1
                     
         return P_logit
+    
+    def seed_P_genome(self, genomes):
+        flatg = []
+        for seqs in genomes:
+            flatg.extend(seqs) # should be all references and thus no considerable memory overhead
+            
+        lensum = sum([len(s) for s in flatg])
+        weights = [len(s)/lensum for s in flatg]
+        weights = tf.nn.softmax(weights).numpy()
+        seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
+        
+        oneProfile_logit_like_Q = np.log(self.Q)
+        P_logit_init = np.zeros((self.k, self.alphabet_size, self.units), dtype=np.float32)
+        rho = 2.0
+        kdna = self.k * 3
+        for j in range(self.units):
+            i = seqs[j] # seq index
+            assert len(flatg[i]) > kdna, str(len(flatg[i]))
+            pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
+            aa = dsg.sequence_translation(flatg[i][pos:pos+kdna])
+            OH = dsg.oneHot(aa)
+            assert OH.shape == (self.k, self.alphabet_size), str(OH.shape)+" != "+str((self.k, self.alphabet_size))
+            seed = rho * OH + oneProfile_logit_like_Q
+            P_logit_init[:,:,j] = seed
+            
+        return P_logit_init
                 
     def setP_logit(self, P_logit_init):
         self.P_logit = tf.Variable(P_logit_init, trainable=True, name="P_logit") 

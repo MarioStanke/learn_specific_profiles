@@ -28,6 +28,7 @@ def insertPatternsToGenomes(patterns:list, genomes,
             
         # if multiple, insert multiple copies of pattern
         pattern = pattern*np.random.choice(repeatMultiple) if repeat else pattern
+        assert pattern != '', "Pattern is empty, use at least range(1,2) for repeatMultiple!"
         plen = len(pattern)
         for i in range(N):
             # mutate pattern

@@ -1,5 +1,7 @@
 # [Matthis] temporary files
 *.csv
+*.fasta
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

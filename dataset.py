@@ -5,7 +5,10 @@ from tqdm import tqdm
 import sequtils as su
 
 # translate single DNA sequence to AA sequence
-def sequence_translation(S):
+def sequence_translation(S, rc = False):
+    if rc:
+        S = S[::-1].translate(su.rctbl)
+        
     prot = ""
     for i in range(0, len(S)-3+1, 3):
         codon = S[i:i+3]
@@ -308,7 +311,7 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
                             end = pos+(k*3)
                             if pos >= 0 and end <= len(testgenome[g][c]): # sometimes negative for rc frames or reaching over the sequence for fwd frames, skip
                                 sourceKmer = testgenome[g][c][pos:end]
-                                sourceKmerAA = three_frame_translation(sourceKmer)[0] if f < 3 else three_frame_translation(sourceKmer, True)[0]
+                                sourceKmerAA = sequence_translation(sourceKmer) if f < 3 else sequence_translation(sourceKmer, True)
                                 #print("DEBUG >>> "+sourceKmerAA+" (source)\n          "+kmerAA+" (observed)\n"+str((g,c,t,f,pos)))
                                 assert len(kmerAA) == len(sourceKmerAA), "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,:]))
                                 assert kmerAA == sourceKmerAA, "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,:]))

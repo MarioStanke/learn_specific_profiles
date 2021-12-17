@@ -55,6 +55,12 @@ class SpecificProfile(tf.keras.Model):
         super().__init__(**kwargs)
         
         self.Q = Q                         # shape: (alphabet_size)
+        
+        # set epsilon to a value that mismatch score is roughly -1*perfect match score
+        mQ = np.mean(Q)
+        pms = np.log(1/mQ)
+        self.epsilon = np.exp(-pms) # original value was 1e-6, which led to mismatch score of -13.8 while perfect match score is only 3
+        
         self.k = k                         # shape: ()
         self.alphabet_size = alphabet_size # shape: ()
         self.units = units                 # shape: ()
@@ -69,6 +75,7 @@ class SpecificProfile(tf.keras.Model):
                 
         self.setP_logit(P_logit_init)      # shape: (k, alphabet_size, U)
         self.P_report = []
+        self.P_report_thresold = []
         
     def _getRandomProfiles(self):
         Q1 = tf.expand_dims(self.Q,0)
@@ -80,8 +87,9 @@ class SpecificProfile(tf.keras.Model):
         
     # return for each (or one desired) profile match positions in the dataset, given a score threshold
     def get_profile_match_sites(self, ds, score_threshold, pIdx = None):
-        gamma = .2
+        #gamma = .2
         matches = None
+        scores = None
         for batch in ds:
             #assert len(batch) == 2, str(len(batch))+" -- use batch dataset with position tracking!"
             X_b = batch[0]        # (B, tilePerX, N, 6, tileSize, 21)
@@ -96,14 +104,15 @@ class SpecificProfile(tf.keras.Model):
                 if pIdx is not None:
                     Z = Z[:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
 
-                Z2 = tf.nn.softmax(gamma*Z, axis=0)
-                Z3 = tf.math.multiply(Z, tf.square(Z2))
+                #Z2 = tf.nn.softmax(gamma*Z, axis=0)
+                #Z3 = tf.math.multiply(Z, tf.square(Z2))
                 
                 Idx = indexTensor(Z.shape[0], Z.shape[1], Z.shape[2],
                                   Z.shape[3], Z.shape[4])                          # (tilePerX, N, 6, T-k+1, U, (f,r,u)) (f - frame, r - rel. pos., u - profile)
 
                 # collapse genome and tile dimensions
-                Z = tf.reshape(Z3, [-1, Z3.shape[-3], Z3.shape[-2], Z3.shape[-1]]) # (tilesPerX*N, 6, T-k+1, U)
+                #Z = tf.reshape(Z3, [-1, Z3.shape[-3], Z3.shape[-2], Z3.shape[-1]]) # (tilesPerX*N, 6, T-k+1, U)
+                Z = tf.reshape(Z, [-1, Z.shape[-3], Z.shape[-2], Z.shape[-1]])     # (tilesPerX*N, 6, T-k+1, U)
                 M = tf.greater_equal(Z, score_threshold)                           # (tilesPerX*N, 6, T-k+1, U), >>> consider match if score >= avg. profile score <<<
                 T = tf.reshape(posTrack, [-1, 4])                                  # (tilesPerX*N, (genomeID, contigID, fwdStart, rcStart))
                 Idx = tf.reshape(Idx, [-1, Idx.shape[-4], Idx.shape[-3], 
@@ -114,6 +123,7 @@ class SpecificProfile(tf.keras.Model):
                 Mgentile = tf.logical_and(Mgentile, tf.not_equal(T[:,0], -1)) # also set exhausted contigs to False
                 T = tf.boolean_mask(T,Mgentile)           # (matches, (genomeID, contigID, fwdStart, rcStart))
                 M = tf.boolean_mask(M,Mgentile)           # (matches, 6, T-k+1, U)
+                Z = tf.boolean_mask(Z,Mgentile)           # (matches, 6, T-k+1, U)
                 Idx = tf.boolean_mask(Idx, Mgentile)      # (matches, 6, T-k+1, U, 3)
 
                 # manual broadcast of T to the correct shape
@@ -124,13 +134,17 @@ class SpecificProfile(tf.keras.Model):
                 # reduce to single match sites
                 Idx = tf.boolean_mask(Idx, M)    # (sites, (f, r, u))
                 T = tf.boolean_mask(T, M)        # (sites, (genomeID, contigID, fwdStart, rcStart))
+                Z = tf.boolean_mask(Z, M)        # (sites) where each entry is a score
+                Z = tf.expand_dims(Z, -1)        # (sites, (score))
                 R = tf.concat((Idx, T), axis=1 ) # (sites, (f, r, u, genomeID, contigID, fwdStart, rcStart))
 
                 # continue with vectorized operations, tf.map_fn to dsg.restoreGenomePosition is super slow even with parallel threads enabled
-                fwdMask = tf.less(R[:,0], 3)            # (sites)
-                rcMask = tf.greater_equal(R[:,0], 3)    # (sites)
-                rFwd = tf.boolean_mask(R, fwdMask)      # (fwdSites, (f, r, u, genomeID, contigID, fwdStart, rcStart))
-                rRC = tf.boolean_mask(R, rcMask)        # ( rcSites, (f, r, u, genomeID, contigID, fwdStart, rcStart))
+                fwdMask = tf.less(R[:,0], 3)         # (sites)
+                rcMask = tf.greater_equal(R[:,0], 3) # (sites)
+                rFwd = tf.boolean_mask(R, fwdMask)   # (fwdSites, (f, r, u, genomeID, contigID, fwdStart, rcStart, score))
+                rRC = tf.boolean_mask(R, rcMask)     # ( rcSites, (f, r, u, genomeID, contigID, fwdStart, rcStart, score))
+                zFwd = tf.boolean_mask(Z, fwdMask)   # (fwdSites, (score))
+                zRC = tf.boolean_mask(Z, rcMask)     # ( rcSites, (score))
 
                 # fwd case: p *= 3; p += frame; p += tileStart
                 posFwd = tf.multiply(rFwd[:,1], 3)             # (fwdSites), *3
@@ -139,7 +153,8 @@ class SpecificProfile(tf.keras.Model):
                 sites = tf.concat([tf.expand_dims(rFwd[:,3], -1), 
                                    tf.expand_dims(rFwd[:,4], -1), 
                                    tf.expand_dims(posFwd, -1), 
-                                   tf.expand_dims(rFwd[:,2], -1)], axis=1) # (fwdSites, (genomeID, contigID, pos, u))
+                                   tf.expand_dims(rFwd[:,2], -1), 
+                                   tf.expand_dims(rFwd[:,0], -1)], axis=1) # (fwdSites, (genomeID, contigID, pos, u, f))
                 
                 # rc case: p *= 3; p += frame-3; p = rcStart - p - (k*3) + 1
                 posRC = tf.multiply(rRC[:,1], 3)               # (rcSites), *3
@@ -151,18 +166,23 @@ class SpecificProfile(tf.keras.Model):
                 sitesRC = tf.concat([tf.expand_dims(rRC[:,3], -1), 
                                      tf.expand_dims(rRC[:,4], -1), 
                                      tf.expand_dims(posRC, -1), 
-                                     tf.expand_dims(rRC[:,2], -1)], axis=1) # (fwdSites, (genomeID, contigID, pos, u))
+                                     tf.expand_dims(rRC[:,2], -1), 
+                                     tf.expand_dims(rRC[:,0], -1)], axis=1) # (fwdSites, (genomeID, contigID, pos, u, f))
                 
-                sites = tf.concat((sites, sitesRC), axis=0) # (sites, (genomeID, contigID, pos, u))
+                sites = tf.concat((sites, sitesRC), axis=0) # (sites, (genomeID, contigID, pos, u, score))
+                siteScores = tf.concat((zFwd, zRC), axis=0) # (sites, (score))
                 if matches is None:
                     matches = sites
+                    scores = siteScores
                 else:
                     matches = tf.concat([matches, sites], axis=0)
+                    scores = tf.concat([scores, siteScores], axis=0)
 
         if matches is None:
-            matches = tf.constant([])        
+            matches = tf.constant([])
+            scores = tf.constant([])
         
-        return matches
+        return matches, scores
 
     
     # return index of the profile that has the highest mean score of all scores in all tiles
@@ -177,10 +197,11 @@ class SpecificProfile(tf.keras.Model):
             assert X.shape[0:3] == posTrack.shape[0:3], str(X.shape)+" != "+str(posTrack.shape)
             for b in range(X.shape[0]): # iterate samples in batch
                 S, _, _ = self.call(X[b])               # S: (ntiles, N, U)
-                gamma = .2
-                S2 = tf.nn.softmax(gamma*S, axis=0)     #    (ntiles, N, U)
-                S3 = tf.math.multiply(S, tf.square(S2)) #    (ntiles, N, U)
-                M = tf.reduce_mean(S3, axis=[0,1])      #               (U), mean score of each profile
+                M = tf.reduce_mean(S, axis=[0,1])       #               (U), mean score of each profile
+                #gamma = .2
+                #S2 = tf.nn.softmax(gamma*S, axis=0)     #    (ntiles, N, U)
+                #S3 = tf.math.multiply(S, tf.square(S2)) #    (ntiles, N, U)
+                #M = tf.reduce_mean(S3, axis=[0,1])      #               (U), mean score of each profile
 
                 W = tf.cast(posTrack[b,:,:,0] != -1, tf.float32) # tilePerX, N -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
                 W1 = tf.multiply(tf.reduce_sum(W), tf.ones(shape = [self.units], dtype=tf.float32)) # weight for the means, shape (U)
@@ -191,12 +212,16 @@ class SpecificProfile(tf.keras.Model):
 
     def getP(self):
         P = tf.nn.softmax(self.P_logit, axis=1, name="P")
-        return P                           # shape: (k, alphabet_size, U)
+        return P                                 # shape: (k, alphabet_size, U)
 
+    def getP_report_raw(self):
+        P = tf.transpose(self.P_report, [1,2,0]) # shape: (k, alphabet_size, -1)
+        return P
+    
     def getP_report(self):
-        #P = tf.nn.softmax(
-        P = tf.transpose(self.P_report, [1,2,0])#, axis=1, name="P")
-        return P                           # shape: (k, alphabet_size, -1)
+        #P = tf.transpose(self.P_report, [1,2,0]) # shape: (k, alphabet_size, -1)
+        P = tf.nn.softmax(self.getP_report_raw(), axis=1, name="P_report")
+        return P, self.P_report_thresold
     
     def getR(self):
         P = self.getP()
@@ -204,9 +229,10 @@ class SpecificProfile(tf.keras.Model):
         Q2 = tf.expand_dims(Q1,-1)
         # Limit the odds-ratio, to prevent problem with log(0).
         # Very bad matches of profiles are irrelevant anyways.
-        ratio = tf.maximum(P/Q2, 1e-6)
+        #ratio = tf.maximum(P/Q2, 1e-6)
+        ratio = tf.maximum(P/Q2, self.epsilon)
         R = tf.math.log(ratio)
-        return R                           # shape: (k, alphabet_size, U)
+        return R                                 # shape: (k, alphabet_size, U)
     
     def getZ(self, X):
         R = self.getR()
@@ -279,7 +305,8 @@ class SpecificProfile(tf.keras.Model):
 
     def train(self, genomes, tiles_per_X, tile_size, 
               batch_size, steps_per_epoch, epochs, prefetch=3,
-              profile_plateau=5, profile_plateau_dev=1, n_best_profiles=None, verbose=True, verbose_freq=100):
+              profile_plateau=5, profile_plateau_dev=1, match_score_factor=0.8,
+              n_best_profiles=None, verbose=True, verbose_freq=100):
         self.opt = tf.keras.optimizers.Adam(learning_rate=1.) # large learning rate is much faster
 
         def profileHistInit():
@@ -333,7 +360,7 @@ class SpecificProfile(tf.keras.Model):
                                           profileHist['score'] <= sm+profile_plateau_dev)):
                         ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
                         maxscores = self.max_profile_scores(ds_score)
-                        tau = 0.8 * maxscores[p.numpy()]
+                        tau = match_score_factor * maxscores[p.numpy()]
                         print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
                         print("cleaning up profile", p.numpy(), "with threshold", tau.numpy())
                         #print("[DEBUG]  >>> matches of "+str(p.numpy())+" with threshold "+str(tau)+":", self.get_profile_match_sites(ds_dbg, tau, p))
@@ -365,7 +392,7 @@ class SpecificProfile(tf.keras.Model):
 
     def profile_cleanup(self, pIdx, threshold, genomes, ds_seed, ds_clean):
         # "remove" match sites from genomes
-        matches = self.get_profile_match_sites(ds_clean, threshold, pIdx) # site: (genomeID, contigID, pos, u)
+        matches, _ = self.get_profile_match_sites(ds_clean, threshold, pIdx) # site: (genomeID, contigID, pos, u)
         #print("DEBUG >>> matches:", matches)
         for site in matches:
             #print("DEBUG >>> site:", site)
@@ -380,7 +407,8 @@ class SpecificProfile(tf.keras.Model):
                 genomes[g][c] = genomes[g][c][:a]+genomes[g][c][a:b].lower()+genomes[g][c][b:] # mask match
 
         # report profile, get new seeds
-        P = self.getP() # shape: (k, alphabet_size, U)
+        #P = self.getP() # shape: (k, alphabet_size, U)
+        P = self.P_logit # shape: (k, alphabet_size, U)
         b = P[:,:,pIdx].numpy()
         #tau = self.k * 0.8 # arbitrary threshold, for now require 80% "similarity"
         #sim = []
@@ -394,6 +422,7 @@ class SpecificProfile(tf.keras.Model):
         #P_logit_new[:,:,sim] = Prand[:,:,sim] # replace similar profiles with new ones
         #self.P_logit.assign(P_logit_new)
         self.P_report.append(b)
+        self.P_report_thresold.append(threshold)
         #self.P_logit.assign(self.seed_P_ds(ds_seed)) # completely new set of seeds
         self.P_logit.assign(self.seed_P_genome(genomes)) # completely new set of seeds
 

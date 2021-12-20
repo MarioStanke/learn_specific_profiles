@@ -57,9 +57,8 @@ class SpecificProfile(tf.keras.Model):
         self.Q = Q                         # shape: (alphabet_size)
         
         # set epsilon to a value that mismatch score is roughly -1*perfect match score
-        mQ = np.mean(Q)
-        pms = np.log(1/mQ)
-        self.epsilon = np.exp(-pms) # original value was 1e-6, which led to mismatch score of -13.8 while perfect match score is only 3
+        perfect_match_score = np.log(1/np.mean(Q))
+        self.epsilon = np.exp(-perfect_match_score) # original value was 1e-6, which led to mismatch score of -13.8 while perfect match score is only 3
         
         self.k = k                         # shape: ()
         self.alphabet_size = alphabet_size # shape: ()
@@ -266,6 +265,22 @@ class SpecificProfile(tf.keras.Model):
         L = tf.reduce_sum(loss_by_unit) # sum over profiles=units
         
         return L, loss_by_unit             # shape: (), (U)
+    
+    # custom loss
+    def loss_Z(self, Z):
+        # penalize multiple similarly good near-best matches in the same genome
+        gamma = .2 # a small value means a more inclusive meaning of near-best
+        Z1 = tf.reduce_max(Z, axis=2) # reduce 6 frames,                             shape (ntiles, N, tile_size-k+1, U)
+        Z1 = tf.transpose(Z1, [1,3,0,2]) #                                           shape (N, U, ntiles, tile_size-k+1)
+        Z1 = tf.reshape(Z1, [Z1.shape[0], Z1.shape[1], -1]) #                        shape (N, U, ntiles*(tile_size-k+1))
+        Z2 = tf.nn.softmax(gamma*Z1, axis=2) # compute softmax over all positions,   shape (N, U, ntiles*(tile_size-k+1))
+        Z3 = tf.reduce_max(Z2, axis=2) # reduce to single best softmaxed score,      shape (N, U)
+        Z4 = tf.reduce_max(Z1, axis=2) # single best score per genome and profile,   shape (N, U)
+        Z5 = tf.math.multiply(Z4, tf.square(Z3)) # effectively the best score per genome is divided by the number of matches
+        loss_by_unit = tf.reduce_sum(-Z5, axis=0) / self.units # sum over genomes    shape (U)
+        L = tf.reduce_sum(loss_by_unit) # sum over profiles=units
+        
+        return L, loss_by_unit             # shape: (), (U)
 
     # return for each profile the best score at any position in the dataset
     def max_profile_scores(self, ds):
@@ -295,8 +310,10 @@ class SpecificProfile(tf.keras.Model):
     @tf.function()
     def train_step(self, X):
         with tf.GradientTape() as tape:
-            S, R, _ = self.call(X)
-            L, _ = self.loss(S)
+            #S, R, _ = self.call(X)
+            #L, _ = self.loss(S)
+            S, R, Z = self.call(X)
+            L, _ = self.loss_Z(Z)
 
         grad = tape.gradient(L, self.P_logit)
         self.opt.apply_gradients([(grad, self.P_logit)])

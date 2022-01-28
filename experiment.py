@@ -3,51 +3,115 @@ import dataset as dsg
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import model
 from PIL import Image, ImageDraw
+
+# only get list of all loss scores without position information
+#def getLossScores_raw(specProModel, pIdx, genomes, ngenomes, tiles_per_X, tile_size, batch_size):
+#    ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
+#    scores = np.empty((ngenomes, max([len(genomes[i][0]) for i in range(ngenomes)])), dtype=float) # score for each position, (N, genomsize)
+#    scores[:,:] = np.NaN
+#    for X_b, posTrack_b in ds_score:
+#        for b in range(X_b.shape[0]): # iterate samples in batch
+#            X = X_b[b]                                                    # (tilesPerX, N, 6, T, 21)
+#            posTrack = posTrack_b[b]                                      # (tilesPerX, N, (genomeID, contigID, fwdStart, rcStart))
+#            
+#            _, _, Z = specProModel.call(X)                                # (tilesPerX, N, 6, T-k+1, U)
+#            Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U) only single profile
+#            #print("[DEBUG] >>> Z.shape:", Z.shape)
+#            tilesPerX = Z.shape[0]
+#            N = Z.shape[1]
+#            Tk1 = Z.shape[3]
+#            k = specProModel.k
+#            
+#            # apply same normalization as in loss
+#            Z1 = specProModel._loss_calculation(Z)                        # (N, U, tilesPerX*6*(T-k+1))
+
 
 # similar to model.get_profile_match_sites but applies loss calculations to scores (and max-pools over frames)
 def getLossScores(specProModel, pIdx, genomes, ngenomes, tiles_per_X, tile_size, batch_size):
     ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
-    scores = np.ones((ngenomes, max([len(genomes[i][0]) for i in range(ngenomes)])), dtype=float) # score for each position, (N, genomsize)
-    
+    #scores = np.ones((ngenomes, max([len(genomes[i][0]) for i in range(ngenomes)])), dtype=float) # score for each position, (N, genomsize)
+    scores = np.empty((ngenomes, max([len(genomes[i][0]) for i in range(ngenomes)])), dtype=float) # score for each position, (N, genomsize)
+    scores[:,:] = np.NaN
+    #print("[DEBUG] >>> scores:", scores)
     for X_b, posTrack_b in ds_score:
         for b in range(X_b.shape[0]): # iterate samples in batch
             X = X_b[b]
             posTrack = posTrack_b[b]                                      # (tilesPerX, N, (genomeID, contigID, fwdStart, rcStart))
+            #print("[DEBUG] >>> X.shape:", X.shape)
+            #print("[DEBUG] >>> posTrack:", posTrack)
             
             _, _, Z = specProModel.call(X)                                # (tilesPerX, N, 6, T-k+1, U)
             Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U) only single profile
-            
+            #print("[DEBUG] >>> Z.shape:", Z.shape)
             tilesPerX = Z.shape[0]
             N = Z.shape[1]
             Tk1 = Z.shape[3]
+            k = specProModel.k
             
             # apply same normalization as in loss
-            Z1 = specProModel._loss_calculation(Z)                        # (N, U, tilesPerX*(T-k+1))
-            Z1 = tf.reshape(Z1, [N, -1])                                  # (N, tilesPerX*(T-k+1))
+            Z1 = specProModel._loss_calculation(Z)                        # (N, U, tilesPerX*6*(T-k+1))
+            #print("[DEBUG] >>> Z1:", Z1)
+            Z1 = tf.reshape(Z1, [N, -1])                                  # (N, tilesPerX*6*(T-k+1))
+            #print("[DEBUG] >>> Z1 reshape:", Z1)
 
             # restore k-mer score positions in genome
-            Idx = tf.broadcast_to(tf.range(0, Tk1, dtype=tf.int32), 
-                                  (tilesPerX, N, Tk1))                # (tilesPerX, N, T-k+1) (rel. pos.)
-            Idx = tf.transpose(Idx, [1,0,2])                          # (N, tilesPerX, T-k+1)
-            Idx = tf.reshape(Idx, [N, -1])                            # (N, tilesPerX*(T-k+1))
+            Idx = model.indexTensor(tilesPerX, N, 6, Tk1, 1)    # shape (tilesPerX, N, 6, T-k+1, U, (f,p,u) (frame, rel.pos., profile)
+            Idx = tf.reshape(Idx, [tilesPerX, N, 6, Tk1, -1])   # shape (tilesPerX, N, 6, T-k+1, (f,p,u))
+            #print("[DEBUG] >>> Idx:", Idx)
+            Idx = tf.transpose(Idx, [1,0,2,3,4])                          # (N, tilesPerX, 6, T-k+1, (f,p,u))
+            Idx = tf.reshape(Idx, [N, -1, 3])                            # (N, tilesPerX*6*(T-k+1), (f,p,u)) transpose and reshape the same way as Z -> (f,p,u) corresponding to Z1 scores
+            #print("[DEBUG] >>> Idx reshape:", Idx)
             
+            # create tensor that contains for each Z1 score the tile start that needs to be added to the tile position
+            T = tf.transpose(posTrack, [1,0,2])                  # shape (N, tilesPerX, (genomeID, contigID, fwdStart, rcStart))
+            T = tf.repeat(tf.expand_dims(T, -2), 6, axis=-2)     # shape (N, tilesPerX, 6, (genomeID, contigID, fwdStart, rcStart))
+            T = tf.repeat(tf.expand_dims(T, -2), Tk1, axis=-2)   # shape (N, tilesPerX, 6, T-k+1, (genomeID, contigID, fwdStart, rcStart))
+            T = tf.reshape(T, [N, -1, 4])                        # shape (N, tilesPerX*6*T-k+1, (genomeID, contigID, fwdStart, rcStart))
+            #print("[DEBUG] >>> T:", T)
             
-            T = posTrack[:,:,2]                                # (tilesPerX, N) (fwdStart)
-            T = tf.repeat(tf.expand_dims(T, -1),
-                          Tk1, axis=-1)                        # (tilesPerX, N, T-k+1)
-            T = tf.transpose(T, [1,0,2])                       # (N, tilesPerX, T-k+1)
-            T = tf.reshape(T, [N, -1])                         # (N, tilesPerX*(T-k+1))
+            R = tf.concat((Idx, T), axis=2) # (N, tilesPerX*6*T-k+1, (f,p,u, genomeID, contigID, fwdStart, rcStart))
+            #print("[DEBUG] >>> R:", R)
             
-            pos = tf.multiply(Idx, 3) # rel. pos * 3           # (N, tilesPerX*(T-k+1))
-            pos = tf.add(pos, T) # add tile start
+            Z1 = tf.reshape(Z1, [-1])            # (N*tilesPerX*6*T-k+1)
+            R = tf.reshape(R, [-1, 7])           # (N*tilesPerX*6*T-k+1, 7)
+            fwdMask = tf.less(R[:,0], 3)         # (N*tilesPerX*6*T-k+1)
+            rcMask = tf.greater_equal(R[:,0], 3) # (N*tilesPerX*6*T-k+1)
+            
+            Rfwd = tf.boolean_mask(R, fwdMask)
+            Zfwd = tf.boolean_mask(Z1, fwdMask)
+            #print("[DEBUG] >>> Rfwd:", Rfwd)
+            posFwd = tf.multiply(Rfwd[:,1], 3) # rel. pos * 3 -> DNA pos.
+            posFwd = tf.add(posFwd, Rfwd[:,0]) # add frame offset
+            posFwd = tf.add(posFwd, Rfwd[:,5]) # add tile start
+            posFwd = tf.concat([tf.expand_dims(Rfwd[:,3], -1), 
+                                tf.expand_dims(posFwd, -1)], axis=1) # (fwdSites, (genomeID, pos))
+            
+            Rrc = tf.boolean_mask(R, rcMask)
+            Zrc = tf.boolean_mask(Z1, rcMask)
+            posRC = tf.multiply(Rrc[:,1], 3)     # rel. pos * 3
+            posRC = tf.add(posRC, Rrc[:,0])      # add frame offset + 3
+            posRC = tf.subtract(posRC, 3)        # correct frame offset
+            posRC = tf.subtract(Rrc[:,6], posRC) # subtract pos from reverse tile start
+            posRC = tf.subtract(posRC, (k*3)+1)  # go to reverse kmer end
+            posRC = tf.concat([tf.expand_dims(Rrc[:,3], -1), 
+                               tf.expand_dims(posRC, -1)], axis=1) # (rcSites, (genomeID, pos))
+            
+            pos = tf.concat((posFwd, posRC), axis=0)
+            Z2 = tf.concat((Zfwd, Zrc), axis=0)
+            #print("[DEBUG] >>> pos:", pos)
                         
             # store scores in a position matrix
-            for n in range(pos.shape[0]):
-                for j in range(pos.shape[1]):
-                    p = pos[n,j]
-                    if p >= 0 and p < scores.shape[1]:
-                        scores[n,p] = Z1[n,j]
+            for i in range(pos.shape[0]):
+                n = pos[i,0]
+                p = pos[i,1]
+                if p >= 0 and p < scores.shape[1]:
+                    scores[n,p] = Z2[i]
+                #else:
+                #    print("[DEBUG] >>> p:", p)
+                        
+            #print("[DEBUG] >>> scores:", scores)
 
     return scores
 
@@ -95,23 +159,27 @@ def drawLossScores(pscores, rscores, genomes, N, insertTracking, repeatTracking,
             draw.ellipse((p-radius, coordDict[i]['y']-radius, p+radius, coordDict[i]['y']+radius), fill='red')
             
     # indicate scores for perfect profiles at each position
-    pxScores = np.ones((N, max([int(np.floor(coordDict[i]['coord'] * len(genomes[i][0]))) for i in range(N)])), dtype=float) * tf.float32.min # score for each pixel (max binning)
-    ppxScores = np.array(pxScores)
-    rpxScores = np.array(pxScores)
+    pxScores = np.empty((N, max([int(np.floor(coordDict[i]['coord'] * len(genomes[i][0]))) for i in range(N)])), dtype=float) # score for each pixel (max binning)
+    pxScores[:,:] = np.NaN
+    ppxScores = np.array(pxScores, dtype=float)
+    rpxScores = np.array(pxScores, dtype=float)
     for g in range(pxScores.shape[0]):
         for j in range(pscores.shape[1]):
             px = int(np.floor(coordDict[g]['coord'] * j))
             if px < pxScores.shape[1]:
-                ppxScores[g,px] = max(ppxScores[g,px], pscores[g,j])
-                rpxScores[g,px] = max(rpxScores[g,px], rscores[g,j])
+                ppxScores[g,px] = np.nanmax([ppxScores[g,px], pscores[g,j]])
+                rpxScores[g,px] = np.nanmax([rpxScores[g,px], rscores[g,j]])
             
-    minval = np.min([ppxScores, rpxScores])
-    maxval = np.max([ppxScores, rpxScores])
+    minval = np.nanmin([ppxScores, rpxScores])
+    maxval = np.nanmax([ppxScores, rpxScores])
     #minval = specProModel.k * (math.log(specProModel.epsilon))
     #maxval = specProModel.k * (math.log(21))
     if minval != maxval:
         assert minval < maxval, str(minval)+" !< "+str(maxval)
         def gradient(val):
+            if np.isnan(val):
+                return(0,0,0)
+            
             assert val <= maxval, str(val)+" !<= "+str(maxval)
             p = (val-minval) / (maxval-minval)
             r = int(255 + (p * -255))
@@ -148,8 +216,8 @@ def drawLossScores(pscores, rscores, genomes, N, insertTracking, repeatTracking,
 
 # some functions to create histograms on huge vectors without draining memory
 def ownHist_impl(ls, binSize=None):
-    maxls = max(ls)
-    minls = min(ls)
+    maxls = np.nanmax(ls)
+    minls = np.nanmin(ls)
     #print("[DEBUG] >>> binSize", binSize, "| maxls", maxls, "| minls", minls, "| (maxls-minls)/100", (maxls-minls)/100)
     if binSize is None:    
         if maxls == minls:
@@ -166,9 +234,10 @@ def ownHist_impl(ls, binSize=None):
     bins = [b*binSize for b in range(lbin,(rbin+1))]
     vals = [0 for b in range(lbin,(rbin+1))]
     for x in ls:
-        b = math.floor(x/binSize)
-        i = b - lbin
-        vals[i] += 1
+        if not np.isnan(x):
+            b = math.floor(x/binSize)
+            i = b - lbin
+            vals[i] += 1
         
     return bins, vals
 
@@ -181,6 +250,14 @@ def ownHistRel(ls, binSize=None):
     return bins, vals
 
 def plotOwnHist(bins, vals, ylim=None):
+    if len(bins) > 1:
+        binsize = bins[1] - bins[0]
+        p = 1
+        while int((p*10)*binsize) != ((p*10)*binsize):
+            p += 1
+
+        bins = [np.format_float_positional(b, precision=p) for b in bins]
+        
     if ylim is not None:
         assert type(ylim) == tuple, "ylim must be a tuple"
         assert ylim[0] < ylim[1], 'ylim must be a tuple (a, b) where a < b'

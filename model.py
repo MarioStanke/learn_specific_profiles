@@ -95,8 +95,9 @@ class SpecificProfile(tf.keras.Model):
             X_b = batch[0]        # (B, tilePerX, N, 6, tileSize, 21)
             posTrack_b = batch[1] # (B, tilePerX, N, 4)
             assert len(X_b.shape) == 6, str(X_b.shape)
-            assert len(posTrack_b.shape) == 4, str(posTrack_b.shape)+" -- use batch dataset with position tracking!"
+            assert posTrack_b.shape != (1, 0), str(posTrack.shape)+" -- use batch dataset with position tracking!"
             assert X_b.shape[0:3] == posTrack_b.shape[0:3], str(X_b.shape)+" != "+str(posTrack_b.shape)
+            pTdim = posTrack_b.shape[-1]
             for b in range(X_b.shape[0]): # iterate samples in batch
                 X = X_b[b]
                 posTrack = posTrack_b[b]
@@ -110,7 +111,7 @@ class SpecificProfile(tf.keras.Model):
                 # collapse genome and tile dimensions
                 Z = tf.reshape(Z, [-1, Z.shape[-3], Z.shape[-2], Z.shape[-1]])     # (tilesPerX*N, 6, T-k+1, U)
                 M = tf.greater_equal(Z, score_threshold)                           # (tilesPerX*N, 6, T-k+1, U), >>> consider match if score >= threshold <<<
-                T = tf.reshape(posTrack, [-1, 4])                                  # (tilesPerX*N, (genomeID, contigID, fwdStart, rcStart))
+                T = tf.reshape(posTrack, [-1, pTdim])                              # (tilesPerX*N, (genomeID, contigID, fwdStart, rcStart))
                 Idx = tf.reshape(Idx, [-1, Idx.shape[-4], Idx.shape[-3], 
                                            Idx.shape[-2], Idx.shape[-1]])          # (tilesPerX*N, 6, T-k+1, U, (f,r,u))
                 
@@ -188,17 +189,24 @@ class SpecificProfile(tf.keras.Model):
             X = batch[0]        # (B, tilePerX, N, 6, tileSize, 21)
             posTrack = batch[1] # (B, tilePerX, N, 3)
             assert len(X.shape) == 6, str(X.shape)
-            assert len(posTrack.shape) == 4, str(posTrack.shape)+" -- use batch dataset with position tracking!"
+            assert posTrack.shape != (1, 0), str(posTrack.shape)+" -- use batch dataset with position tracking!"
             assert X.shape[0:3] == posTrack.shape[0:3], str(X.shape)+" != "+str(posTrack.shape)
             for b in range(X.shape[0]): # iterate samples in batch
-                S, _, _ = self.call(X[b])               # S: (ntiles, N, U)
-                M = tf.reduce_mean(S, axis=[0,1])       #               (U), mean score of each profile
+                #S, _, _ = self.call(X[b])               # S: (ntiles, N, U)
+                #M = tf.reduce_mean(S, axis=[0,1])       #               (U), mean score of each profile
+                
+                _, _, Z = self.call(X[b])               # Z: (ntiles, N, 6, tile_size-k+1, U)
+                Zl = self._loss_calculation(Z)          #    (N, U, ntiles*6*(tile_size-k+1))
+                M = tf.reduce_mean(Zl, axis=[0,2])      #                                 (U), mean score of each profile
 
                 W = tf.cast(posTrack[b,:,:,0] != -1, tf.float32) # tilePerX, N -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
                 W1 = tf.multiply(tf.reduce_sum(W), tf.ones(shape = [self.units], dtype=tf.float32)) # weight for the means, shape (U)
                 Ms.append(tf.multiply(M, W1).numpy()) # store weighted means
-                if tf.reduce_any( tf.math.is_nan(S) ):
-                    print("[DEBUG] >>> nan in S")
+
+                #if tf.reduce_any( tf.math.is_nan(S) ):
+                if tf.reduce_any( tf.math.is_nan(Z) ):
+                    #print("[DEBUG] >>> nan in S")
+                    print("[DEBUG] >>> nan in Z")
                     print("[DEBUG] >>> M:", M)
                     print("[DEBUG] >>> W:", W)
                     print("[DEBUG] >>> W1:", W1)
@@ -275,12 +283,13 @@ class SpecificProfile(tf.keras.Model):
     #    L += (- self.alpha * tf.reduce_sum(tf.math.log(self.getP())))
     #    return L, loss_by_unit             # shape: (), (U)
     
-    # input: Z from self.call(), output: processed Z with shape (N, U, x) where x is the number of matches per genome and profile
+    # input: Z from self.call(), shape (ntiles, N, 6, tile_size-k+1, U) // output: processed Z with shape (N, U, x) where x is the number of matches per genome and profile
     def _loss_calculation(self, Z):
         # penalize multiple similarly good near-best matches in the same genome
         Z = tf.reduce_max(Z, axis=2) # reduce 6 frames,                                   shape (ntiles, N, tile_size-k+1, U)
         Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
-        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
+        #Z = tf.transpose(Z, [1,4,0,2, 3]) #                                                  shape (N, U, ntiles, 6, tile_size-k+1)
+        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*6*(tile_size-k+1))
         
         # [IDEA] normalize scores for softmax
         #mean = tf.reduce_mean(Z)

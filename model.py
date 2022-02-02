@@ -287,17 +287,29 @@ class SpecificProfile(tf.keras.Model):
     def _loss_calculation(self, Z):
         # penalize multiple similarly good near-best matches in the same genome
         Z = tf.reduce_max(Z, axis=2) # reduce 6 frames,                                   shape (ntiles, N, tile_size-k+1, U)
+        
+        # [IDEA] two-step softmax: first tile-wise to penalize local repeats, then over all tiles as before
         Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
-        #Z = tf.transpose(Z, [1,4,0,2, 3]) #                                                  shape (N, U, ntiles, 6, tile_size-k+1)
-        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*6*(tile_size-k+1))
+        Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute tile-wise softmax,           shape (N, U, ntiles, tile_size-k+1)
+        Zsm = tf.square(Zsm) # boost softmax effect
+        Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
+        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
+        Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute softmax over all positions
+        Zsm = tf.square(Zsm) # boost softmax effect
+        
+        # [ORIGINAL]
+        #Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
+        ##Z = tf.transpose(Z, [1,4,0,2, 3]) #                                               shape (N, U, ntiles, 6, tile_size-k+1)
+        #Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
         
         # [IDEA] normalize scores for softmax
         #mean = tf.reduce_mean(Z)
         #stdv = tf.math.reduce_std(Z)
         #Znorm = tf.math.multiply( tf.math.subtract(Z, mean), np.math.reciprocal_no_nan(stdv) )
         
-        Zsm = tf.nn.softmax(self.gamma*Z, axis=2) # compute softmax over all positions,   shape (N, U, ntiles*(tile_size-k+1))
-        Zsm = tf.square(Zsm) # boost softmax effect
+        # [ORIGINAL]
+        #Zsm = tf.nn.softmax(self.gamma*Z, axis=2) # compute softmax over all positions,   shape (N, U, ntiles*(tile_size-k+1))
+        #Zsm = tf.square(Zsm) # boost softmax effect
         
         # [IDEA] minmax normalize softmax
         #smmax = tf.expand_dims(tf.reduce_max(Zsm, axis=2), -1)                                  # shape (N, U, 1)
@@ -314,13 +326,13 @@ class SpecificProfile(tf.keras.Model):
         #Zdiv = tf.math.multiply(tf.math.reciprocal_no_nan(Zsm), tf.multiply(Z, tf.expand_dims(divfmask, -1)))
         #Z = tf.math.add(Zmul, Zdiv)
         
-        # [IDEA] (original) use softmax to scale scores
+        # [ORIGINAL] use softmax to scale scores
         Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
         return Z
     
     # custom loss
     def loss(self, Z):
-        Z = self._loss_calculation(Z)
+        Z = self._loss_calculation(Z) #                                            shape (N, U, ntiles*(tile_size-k+1))
         Z = tf.reduce_max(Z, axis=2) # single best score per genome and profile,   shape (N, U)
         loss_by_unit = tf.reduce_sum(-Z, axis=0) / self.units # sum over genomes   shape (U)
         L = tf.reduce_sum(loss_by_unit) # sum over profiles=units

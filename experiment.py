@@ -6,26 +6,57 @@ import matplotlib.pyplot as plt
 import model
 from PIL import Image, ImageDraw
 
+# Idee: einfach alle scores in eine Liste packen, dabei die scores ausschließen, die von nicht-sequenz positionen kommen
+#       (dataset generator entsprechend angepasst)
+
 # only get list of all loss scores without position information
-#def getLossScores_raw(specProModel, pIdx, genomes, ngenomes, tiles_per_X, tile_size, batch_size):
-#    ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
-#    scores = np.empty((ngenomes, max([len(genomes[i][0]) for i in range(ngenomes)])), dtype=float) # score for each position, (N, genomsize)
-#    scores[:,:] = np.NaN
-#    for X_b, posTrack_b in ds_score:
-#        for b in range(X_b.shape[0]): # iterate samples in batch
-#            X = X_b[b]                                                    # (tilesPerX, N, 6, T, 21)
-#            posTrack = posTrack_b[b]                                      # (tilesPerX, N, (genomeID, contigID, fwdStart, rcStart))
-#            
-#            _, _, Z = specProModel.call(X)                                # (tilesPerX, N, 6, T-k+1, U)
-#            Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U) only single profile
-#            #print("[DEBUG] >>> Z.shape:", Z.shape)
-#            tilesPerX = Z.shape[0]
-#            N = Z.shape[1]
-#            Tk1 = Z.shape[3]
-#            k = specProModel.k
-#            
-#            # apply same normalization as in loss
-#            Z1 = specProModel._loss_calculation(Z)                        # (N, U, tilesPerX*6*(T-k+1))
+def getLossScores_raw(specProModel, pIdx, genomes, tiles_per_X, tile_size, batch_size, maskNonSeqScores = True, lossNorm = True):
+    ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
+    scores = list()
+    for X_b, posTrack_b in ds_score:
+        for b in range(X_b.shape[0]): # iterate samples in batch
+            X = X_b[b]                                                    # (tilesPerX, N, 6, T, 21)
+            posTrack = posTrack_b[b]                                      # (tilesPerX, N, 6, (genomeID, contigID, nt_startPos, aa_seqlen))
+            
+            _, _, Z = specProModel.call(X)                                # (tilesPerX, N, 6, T-k+1, U)
+            Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U) only single profile
+            #print("[DEBUG] >>> Z.shape:", Z.shape)
+            tilesPerX = Z.shape[0]
+            N = Z.shape[1]
+            Tk1 = Z.shape[3]
+            k = specProModel.k
+            
+            # apply same normalization as in loss
+            if lossNorm:
+                Z1 = specProModel._loss_calculation(Z)                        # (N, U, tilesPerX*(T-k+1))
+            else:
+                Z1 = tf.transpose(Z, [1,4,0,2,3])
+                Z1 = tf.reshape(Z1, [N, 1, -1])
+            
+            if maskNonSeqScores:
+                # tensor of tile position indices, for marking which positions are out of sequence -> (tilesPerX, N, 6, T-k+1)
+                I = tf.repeat( [tf.repeat( [tf.repeat([np.arange(0,Tk1)], 6, axis=0)], N, axis=0)], tilesPerX, axis=0) # (tilesPerX, N, 6, T-k+1)
+                L = tf.repeat( tf.expand_dims( posTrack[:,:,:,3], -1), Tk1, axis=-1 )                                  # (tilesPerX, N, 6, T-k+1)
+                M = tf.less(I, L) # boolean tensor with True for sequence positions and False otherwise,                 (tilesPerX, N, 6, T-k+1)
+
+                # apply same transformations as in loss
+                if lossNorm:
+                    M = tf.reduce_any(M, axis=2)     # (tilesPerX, N, T-k+1)
+                    M = tf.expand_dims(M, -1)        # (tilesPerX, N, T-k+1, U)
+                    M = tf.transpose(M, [1,3,0,2])   # (N, U, tilesPerX, T-k+1)
+                else:
+                    M = tf.expand_dims(M, -1)        # (tilesPerX, N, 6, T-k+1, U)
+                    M = tf.transpose(M, [1,4,0,2,3]) # (N, U, tilesPerX, 6, T-k+1)
+                    
+                M = tf.reshape(M, [N, 1, -1])    # (N, U, tilesPerX*{6*}(T-k+1))
+            else:
+                M = tf.broadcast_to(True, Z1.shape)
+            
+            S = tf.boolean_mask(Z1, M)
+            scores.extend(list(S.numpy()))
+            
+    return scores
+
 
 
 # similar to model.get_profile_match_sites but applies loss calculations to scores (and max-pools over frames)
@@ -249,12 +280,15 @@ def ownHistRel(ls, binSize=None):
     vals[:] = [v/len(ls) for v in vals]
     return bins, vals
 
-def plotOwnHist(bins, vals, ylim=None):
+def plotOwnHist(bins, vals, ylim=None, precision=None):
     if len(bins) > 1:
-        binsize = bins[1] - bins[0]
-        p = 1
-        while int((p*10)*binsize) != ((p*10)*binsize):
-            p += 1
+        if precision is None:
+            binsize = bins[1] - bins[0]
+            p = 1
+            while int((p*10)*binsize) != ((p*10)*binsize):
+                p += 1
+        else:
+            p = precision
 
         bins = [np.format_float_positional(b, precision=p) for b in bins]
         

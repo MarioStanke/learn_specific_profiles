@@ -85,12 +85,12 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
     state = [{'idx': 0, 'fwd_a': 0, 'rc_b': None, 'exhausted': (len(seqs) == 0)} for seqs in genomes]
 
     while not all(s['exhausted'] for s in state):
-        X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)
+        X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)   # (tilesPerX, N, 6, T, 21)
         I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
         if withPosTracking:
-            # [:,:,0] - genome IDs, [:,:,1] - contig IDs, [:,:,2] - fwd start, [:,:,3] - rc start, -1: exhausted
+            # [:,:,:,0] - genome IDs, [:,:,:,1] - contig IDs, [:,:,2] - start pos of X[:,:,:,0,:] w.r.t. genome sequence, [:,:,3] - aa seqlen in that tile and frame, -1: exhausted
             # fwd/rc start both refer to the 0-based position of the 0th position in the respective tile _on the fwd strand_
-            posTrack = np.ones([ntiles, N, 4], dtype=np.int32) *-1 
+            posTrack = np.ones([ntiles, N, 6, 4], dtype=np.int32) *-1                          # (tilesPerX, N, 6, (genomeIDs, contigIDs, startPos, aa_seqlen))
         for t in range(ntiles):
             for g in range(N):
                 if state[g]['exhausted']:
@@ -106,10 +106,14 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                 rc_b = state[g]['rc_b']
                 rc_a = max(0, rc_b-tile_size)      # rc(seq[rc_a:rc_b]) -> b<<<<<<<a
                 if withPosTracking:
-                    posTrack[t,g,0] = g
-                    posTrack[t,g,1] = sidx
-                    posTrack[t,g,2] = fwd_a
-                    posTrack[t,g,3] = rc_b-1
+                    posTrack[t,g,:,0] = g
+                    posTrack[t,g,:,1] = sidx
+                    posTrack[t,g,0,2] = fwd_a
+                    posTrack[t,g,1,2] = fwd_a+1
+                    posTrack[t,g,2,2] = fwd_a+2
+                    posTrack[t,g,3,2] = rc_b-1
+                    posTrack[t,g,4,2] = rc_b-2
+                    posTrack[t,g,5,2] = rc_b-3
                     
                 assert sidx < len(genomes[g]), str(sidx)+" >= "+str(len(genomes[g]))+" for genome "+str(g)
                 
@@ -124,6 +128,9 @@ def createBatch(ntiles, aa_tile_size: int, genomes, withPosTracking: bool = Fals
                     assert len(aa_seq) <= aa_tile_size, str(len(aa_seq))+" != "+str(aa_tile_size)+", fwd_a, rc_b, slen, tile, genome, frame: "+str((fwd_a, rc_b, slen, t, g, frame))                        
                     x = su.to_idx(aa_seq, su.aa_idx)
                     num_aa = x.shape[0]
+                    if withPosTracking:
+                        posTrack[t,g,frame,3] = num_aa
+                        
                     if (num_aa > 0):
                         one_hot = I[x] # here still aa_alphabet_size + 1 entries
                         # missing sequence will be represented by an all-zero vector
@@ -166,7 +173,7 @@ def getDataset(genomes,
             # vvv deprecated in newer versions of TF vvv
             output_types = (tf.float32, tf.int32),
             output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
-                             tf.TensorShape([tiles_per_X, len(genomes), 4]))
+                             tf.TensorShape([tiles_per_X, len(genomes), 6, 4]))
         )
     else:
         ds = tf.data.Dataset.from_generator(
@@ -187,15 +194,24 @@ def getDataset(genomes,
 
 
     
-def restoreGenomePosition(aaTilePos, frame, fwdStart, rcStart, k):
-    assert frame in range(6), str(frame)+" must be in [0,5]"
+#def restoreGenomePosition(aaTilePos, frame, fwdStart, rcStart, k):
+#    assert frame in range(6), str(frame)+" must be in [0,5]"
+#    p = aaTilePos*3 # to dna coord
+#    if frame < 3:
+#        p += frame     # add frame shift
+#        p += fwdStart
+#    else:
+#        p += frame-3   # add frame shift
+#        p = rcStart - p - (k*3) + 1
+#
+#    return p
+
+def restoreGenomePosition(aaTilePos, start, k, fwd: bool):
     p = aaTilePos*3 # to dna coord
-    if frame < 3:
-        p += frame     # add frame shift
-        p += fwdStart
+    if fwd:
+        p += start
     else:
-        p += frame-3   # add frame shift
-        p = rcStart - p - (k*3) + 1
+        p = start - p - (k*3) + 1
 
     return p
 
@@ -296,24 +312,24 @@ def testGenerator(genomes, ntiles, tile_size, limit = 10000):
     # test position restoring
     XgenPos = createBatch(ntiles, tile_size, testgenome, True)
     k = 11
-    for X, P in tqdm(XgenPos):
+    for X, P in tqdm(XgenPos): # (tilesPerX, N, 6, T, 21), (tilesPerX, N, 6, (genomeIDs, contigIDs, startPos, aa_seqlen))
         for t in range(X.shape[0]):
             for g in range(X.shape[1]):
                 for f in range(X.shape[2]):
                     for p in range(X.shape[3]-k+1):
-                        if P[t,g,0] != -1:
-                            assert P[t,g,0] == g, str(P[t,g,:])
-                            c = P[t,g,1]
+                        if P[t,g,f,0] != -1:
+                            assert P[t,g,f,0] == g, str(P[t,g,f,:])
+                            c = P[t,g,f,1]
                             kmerOH = X[t,g,f,p:(p+k),:]
                             kmerAA = to_aa(kmerOH, False)
                             assert len(kmerAA) == k, str(k)+", '"+str(kmerAA)+"' ("+str(len(kmerAA))+")\n"+str(kmerOH)
-                            pos = restoreGenomePosition(p, f, P[t,g,2], P[t,g,3], k)
+                            pos = restoreGenomePosition(p, P[t,g,f,2], k, (f<3)) # restoreGenomePosition(aaTilePos, start, k, fwd: bool)
                             end = pos+(k*3)
                             if pos >= 0 and end <= len(testgenome[g][c]): # sometimes negative for rc frames or reaching over the sequence for fwd frames, skip
                                 sourceKmer = testgenome[g][c][pos:end]
                                 sourceKmerAA = sequence_translation(sourceKmer) if f < 3 else sequence_translation(sourceKmer, True)
                                 #print("DEBUG >>> "+sourceKmerAA+" (source)\n          "+kmerAA+" (observed)\n"+str((g,c,t,f,pos)))
-                                assert len(kmerAA) == len(sourceKmerAA), "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,:]))
-                                assert kmerAA == sourceKmerAA, "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,:]))
+                                assert len(kmerAA) == len(sourceKmerAA), "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,f,:]))
+                                assert kmerAA == sourceKmerAA, "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n"+str((g,c,t,f,p,pos,P[t,g,f,:]))
 
     print("[INFO] >>> testGenerator - restore positions: All good")

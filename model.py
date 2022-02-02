@@ -55,12 +55,11 @@ class SpecificProfile(tf.keras.Model):
         super().__init__(**kwargs)
         
         self.Q = Q                         # shape: (alphabet_size)
-        
-        # set epsilon to a value that mismatch score is roughly -1*perfect match score
         self.alpha = alpha
         self.gamma = gamma # a small value means a more inclusive meaning of near-best ([3, 4, 1] -> [0.25, 0.7, 0.05] // [.3, .4, .1] -> [0.34, 0.38, 0.28])
-        perfect_match_score = np.log(1/np.mean(Q))
-        self.epsilon = np.exp(-perfect_match_score) # original value was 1e-6, which led to mismatch score of -13.8 while perfect match score is only 3
+        #perfect_match_score = np.log(1/np.mean(Q))  # set epsilon to a value that mismatch score is roughly -1*perfect match score
+        #self.epsilon = np.exp(-perfect_match_score) # original value was 1e-6, which led to mismatch score of -13.8 while perfect match score is only 3
+        self.epsilon = 1e-6
         
         self.k = k                         # shape: ()
         self.alphabet_size = alphabet_size # shape: ()
@@ -93,14 +92,14 @@ class SpecificProfile(tf.keras.Model):
         for batch in ds:
             #assert len(batch) == 2, str(len(batch))+" -- use batch dataset with position tracking!"
             X_b = batch[0]        # (B, tilePerX, N, 6, tileSize, 21)
-            posTrack_b = batch[1] # (B, tilePerX, N, 4)
+            posTrack_b = batch[1] # (B, tilePerX, N, 6, 4)
             assert len(X_b.shape) == 6, str(X_b.shape)
             assert posTrack_b.shape != (1, 0), str(posTrack.shape)+" -- use batch dataset with position tracking!"
-            assert X_b.shape[0:3] == posTrack_b.shape[0:3], str(X_b.shape)+" != "+str(posTrack_b.shape)
+            assert X_b.shape[0:4] == posTrack_b.shape[0:4], str(X_b.shape)+" != "+str(posTrack_b.shape)
             pTdim = posTrack_b.shape[-1]
             for b in range(X_b.shape[0]): # iterate samples in batch
                 X = X_b[b]
-                posTrack = posTrack_b[b]
+                posTrack = posTrack_b[b]                                           # (tilePerX, N, 6, (genomeID, contigID, startPos, aa_seqlen))
                 _, _, Z = self.call(X)                                             # (tilePerX, N, 6, T-k+1, U)
                 if pIdx is not None:
                     Z = Z[:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
@@ -111,53 +110,54 @@ class SpecificProfile(tf.keras.Model):
                 # collapse genome and tile dimensions
                 Z = tf.reshape(Z, [-1, Z.shape[-3], Z.shape[-2], Z.shape[-1]])     # (tilesPerX*N, 6, T-k+1, U)
                 M = tf.greater_equal(Z, score_threshold)                           # (tilesPerX*N, 6, T-k+1, U), >>> consider match if score >= threshold <<<
-                T = tf.reshape(posTrack, [-1, pTdim])                              # (tilesPerX*N, (genomeID, contigID, fwdStart, rcStart))
+                T = tf.reshape(posTrack, [-1, 6, pTdim])                           # (tilesPerX*N, 6, (genomeID, contigID, startPos, aa_seqlen))
                 Idx = tf.reshape(Idx, [-1, Idx.shape[-4], Idx.shape[-3], 
                                            Idx.shape[-2], Idx.shape[-1]])          # (tilesPerX*N, 6, T-k+1, U, (f,r,u))
                 
                 # reduce to genome tiles that have matches
-                Mgentile = tf.reduce_any(M, axis=[1,2,3]) # (tilesPerX*N), of which `matches` are True
-                Mgentile = tf.logical_and(Mgentile, tf.not_equal(T[:,0], -1)) # also set exhausted contigs to False
-                T = tf.boolean_mask(T,Mgentile)           # (matches, (genomeID, contigID, fwdStart, rcStart))
-                M = tf.boolean_mask(M,Mgentile)           # (matches, 6, T-k+1, U)
-                Z = tf.boolean_mask(Z,Mgentile)           # (matches, 6, T-k+1, U)
-                Idx = tf.boolean_mask(Idx, Mgentile)      # (matches, 6, T-k+1, U, 3)
+                Mgentile = tf.reduce_any(M, axis=[2,3])     # (tilesPerX*N, 6)
+                Mgentile = tf.logical_and(Mgentile, tf.not_equal(T[:,:,0], -1)) # also set exhausted contigs to False
+                Mgentile = tf.reduce_any(Mgentile, axis=1)  # (tilesPerX*N), of which `matches` are True
+                T = tf.boolean_mask(T,Mgentile)             # (matches, 6, (genomeIDs, contigIDs, startPos, aa_seqlen))
+                M = tf.boolean_mask(M,Mgentile)             # (matches, 6, T-k+1, U)
+                Z = tf.boolean_mask(Z,Mgentile)             # (matches, 6, T-k+1, U)
+                Idx = tf.boolean_mask(Idx, Mgentile)        # (matches, 6, T-k+1, U, 3)
 
                 # manual broadcast of T to the correct shape
-                T = tf.repeat(tf.expand_dims(T, 1), [M.shape[-1]], axis=1) # (matches, U, (genomeID, contigID, fwdStart, rcStart))
-                T = tf.repeat(tf.expand_dims(T, 1), [M.shape[-2]], axis=1) # (matches, T-k+1, U, (genomeID, contigID, fwdStart, rcStart))
-                T = tf.repeat(tf.expand_dims(T, 1), [M.shape[-3]], axis=1) # (matches, 6, T-k+1, U, (genomeID, contigID, fwdStart, rcStart))
+                T = tf.repeat(tf.expand_dims(T, 2), [M.shape[-1]], axis=2) # (matches, 6, U, (genomeID, contigID, startPos, aa_seqlen))
+                T = tf.repeat(tf.expand_dims(T, 2), [M.shape[-2]], axis=2) # (matches, 6, T-k+1, U, (genomeID, contigID, startPos, aa_seqlen))
+                #T = tf.repeat(tf.expand_dims(T, 1), [M.shape[-3]], axis=1) # (matches, 6, T-k+1, U, (genomeID, contigID, fwdStart, rcStart))
                 
                 # reduce to single match sites
                 Idx = tf.boolean_mask(Idx, M)    # (sites, (f, r, u))
-                T = tf.boolean_mask(T, M)        # (sites, (genomeID, contigID, fwdStart, rcStart))
+                T = tf.boolean_mask(T, M)        # (sites, (genomeID, contigID, startPos, aa_seqlen))
                 Z = tf.boolean_mask(Z, M)        # (sites) where each entry is a score
                 Z = tf.expand_dims(Z, -1)        # (sites, (score))
-                R = tf.concat((Idx, T), axis=1 ) # (sites, (f, r, u, genomeID, contigID, fwdStart, rcStart))
+                R = tf.concat((Idx, T), axis=1 ) # (sites, (f, r, u, genomeID, contigID, startPos, aa_seqlen))
 
                 # continue with vectorized operations, tf.map_fn to dsg.restoreGenomePosition is super slow even with parallel threads enabled
                 fwdMask = tf.less(R[:,0], 3)         # (sites)
                 rcMask = tf.greater_equal(R[:,0], 3) # (sites)
-                rFwd = tf.boolean_mask(R, fwdMask)   # (fwdSites, (f, r, u, genomeID, contigID, fwdStart, rcStart, score))
-                rRC = tf.boolean_mask(R, rcMask)     # ( rcSites, (f, r, u, genomeID, contigID, fwdStart, rcStart, score))
+                rFwd = tf.boolean_mask(R, fwdMask)   # (fwdSites, (f, r, u, genomeID, contigID, startPos, aa_seqlen, score))
+                rRC = tf.boolean_mask(R, rcMask)     # ( rcSites, (f, r, u, genomeID, contigID, startPos, aa_seqlen, score))
                 zFwd = tf.boolean_mask(Z, fwdMask)   # (fwdSites, (score))
                 zRC = tf.boolean_mask(Z, rcMask)     # ( rcSites, (score))
 
-                # fwd case: p *= 3; p += frame; p += tileStart
+                # fwd case: p *= 3; p += tileStart
                 posFwd = tf.multiply(rFwd[:,1], 3)             # (fwdSites), *3
-                posFwd = tf.add(posFwd, rFwd[:,0])             # (fwdSites), add frame offset
-                posFwd = tf.add(posFwd, rFwd[:,5])             # (fwdSites), add tile start
+                #posFwd = tf.add(posFwd, rFwd[:,0])             # (fwdSites), add frame offset
+                posFwd = tf.add(posFwd, rFwd[:,5])             # (fwdSites), add start
                 sites = tf.concat([tf.expand_dims(rFwd[:,3], -1), 
                                    tf.expand_dims(rFwd[:,4], -1), 
                                    tf.expand_dims(posFwd, -1), 
                                    tf.expand_dims(rFwd[:,2], -1), 
                                    tf.expand_dims(rFwd[:,0], -1)], axis=1) # (fwdSites, (genomeID, contigID, pos, u, f))
                 
-                # rc case: p *= 3; p += frame-3; p = rcStart - p - (k*3) + 1
+                # rc case: p *= 3; p = rcStart - p - (k*3) + 1
                 posRC = tf.multiply(rRC[:,1], 3)               # (rcSites), *3
-                posRC = tf.add(posRC, rRC[:,0])                # (rcSites), add frame offset
-                posRC = tf.subtract(posRC, 3)                  # (rcSites), -3
-                posRC = tf.subtract(rRC[:,6], posRC)           # (rcSites), rcStart - p
+                #posRC = tf.add(posRC, rRC[:,0])                # (rcSites), add frame offset
+                #posRC = tf.subtract(posRC, 3)                  # (rcSites), -3
+                posRC = tf.subtract(rRC[:,5], posRC)           # (rcSites), start - p
                 posRC = tf.subtract(posRC, (self.k*3))         # (rcSites), -(k*3)
                 posRC = tf.add(posRC, 1)                       # (rcSites), +1
                 sitesRC = tf.concat([tf.expand_dims(rRC[:,3], -1), 
@@ -187,10 +187,10 @@ class SpecificProfile(tf.keras.Model):
         Ms = []
         for batch in ds:
             X = batch[0]        # (B, tilePerX, N, 6, tileSize, 21)
-            posTrack = batch[1] # (B, tilePerX, N, 3)
+            posTrack = batch[1] # (B, tilePerX, N, 6, 4)
             assert len(X.shape) == 6, str(X.shape)
             assert posTrack.shape != (1, 0), str(posTrack.shape)+" -- use batch dataset with position tracking!"
-            assert X.shape[0:3] == posTrack.shape[0:3], str(X.shape)+" != "+str(posTrack.shape)
+            assert X.shape[0:4] == posTrack.shape[0:4], str(X.shape)+" != "+str(posTrack.shape)
             for b in range(X.shape[0]): # iterate samples in batch
                 #S, _, _ = self.call(X[b])               # S: (ntiles, N, U)
                 #M = tf.reduce_mean(S, axis=[0,1])       #               (U), mean score of each profile
@@ -199,7 +199,7 @@ class SpecificProfile(tf.keras.Model):
                 Zl = self._loss_calculation(Z)          #    (N, U, ntiles*6*(tile_size-k+1))
                 M = tf.reduce_mean(Zl, axis=[0,2])      #                                 (U), mean score of each profile
 
-                W = tf.cast(posTrack[b,:,:,0] != -1, tf.float32) # tilePerX, N -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
+                W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # tilePerX, N, f -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
                 W1 = tf.multiply(tf.reduce_sum(W), tf.ones(shape = [self.units], dtype=tf.float32)) # weight for the means, shape (U)
                 Ms.append(tf.multiply(M, W1).numpy()) # store weighted means
 
@@ -248,8 +248,8 @@ class SpecificProfile(tf.keras.Model):
         X1 = tf.expand_dims(X,-1) # 1 input channel   shape: (ntiles, N, 6, tile_size, alphabet_size, 1)
         R1 = tf.expand_dims(R,-2) # 1 input channel   shape: (k, alphabet_size, 1, U)
 
-        # X1: (batch_shape (ntiles, N, 6), in_height (tile_size), in_width (alphabet_size),     in_channels (1))
-        # R1:                             (filter_height (k),     filter_width (alphabet_size), in_channels (1), out_channels (U))
+        # X1: (batch_shape (ntiles, N, 6), in_height (tile_size),     in_width (alphabet_size), in_channels (1))
+        # R1:                                 (filter_height (k), filter_width (alphabet_size), in_channels (1), out_channels (U))
         # Z1: (batch_shape (ntiles, N, 6), tile_size-k+1, 1, U)
         Z1 = tf.nn.conv2d(X1, R1, strides=1,
                           padding='VALID', data_format="NHWC", name="Z")

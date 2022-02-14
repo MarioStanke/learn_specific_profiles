@@ -76,6 +76,7 @@ class SpecificProfile(tf.keras.Model):
         self.setP_logit(P_logit_init)      # shape: (k, alphabet_size, U)
         self.P_report = []
         self.P_report_thresold = []
+        self.P_report_loss = []
         
     def _getRandomProfiles(self):
         Q1 = tf.expand_dims(self.Q,0)
@@ -196,10 +197,11 @@ class SpecificProfile(tf.keras.Model):
                 #M = tf.reduce_mean(S, axis=[0,1])       #               (U), mean score of each profile
                 
                 _, _, Z = self.call(X[b])               # Z: (ntiles, N, 6, tile_size-k+1, U)
-                Zl = self._loss_calculation(Z)          #    (N, U, ntiles*6*(tile_size-k+1))
-                M = tf.reduce_mean(Zl, axis=[0,2])      #                                 (U), mean score of each profile
+                #Zl = self._loss_calculation(Z)          #    (N, U, ntiles*6*(tile_size-k+1))
+                #M = tf.reduce_mean(Zl, axis=[0,2])      #                                 (U), mean score of each profile
+                _, M = self.loss(Z)                     # (U)
 
-                W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # tilePerX, N, f -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
+                W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # (tilePerX, N, f) -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
                 W1 = tf.multiply(tf.reduce_sum(W), tf.ones(shape = [self.units], dtype=tf.float32)) # weight for the means, shape (U)
                 Ms.append(tf.multiply(M, W1).numpy()) # store weighted means
 
@@ -213,7 +215,8 @@ class SpecificProfile(tf.keras.Model):
                     print("[DEBUG] >>> Ms:", Ms)
 
         B = tf.reduce_mean(Ms, axis=0) # get overall highest mean scores per profile
-        return tf.argmax(B), tf.reduce_max(B) # index, mean score
+        #return tf.argmax(B), tf.reduce_max(B) # index, mean score
+        return tf.argmin(B), tf.reduce_min(B) # index, mean loss
 
     def getP(self):
         P = tf.nn.softmax(self.P_logit, axis=1, name="P")
@@ -225,7 +228,7 @@ class SpecificProfile(tf.keras.Model):
     
     def getP_report(self):
         P = tf.nn.softmax(self.getP_report_raw(), axis=1, name="P_report")
-        return P, self.P_report_thresold
+        return P, self.P_report_thresold, self.P_report_loss
     
     def getR(self):
         P = self.getP()
@@ -289,13 +292,35 @@ class SpecificProfile(tf.keras.Model):
         Z = tf.reduce_max(Z, axis=2) # reduce 6 frames,                                   shape (ntiles, N, tile_size-k+1, U)
         
         # [IDEA] two-step softmax: first tile-wise to penalize local repeats, then over all tiles as before
-        Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
-        Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute tile-wise softmax,           shape (N, U, ntiles, tile_size-k+1)
+        #Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
+        #Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute tile-wise softmax,           shape (N, U, ntiles, tile_size-k+1)
+        #Zsm = tf.square(Zsm) # boost softmax effect
+        #Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
+        #Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
+        #Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute softmax over all positions
+        #Zsm = tf.square(Zsm) # boost softmax effect
+        
+        # [IDEA] adapt single occurrence per genome-like requirement (see STREME) and use difference of best and second-best score as loss (the higher, the better)
+        Z = tf.transpose(Z, [1,3,0,2]) #                                                            shape (N, U, ntiles, tile_size-k+1)
+        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                           shape (N, U, ntiles*tile_size-k+1)
+        Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute softmax
         Zsm = tf.square(Zsm) # boost softmax effect
         Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
-        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
-        Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute softmax over all positions
-        Zsm = tf.square(Zsm) # boost softmax effect
+        Zmax = tf.expand_dims(tf.reduce_max(Z, axis=-1), -1) #                                    shape (N, U, 1)
+        Zmin = tf.expand_dims(tf.reduce_min(Z, axis=-1), -1) #                                    shape (N, U, 1)
+        nMax = tf.expand_dims(tf.reduce_sum(tf.cast(tf.equal(Z, Zmax), tf.int32), axis=-1), -1) # shape (N, U, 1) (checking how many scores per genome and profile are equal Zmax)
+        zeroMask = tf.cast(tf.equal(nMax, 1), tf.float32) # boolean mask, False entries get 0 loss (as there were two or more equally max scores)
+        # now set previous max to minimal value to be able to get the second highest score
+        maxMask = tf.cast(tf.equal(Z, Zmax), tf.float32) # 1 for values == max, 0 otherwise,    shape (N, U, ntile*tile_size-k+1)
+        notMaxMask = tf.cast(tf.less(Z, Zmax), tf.float32) # 1 for values < max, 0 otherwise,   shape (N, U, ntile*tile_size-k+1)
+        Z2 = tf.multiply(Z, notMaxMask) # set previous max values to zero
+        Z3 = tf.multiply(Z, maxMask) # set all but previous max values to zero
+        Z3 = tf.multiply(tf.math.divide_no_nan(Z3, Zmax), Zmin) # set previous max to min, rest zero
+        Z2 = tf.add(Z2, Z3) # previous non-max values remain, previous max values are now set to min, shape (N, U, ntile*tile_size-k+1)
+        # get second highest scores and calculate difference to max as loss
+        Zmax2 = tf.expand_dims(tf.reduce_max(Z2, axis=-1), -1)
+        L = tf.multiply(tf.subtract(Zmax2, Zmax), zeroMask) # negative for single best score, zero for two or more equally max scores, shape (N, U, 1)
+        #L = tf.square(L) # boost loss, now higher values are better
         
         # [ORIGINAL]
         #Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
@@ -327,14 +352,18 @@ class SpecificProfile(tf.keras.Model):
         #Z = tf.math.add(Zmul, Zdiv)
         
         # [ORIGINAL] use softmax to scale scores
-        Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
-        return Z
+        #Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
+        #return Z
+        
+        return L
     
     # custom loss
     def loss(self, Z):
         Z = self._loss_calculation(Z) #                                            shape (N, U, ntiles*(tile_size-k+1))
-        Z = tf.reduce_max(Z, axis=2) # single best score per genome and profile,   shape (N, U)
-        loss_by_unit = tf.reduce_sum(-Z, axis=0) / self.units # sum over genomes   shape (U)
+        Z = tf.squeeze(Z, axis=-1) # remove last dimenson (should be 1)            shape (N, U)
+        #Z = tf.reduce_max(Z, axis=2) # single best score per genome and profile,   shape (N, U)
+        #loss_by_unit = tf.reduce_sum(-Z, axis=0) / self.units # sum over genomes   shape (U)
+        loss_by_unit = tf.reduce_sum(Z, axis=0) / self.units # sum over genomes    shape (U)
         L = tf.reduce_sum(loss_by_unit) # sum over profiles=units
         
         #print("[DEBUG] Loss_Z before:", L)
@@ -359,15 +388,16 @@ class SpecificProfile(tf.keras.Model):
         return scores
     
     # return for each profile the loss contribution
-    def min_profile_losses(self, ds):
-        losses = tf.zeros([self.units], dtype=tf.float32)
+    def profile_losses(self, ds):
+        losses = tf.zeros([self.units, 0], dtype=tf.float32) # shape (U, 0)
         for batch, _ in ds:
             #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
             for X in batch:
                 assert len(X.shape) == 5, str(X.shape)
                 _, _, Z = self.call(X)
-                _, losses_by_unit = self.loss(Z)
-                losses += losses_by_unit
+                _, losses_by_unit = self.loss(Z) # shape (U)
+                #losses += losses_by_unit
+                losses = tf.concat([losses, tf.expand_dims(losses_by_unit, -1)], axis=1) # shape (U, x) (where x is number of batches*batch_size)
                                     
         return losses
     
@@ -408,7 +438,7 @@ class SpecificProfile(tf.keras.Model):
             Rmin, Rmax = float('inf'), float('-inf')
             ds_train = dsg.getDataset(genomes, tiles_per_X, tile_size).repeat().batch(batch_size).prefetch(prefetch)
             ds_eval = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(prefetch)
-            ds_seed = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
+            ds_loss = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
             ds_cleanup = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(prefetch)
             for batch, _ in ds_train:         # shape: (batchsize, ntiles, N, 6, tile_size, alphabet_size)
                 #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
@@ -443,7 +473,7 @@ class SpecificProfile(tf.keras.Model):
                         tau = match_score_factor * maxscores[p.numpy()]
                         print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
                         print("cleaning up profile", p.numpy(), "with threshold", tau.numpy())
-                        self.profile_cleanup(p, tau, genomes, ds_seed, ds_cleanup)
+                        self.profile_cleanup(p, tau, genomes, ds_loss, ds_cleanup)
                         profileHist = profileHistInit()
                     
             self.history['loss'].append(np.mean(Lb))
@@ -468,7 +498,8 @@ class SpecificProfile(tf.keras.Model):
             else:
                 run = (i < epochs)
 
-    def profile_cleanup(self, pIdx, threshold, genomes, ds_seed, ds_clean):
+    def profile_cleanup(self, pIdx, threshold, genomes, ds_loss, ds_clean):
+        losses = self.profile_losses(ds_loss)[pIdx,:] # shape (x) where x is batch_size * number of batches
         # "remove" match sites from genomes
         matches, _ = self.get_profile_match_sites(ds_clean, threshold, pIdx) # site: (genomeID, contigID, pos, u)
         #print("DEBUG >>> matches:", matches)
@@ -489,6 +520,7 @@ class SpecificProfile(tf.keras.Model):
         b = P[:,:,pIdx].numpy()
         self.P_report.append(b)
         self.P_report_thresold.append(threshold)
+        self.P_report_loss.append(tf.reduce_mean(losses).numpy())
         self.P_logit.assign(self.seed_P_genome(genomes)) # completely new set of seeds
 
     def seed_P_ds(self, ds):
@@ -543,30 +575,33 @@ class SpecificProfile(tf.keras.Model):
         return P_logit
     
     def seed_P_genome(self, genomes):
-        flatg = []
-        for seqs in genomes:
-            flatg.extend(seqs) # should be all references and thus no considerable memory overhead
-            
-        lensum = sum([len(s) for s in flatg])
-        weights = [len(s)/lensum for s in flatg]
-        weights = tf.nn.softmax(weights).numpy()
-        seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
-        
-        oneProfile_logit_like_Q = np.log(self.Q)
-        P_logit_init = np.zeros((self.k, self.alphabet_size, self.units), dtype=np.float32)
-        rho = 2.0
-        kdna = self.k * 3
-        for j in range(self.units):
-            i = seqs[j] # seq index
-            assert len(flatg[i]) > kdna, str(len(flatg[i]))
-            pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
-            aa = dsg.sequence_translation(flatg[i][pos:pos+kdna])
-            OH = dsg.oneHot(aa)
-            assert OH.shape == (self.k, self.alphabet_size), str(OH.shape)+" != "+str((self.k, self.alphabet_size))
-            seed = rho * OH + oneProfile_logit_like_Q
-            P_logit_init[:,:,j] = seed
-            
-        return P_logit_init
+        if True:
+            flatg = []
+            for seqs in genomes:
+                flatg.extend(seqs) # should be all references and thus no considerable memory overhead
+
+            lensum = sum([len(s) for s in flatg])
+            weights = [len(s)/lensum for s in flatg]
+            weights = tf.nn.softmax(weights).numpy()
+            seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
+
+            oneProfile_logit_like_Q = np.log(self.Q)
+            P_logit_init = np.zeros((self.k, self.alphabet_size, self.units), dtype=np.float32)
+            rho = 2.0
+            kdna = self.k * 3
+            for j in range(self.units):
+                i = seqs[j] # seq index
+                assert len(flatg[i]) > kdna, str(len(flatg[i]))
+                pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
+                aa = dsg.sequence_translation(flatg[i][pos:pos+kdna])
+                OH = dsg.oneHot(aa)
+                assert OH.shape == (self.k, self.alphabet_size), str(OH.shape)+" != "+str((self.k, self.alphabet_size))
+                seed = rho * OH + oneProfile_logit_like_Q
+                P_logit_init[:,:,j] = seed
+
+            return P_logit_init
+        else:
+            return self._getRandomProfiles()
                 
     def setP_logit(self, P_logit_init):
         self.P_logit = tf.Variable(P_logit_init, trainable=True, name="P_logit") 

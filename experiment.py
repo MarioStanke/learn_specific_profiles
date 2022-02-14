@@ -6,9 +6,6 @@ import matplotlib.pyplot as plt
 import model
 from PIL import Image, ImageDraw
 
-# Idee: einfach alle scores in eine Liste packen, dabei die scores ausschließen, die von nicht-sequenz positionen kommen
-#       (dataset generator entsprechend angepasst)
-
 # only get list of all loss scores without position information
 def getLossScores_raw(specProModel, pIdx, genomes, tiles_per_X, tile_size, batch_size, maskNonSeqScores = True, lossNorm = True):
     ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
@@ -189,55 +186,56 @@ def drawLossScores(pscores, rscores, genomes, N, insertTracking, repeatTracking,
             p = outmarg + (coordDict[i]['coord'] * pos)
             draw.ellipse((p-radius, coordDict[i]['y']-radius, p+radius, coordDict[i]['y']+radius), fill='red')
             
-    # indicate scores for perfect profiles at each position
-    pxScores = np.empty((N, max([int(np.floor(coordDict[i]['coord'] * len(genomes[i][0]))) for i in range(N)])), dtype=float) # score for each pixel (max binning)
-    pxScores[:,:] = np.NaN
-    ppxScores = np.array(pxScores, dtype=float)
-    rpxScores = np.array(pxScores, dtype=float)
-    for g in range(pxScores.shape[0]):
-        for j in range(pscores.shape[1]):
-            px = int(np.floor(coordDict[g]['coord'] * j))
-            if px < pxScores.shape[1]:
-                ppxScores[g,px] = np.nanmax([ppxScores[g,px], pscores[g,j]])
-                rpxScores[g,px] = np.nanmax([rpxScores[g,px], rscores[g,j]])
-            
-    minval = np.nanmin([ppxScores, rpxScores])
-    maxval = np.nanmax([ppxScores, rpxScores])
-    #minval = specProModel.k * (math.log(specProModel.epsilon))
-    #maxval = specProModel.k * (math.log(21))
-    if minval != maxval:
-        assert minval < maxval, str(minval)+" !< "+str(maxval)
-        def gradient(val):
-            if np.isnan(val):
-                return(0,0,0)
-            
-            assert val <= maxval, str(val)+" !<= "+str(maxval)
-            p = (val-minval) / (maxval-minval)
-            r = int(255 + (p * -255))
-            g = int(  0 + (p *  255))
-            b = 0
-            return (r,g,b)
+    if pscores is not None and rscores is not None:
+        # indicate scores for perfect profiles at each position
+        pxScores = np.empty((N, max([int(np.floor(coordDict[i]['coord'] * len(genomes[i][0]))) for i in range(N)])), dtype=float) # score for each pixel (max binning)
+        pxScores[:,:] = np.NaN
+        ppxScores = np.array(pxScores, dtype=float)
+        rpxScores = np.array(pxScores, dtype=float)
+        for g in range(pxScores.shape[0]):
+            for j in range(pscores.shape[1]):
+                px = int(np.floor(coordDict[g]['coord'] * j))
+                if px < pxScores.shape[1]:
+                    ppxScores[g,px] = np.nanmax([ppxScores[g,px], pscores[g,j]])
+                    rpxScores[g,px] = np.nanmax([rpxScores[g,px], rscores[g,j]])
 
-        for i in range(ppxScores.shape[0]):
-            for j in range(ppxScores.shape[1]):
-                x = j + outmarg
-                py = coordDict[i]['y'] + tileh + 1
-                ry = coordDict[i]['y'] + tileh + 4
-                draw.point((x, py), fill=gradient(ppxScores[i,j]))
-                draw.point((x, ry), fill=gradient(rpxScores[i,j]))
-                
-        # draw legend
-        ly = max([coordDict[i]['y'] for i in coordDict]) + gendist_y
-        lx = outmarg
-        draw.text((lx, ly+6), str(minval), fill='black')
-        vstep = (maxval-minval)/200
-        v = minval
-        while v <= maxval:
-            draw.point((lx, ly), fill=gradient(v))
-            lx += 1
-            v += vstep
-            
-        draw.text((lx, ly+6), str(maxval), fill='black')
+        minval = np.nanmin([ppxScores, rpxScores])
+        maxval = np.nanmax([ppxScores, rpxScores])
+        #minval = specProModel.k * (math.log(specProModel.epsilon))
+        #maxval = specProModel.k * (math.log(21))
+        if minval != maxval:
+            assert minval < maxval, str(minval)+" !< "+str(maxval)
+            def gradient(val):
+                if np.isnan(val):
+                    return(0,0,0)
+
+                assert val <= maxval, str(val)+" !<= "+str(maxval)
+                p = (val-minval) / (maxval-minval)
+                r = int(255 + (p * -255))
+                g = int(  0 + (p *  255))
+                b = 0
+                return (r,g,b)
+
+            for i in range(ppxScores.shape[0]):
+                for j in range(ppxScores.shape[1]):
+                    x = j + outmarg
+                    py = coordDict[i]['y'] + tileh + 1
+                    ry = coordDict[i]['y'] + tileh + 4
+                    draw.point((x, py), fill=gradient(ppxScores[i,j]))
+                    draw.point((x, ry), fill=gradient(rpxScores[i,j]))
+
+            # draw legend
+            ly = max([coordDict[i]['y'] for i in coordDict]) + gendist_y
+            lx = outmarg
+            draw.text((lx, ly+6), str(minval), fill='black')
+            vstep = (maxval-minval)/200
+            v = minval
+            while v <= maxval:
+                draw.point((lx, ly), fill=gradient(v))
+                lx += 1
+                v += vstep
+
+            draw.text((lx, ly+6), str(maxval), fill='black')
         
     im = im.resize((imgw*2, imgh*2))
     im.show()

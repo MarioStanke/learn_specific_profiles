@@ -7,6 +7,24 @@ import model
 from PIL import Image, ImageDraw
 
 # only get list of all loss scores without position information
+def getLosses(specProModel, pIdx, genomes, tiles_per_X, tile_size, batch_size):
+    ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
+    losses = list()
+    for X_b, posTrack_b in ds_score:
+        for b in range(X_b.shape[0]): # iterate samples in batch
+            X = X_b[b]                                                    # (tilesPerX, N, 6, T, 21)
+            posTrack = posTrack_b[b]                                      # (tilesPerX, N, 6, (genomeID, contigID, nt_startPos, aa_seqlen))
+            
+            _, _, Z = specProModel.call(X)                                # (tilesPerX, N, 6, T-k+1, U)
+            Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U=1) only single profile
+            Lgu, _ = specProModel._loss_calculation(Z)
+            losses.extend(list(Lgu.numpy()))
+            
+    return losses
+            
+            
+            
+# only get list of all loss scores without position information
 def getLossScores_raw(specProModel, pIdx, genomes, tiles_per_X, tile_size, batch_size, maskNonSeqScores = True, lossNorm = True):
     ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(3)
     scores = list()
@@ -16,7 +34,12 @@ def getLossScores_raw(specProModel, pIdx, genomes, tiles_per_X, tile_size, batch
             posTrack = posTrack_b[b]                                      # (tilesPerX, N, 6, (genomeID, contigID, nt_startPos, aa_seqlen))
             
             _, _, Z = specProModel.call(X)                                # (tilesPerX, N, 6, T-k+1, U)
-            Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U) only single profile
+            Z = Z[:,:,:,:,pIdx:(pIdx+1)]                                  # (tilesPerX, N, 6, T-k+1, U=1) only single profile
+            
+            Z = tf.reshape(Z, [-1])
+            scores.extend(list(Z.numpy()))
+            
+        if False:
             #print("[DEBUG] >>> Z.shape:", Z.shape)
             tilesPerX = Z.shape[0]
             N = Z.shape[1]
@@ -278,7 +301,7 @@ def ownHistRel(ls, binSize=None):
     vals[:] = [v/len(ls) for v in vals]
     return bins, vals
 
-def plotOwnHist(bins, vals, ylim=None, precision=None):
+def plotOwnHist(bins, vals, ylim=None, precision=None, title=None):
     if len(bins) > 1:
         if precision is None:
             binsize = bins[1] - bins[0]
@@ -299,4 +322,7 @@ def plotOwnHist(bins, vals, ylim=None, precision=None):
     ax.bar(x = range(len(bins)),
            height = vals,
            tick_label = bins)
+    if title is not None:
+        ax.set_title(title)
+        
     return fig, ax

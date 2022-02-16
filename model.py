@@ -183,9 +183,9 @@ class SpecificProfile(tf.keras.Model):
         return matches, scores
 
     
-    # return index of the profile that has the highest mean score of all scores in all tiles
+    # return index of the profile that has the lowest loss
     def get_best_profile(self, ds):
-        Ms = []
+        Ls = []
         for batch in ds:
             X = batch[0]        # (B, tilePerX, N, 6, tileSize, 21)
             posTrack = batch[1] # (B, tilePerX, N, 6, 4)
@@ -193,29 +193,23 @@ class SpecificProfile(tf.keras.Model):
             assert posTrack.shape != (1, 0), str(posTrack.shape)+" -- use batch dataset with position tracking!"
             assert X.shape[0:4] == posTrack.shape[0:4], str(X.shape)+" != "+str(posTrack.shape)
             for b in range(X.shape[0]): # iterate samples in batch
-                #S, _, _ = self.call(X[b])               # S: (ntiles, N, U)
-                #M = tf.reduce_mean(S, axis=[0,1])       #               (U), mean score of each profile
-                
                 _, _, Z = self.call(X[b])               # Z: (ntiles, N, 6, tile_size-k+1, U)
                 #Zl = self._loss_calculation(Z)          #    (N, U, ntiles*6*(tile_size-k+1))
-                #M = tf.reduce_mean(Zl, axis=[0,2])      #                                 (U), mean score of each profile
-                _, M = self.loss(Z)                     # (U)
+                #L = tf.reduce_mean(Zl, axis=[0,2])      #                                 (U), mean score of each profile
+                _, L = self.loss(Z)                     # (U)
 
                 W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # (tilePerX, N, f) -> -1 if contig was exhausted -> False if exhausted -> 1 for valid contig, 0 else
-                W1 = tf.multiply(tf.reduce_sum(W), tf.ones(shape = [self.units], dtype=tf.float32)) # weight for the means, shape (U)
-                Ms.append(tf.multiply(M, W1).numpy()) # store weighted means
+                W = tf.multiply(tf.reduce_sum(W), tf.ones(shape = [self.units], dtype=tf.float32)) # weight for the means, shape (U)
+                Ls.append(tf.multiply(L, W).numpy()) # store weighted losses
 
-                #if tf.reduce_any( tf.math.is_nan(S) ):
                 if tf.reduce_any( tf.math.is_nan(Z) ):
-                    #print("[DEBUG] >>> nan in S")
                     print("[DEBUG] >>> nan in Z")
                     print("[DEBUG] >>> M:", M)
                     print("[DEBUG] >>> W:", W)
                     print("[DEBUG] >>> W1:", W1)
                     print("[DEBUG] >>> Ms:", Ms)
 
-        B = tf.reduce_mean(Ms, axis=0) # get overall highest mean scores per profile
-        #return tf.argmax(B), tf.reduce_max(B) # index, mean score
+        B = tf.reduce_mean(Ls, axis=0) # get overall lowest mean loss per profile
         return tf.argmin(B), tf.reduce_min(B) # index, mean loss
 
     def getP(self):
@@ -286,9 +280,9 @@ class SpecificProfile(tf.keras.Model):
     #    L += (- self.alpha * tf.reduce_sum(tf.math.log(self.getP())))
     #    return L, loss_by_unit             # shape: (), (U)
     
+    # penalize multiple similarly good near-best matches in the same genome
     # input: Z from self.call(), shape (ntiles, N, 6, tile_size-k+1, U) // output: processed Z with shape (N, U, x) where x is the number of matches per genome and profile
     def _loss_calculation(self, Z):
-        # penalize multiple similarly good near-best matches in the same genome
         Z = tf.reduce_max(Z, axis=2) # reduce 6 frames,                                   shape (ntiles, N, tile_size-k+1, U)
         
         # [IDEA] two-step softmax: first tile-wise to penalize local repeats, then over all tiles as before
@@ -318,7 +312,7 @@ class SpecificProfile(tf.keras.Model):
         Z3 = tf.multiply(tf.math.divide_no_nan(Z3, Zmax), Zmin) # set previous max to min, rest zero
         Z2 = tf.add(Z2, Z3) # previous non-max values remain, previous max values are now set to min, shape (N, U, ntile*tile_size-k+1)
         # get second highest scores and calculate difference to max as loss
-        Zmax2 = tf.expand_dims(tf.reduce_max(Z2, axis=-1), -1)
+        Zmax2 = tf.expand_dims(tf.reduce_max(Z2, axis=-1), -1) #                                  shape (N, U, 1)
         L = tf.multiply(tf.subtract(Zmax2, Zmax), zeroMask) # negative for single best score, zero for two or more equally max scores, shape (N, U, 1)
         #L = tf.square(L) # boost loss, now higher values are better
         
@@ -355,15 +349,15 @@ class SpecificProfile(tf.keras.Model):
         #Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
         #return Z
         
-        return L
+        return L, Z
     
     # custom loss
     def loss(self, Z):
-        Z = self._loss_calculation(Z) #                                            shape (N, U, ntiles*(tile_size-k+1))
-        Z = tf.squeeze(Z, axis=-1) # remove last dimenson (should be 1)            shape (N, U)
+        Lgu, _ = self._loss_calculation(Z) #                                  shape (N, U, ntiles*(tile_size-k+1))
+        Lgu = tf.squeeze(Lgu, axis=-1) # remove last dimenson (should be 1)   shape (N, U)
         #Z = tf.reduce_max(Z, axis=2) # single best score per genome and profile,   shape (N, U)
         #loss_by_unit = tf.reduce_sum(-Z, axis=0) / self.units # sum over genomes   shape (U)
-        loss_by_unit = tf.reduce_sum(Z, axis=0) / self.units # sum over genomes    shape (U)
+        loss_by_unit = tf.reduce_sum(Lgu, axis=0) / self.units # sum over genomes   shape (U)
         L = tf.reduce_sum(loss_by_unit) # sum over profiles=units
         
         #print("[DEBUG] Loss_Z before:", L)
@@ -520,7 +514,8 @@ class SpecificProfile(tf.keras.Model):
         b = P[:,:,pIdx].numpy()
         self.P_report.append(b)
         self.P_report_thresold.append(threshold)
-        self.P_report_loss.append(tf.reduce_mean(losses).numpy())
+        #self.P_report_loss.append(tf.reduce_mean(losses).numpy())
+        self.P_report_loss.append(tf.reduce_min(losses).numpy())
         self.P_logit.assign(self.seed_P_genome(genomes)) # completely new set of seeds
 
     def seed_P_ds(self, ds):

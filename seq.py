@@ -9,17 +9,26 @@ import numpy as np
 # import own modules
 import sequtils as su
 
+# create a set of positions at which a new k-mer should not be inserted to avoid overlap
+def getForbiddenPositions(pos:list, k: int, slen: int):
+    fp = set()
+    for p in pos:
+        fp.update(list(range(max(0, p-k+1), min(p+k-1, slen))))
+        
+    return fp
+
 def insertPatternsToGenomes(patterns:list, genomes,
-                            N, genome_sizes, 
                             dna_alphabet,
                             mutationProb = 0, 
                             repeat = False, 
                             repeatMultiple = range(2,10), # if repeat, sample from this range to concatenate multiple repeat copies
                             repeatInsert = range(5,10),   # if repeat, sample from this range to insert multiple repeats
+                            forbiddenPositions = None,    # dict of dict of sets of positions at where no insert may start
                             verbose = False):
-    
     # dict of dicts of dict, for each genome, map each contig to a dict that collects insert positions and patterns
     tracking = dict([(i, dict([(j, {'pos': [], 'pattern': []}) for j in range(len(genomes[i]))])) for i in range(len(genomes))])
+    if forbiddenPositions is None:
+        forbiddenPositions = dict([(i, dict([(j, set()) for j in range(len(genomes[i]))])) for i in range(len(genomes))])
     
     dna_alphabet_size = len(dna_alphabet)
     for pattern in patterns:
@@ -30,7 +39,7 @@ def insertPatternsToGenomes(patterns:list, genomes,
         pattern = pattern*np.random.choice(repeatMultiple) if repeat else pattern
         assert pattern != '', "Pattern is empty, use at least range(1,2) for repeatMultiple!"
         plen = len(pattern)
-        for i in range(N):
+        for i in range(len(genomes)):
             # mutate pattern
             mutatedPattern = ""
             for (r,a) in enumerate(pattern):
@@ -48,14 +57,24 @@ def insertPatternsToGenomes(patterns:list, genomes,
                 else: # keep the original character
                     mutatedPattern += a
                     
+            assert len(mutatedPattern) == plen
+                    
             # insert mutated pattern in random place in genome under uniform distribution
-            relsizes = genome_sizes[i] / np.sum(genome_sizes[i])
+            seqsizes = [len(genomes[i][j]) for j in range(len(genomes[i]))]
+            relsizes = seqsizes / np.sum(seqsizes)
             ninserts = np.random.choice(repeatInsert) if repeat else 1
             for _ in range(ninserts):
                 # chose a random contig j proportional to its size
-                j = np.random.choice(a=range(len(genome_sizes[i])), p=relsizes)
+                j = np.random.choice(a=range(len(genomes[i])), p=relsizes)
                 # next, choose a random position in that contig
-                pos = np.random.choice(genome_sizes[i][j] - plen)
+                assert len(forbiddenPositions[i][j]) < len(genomes[i][j]), "Too many inserts for genome "+str(i)+" seq "+str(j)
+                foundPos = False
+                while not foundPos:
+                    pos = np.random.choice(len(genomes[i][j]) - plen)
+                    foundPos = pos not in forbiddenPositions[i][j]
+                    
+                forbiddenPositions[i][j].update(getForbiddenPositions([pos], plen, len(genomes[i][j]))) # make sure inserts do not overlap
+                
                 # replace the string starting at pos in genomes[i][j] with mutatedPattern
                 s = genomes[i][j]
                 genomes[i][j] = s[0:pos] + mutatedPattern + s[pos+plen:]
@@ -93,27 +112,35 @@ def getRandomGenomes(N, genome_sizes,
     
     repeatTracking = None
     if repeatPatterns is not None:
-        repeatTracking = insertPatternsToGenomes(repeatPatterns, 
-                                                 genomes, 
-                                                 N, 
-                                                 genome_sizes, 
-                                                 basic_dna_alphabet, 
-                                                 mutationProb*10, 
-                                                 True,
-                                                 repeatMultiple,
-                                                 repeatInsert,
-                                                 verbose)
+        repeatTracking = insertPatternsToGenomes(patterns=repeatPatterns, 
+                                                 genomes=genomes, 
+                                                 dna_alphabet=basic_dna_alphabet, 
+                                                 mutationProb=mutationProb*10, 
+                                                 repeat=True,
+                                                 repeatMultiple=repeatMultiple,
+                                                 repeatInsert=repeatInsert,
+                                                 verbose=verbose)
 
-    # insert relevant patterns
+    # insert relevant patterns, make sure no repeats are overwritten
     insertTracking = None
+    forbiddenPositions = None
+    if repeatTracking is not None:
+        forbiddenPositions = dict()
+        for i in repeatTracking:
+            forbiddenPositions[i] = dict()
+            for j in repeatTracking[i]:
+                forbiddenPositions[i][j] = set()
+                assert all([len(repeatTracking[i][j]['pattern'][l]) == len(repeatTracking[i][j]['pattern'][0]) for l in range(len(repeatTracking[i][j]['pattern']))])
+                forbiddenPositions[i][j].update(getForbiddenPositions(repeatTracking[i][j]['pos'],
+                                                                      len(repeatTracking[i][j]['pattern'][0]),
+                                                                      len(genomes[i][j])))
     if insertPatterns is not None:
-        insertTracking = insertPatternsToGenomes(insertPatterns, 
-                                                 genomes, 
-                                                 N, 
-                                                 genome_sizes, 
-                                                 basic_dna_alphabet, 
-                                                 mutationProb, 
-                                                 False, 
+        insertTracking = insertPatternsToGenomes(patterns=insertPatterns, 
+                                                 genomes=genomes, 
+                                                 dna_alphabet=basic_dna_alphabet, 
+                                                 mutationProb=mutationProb, 
+                                                 repeat=False, 
+                                                 forbiddenPositions=forbiddenPositions,
                                                  verbose = verbose)
 
         #for pattern in insertPatterns:

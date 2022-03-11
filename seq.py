@@ -21,7 +21,7 @@ def insertPatternsToGenomes(patterns:list, genomes,
             print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
             
         # if multiple, insert multiple copies of pattern
-        pattern = pattern*np.random.choice(range(2,10)) if repeat else pattern
+        #pattern = pattern*np.random.choice(range(2,10)) if repeat else pattern
         for i in range(N):
             # mutate pattern
             mutatedPattern = ""
@@ -78,7 +78,7 @@ def getRandomGenomes(N, genome_sizes,
            for i in range(N)]
     
     if repeatPatterns is not None:
-        insertPatternsToGenomes(repeatPatterns, genomes, N, genome_sizes, basic_dna_alphabet, mutationProb/10, True, verbose)
+        insertPatternsToGenomes(repeatPatterns, genomes, N, genome_sizes, basic_dna_alphabet, mutationProb, True, verbose)
     
     # insert relevant patterns
     if insertPatterns is not None:

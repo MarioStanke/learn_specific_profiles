@@ -51,7 +51,7 @@ def indexTensor(T, N, F, P, U):
 
 
 class SpecificProfile(tf.keras.Model):
-    def __init__(self, k, alphabet_size, units, Q, P_logit_init=None, alpha=1e-6, gamma=0.2, **kwargs):
+    def __init__(self, k, alphabet_size, units, Q, P_logit_init=None, alpha=1e-6, gamma=0.2, shift=0, **kwargs):
         super().__init__(**kwargs)
         
         self.Q = Q                         # shape: (alphabet_size)
@@ -62,6 +62,7 @@ class SpecificProfile(tf.keras.Model):
         self.epsilon = 1e-6
         
         self.k = k                         # shape: ()
+        self.s = shift                     # shape: ()
         self.alphabet_size = alphabet_size # shape: ()
         self.units = units                 # shape: ()
         self.history = {'loss': [],
@@ -83,7 +84,7 @@ class SpecificProfile(tf.keras.Model):
         Q2 = tf.expand_dims(Q1,-1)         # shape: (1, alphabet_size, 1)
         
         P_logit_like_Q = np.log(Q2.numpy())
-        P_logit_init = P_logit_like_Q + np.random.normal(scale=4., size=[self.k, self.alphabet_size, self.units]).astype('float32')
+        P_logit_init = P_logit_like_Q + np.random.normal(scale=4., size=[self.k+(2*self.s), self.alphabet_size, self.units]).astype('float32')
         return P_logit_init                # shape: (k, alphabet_size, U)
         
     # return for each (or one desired) profile match positions in the dataset, given a score threshold
@@ -494,6 +495,7 @@ class SpecificProfile(tf.keras.Model):
         rho = 2.0
         oneProfile_logit_like_Q = np.log(self.Q)
         P_logit_init = self._getRandomProfiles() # shape [k, alphabet_size, units]
+        ks = self.k + (2*self.s) # trained profile width (k +- shift)
         m = 0 # number of positions seen so far
         for batch, _ in ds:
             #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
@@ -501,7 +503,7 @@ class SpecificProfile(tf.keras.Model):
                 assert len(X.shape) == 5, str(X.shape)
                 X = X.numpy()                            # shape: (ntiles, N, 6, tile_size, alphabet_size)
                 PP = X.reshape([-1, self.alphabet_size]) # shape: (ntiles*N*6*tile_size, alphabet_size)
-                num_pos = PP.shape[0] - self.k           # ntiles*N*6*tile_size - k
+                num_pos = PP.shape[0] - ks               # ntiles*N*6*tile_size - ks
                 # PP[j,a] is 1 if the j-th character in an artificially concatenated sequence is char a
                 # the length k patterns extend over tile ends, which could be improved later
                 for j in range(num_pos):
@@ -513,7 +515,7 @@ class SpecificProfile(tf.keras.Model):
                     if i >= 0:
                         # replace i-th profile with a seed profile build from the pattern starting at position j
                         # Seed is the background distribution, except the observed k-mer at pos j is more likely
-                        seed = rho * PP[j:j+self.k,:] + oneProfile_logit_like_Q
+                        seed = rho * PP[j:j+ks,:] + oneProfile_logit_like_Q
                         P_logit_init[:,:,i] = seed
                     m += 1
 
@@ -521,7 +523,7 @@ class SpecificProfile(tf.keras.Model):
     
     def seed_P_triplets(self):
         self.units = self.alphabet_size ** 3
-        P_logit = np.zeros((self.k, self.alphabet_size, self.units), dtype=np.float32)
+        P_logit = np.zeros((self.k+(2*self.s), self.alphabet_size, self.units), dtype=np.float32)
         p = 0
         for i in range(self.alphabet_size):
             for j in range(self.alphabet_size):
@@ -546,18 +548,19 @@ class SpecificProfile(tf.keras.Model):
             weights = [len(s)/lensum for s in flatg]
             weights = tf.nn.softmax(weights).numpy()
             seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
+            ks = self.k + (2*self.s) # trained profile width (k +- shift)
 
             oneProfile_logit_like_Q = np.log(self.Q)
-            P_logit_init = np.zeros((self.k, self.alphabet_size, self.units), dtype=np.float32)
+            P_logit_init = np.zeros((ks, self.alphabet_size, self.units), dtype=np.float32)
             rho = 2.0
-            kdna = self.k * 3
+            kdna = ks * 3
             for j in range(self.units):
                 i = seqs[j] # seq index
                 assert len(flatg[i]) > kdna, str(len(flatg[i]))
                 pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
                 aa = dsg.sequence_translation(flatg[i][pos:pos+kdna])
                 OH = dsg.oneHot(aa)
-                assert OH.shape == (self.k, self.alphabet_size), str(OH.shape)+" != "+str((self.k, self.alphabet_size))
+                assert OH.shape == (ks, self.alphabet_size), str(OH.shape)+" != "+str((ks, self.alphabet_size))
                 seed = rho * OH + oneProfile_logit_like_Q
                 P_logit_init[:,:,j] = seed
 

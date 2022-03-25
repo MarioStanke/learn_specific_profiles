@@ -267,108 +267,6 @@ class SpecificProfile(tf.keras.Model):
         S = tf.reduce_max(Z, axis=[2,3])   # shape (ntiles, N, U)
         return S, R, Z
 
-    # custom loss
-    #def loss(self, S):
-    #    # penalize multiple similarly good near-best matches in the same genome
-    #    S1 = tf.nn.softmax(self.gamma*S, axis=0) # shape (ntiles, N, U)
-    #    S2 = tf.reduce_max(S1, axis=0) # the closer to 1, the clearer is the champion match a winner   shape (N, U)
-    #    S3 = tf.reduce_max(S, axis=0) # ranges over tiles, or soft max like in L1                      shape (N, U)
-    #    S4 = tf.math.multiply(S3, tf.square(S2)) # effectively the best score per genome is divided by the number of matches
-    #    loss_by_unit = tf.reduce_sum(-S4, axis=0) / self.units # sum over genomes                      shape (U)
-    #    L = tf.reduce_sum(loss_by_unit) # sum over profiles=units
-    #    
-    #    L += (- self.alpha * tf.reduce_sum(tf.math.log(self.getP())))
-    #    return L, loss_by_unit             # shape: (), (U)
-    
-    # penalize multiple similarly good near-best matches in the same genome
-    # input: Z from self.call(), shape (ntiles, N, 6, tile_size-k+1, U) // output: processed Z with shape (N, U, x) where x is the number of matches per genome and profile
-    def _loss_calculation(self, Z):
-        Z = tf.reduce_max(Z, axis=2) # reduce 6 frames,                                   shape (ntiles, N, tile_size-k+1, U)
-        
-        # [IDEA] two-step softmax: first tile-wise to penalize local repeats, then over all tiles as before
-        #Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
-        #Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute tile-wise softmax,           shape (N, U, ntiles, tile_size-k+1)
-        #Zsm = tf.square(Zsm) # boost softmax effect
-        #Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
-        #Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
-        #Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute softmax over all positions
-        #Zsm = tf.square(Zsm) # boost softmax effect
-        
-        # [IDEA] adapt single occurrence per genome-like requirement (see STREME) and use difference of best and second-best score as loss (the higher, the better)
-        Z = tf.transpose(Z, [1,3,0,2]) #                                                            shape (N, U, ntiles, tile_size-k+1)
-        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                           shape (N, U, ntiles*tile_size-k+1)
-        Zsm = tf.nn.softmax(self.gamma*Z, axis=-1) # compute softmax
-        Zsm = tf.square(Zsm) # boost softmax effect
-        Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
-        Zmax = tf.expand_dims(tf.reduce_max(Z, axis=-1), -1) #                                    shape (N, U, 1)
-        Zmin = tf.expand_dims(tf.reduce_min(Z, axis=-1), -1) #                                    shape (N, U, 1)
-        nMax = tf.expand_dims(tf.reduce_sum(tf.cast(tf.equal(Z, Zmax), tf.int32), axis=-1), -1) # shape (N, U, 1) (checking how many scores per genome and profile are equal Zmax)
-        zeroMask = tf.cast(tf.equal(nMax, 1), tf.float32) # boolean mask, False entries get 0 loss (as there were two or more equally max scores)
-        # now set previous max to minimal value to be able to get the second highest score
-        maxMask = tf.cast(tf.equal(Z, Zmax), tf.float32) # 1 for values == max, 0 otherwise,    shape (N, U, ntile*tile_size-k+1)
-        notMaxMask = tf.cast(tf.less(Z, Zmax), tf.float32) # 1 for values < max, 0 otherwise,   shape (N, U, ntile*tile_size-k+1)
-        Z2 = tf.multiply(Z, notMaxMask) # set previous max values to zero
-        Z3 = tf.multiply(Z, maxMask) # set all but previous max values to zero
-        Z3 = tf.multiply(tf.math.divide_no_nan(Z3, Zmax), Zmin) # set previous max to min, rest zero
-        Z2 = tf.add(Z2, Z3) # previous non-max values remain, previous max values are now set to min, shape (N, U, ntile*tile_size-k+1)
-        # get second highest scores and calculate difference to max as loss
-        Zmax2 = tf.expand_dims(tf.reduce_max(Z2, axis=-1), -1) #                                  shape (N, U, 1)
-        L = tf.multiply(tf.subtract(Zmax2, Zmax), zeroMask) # negative for single best score, zero for two or more equally max scores, shape (N, U, 1)
-        #L = tf.square(L) # boost loss, now higher values are better
-        
-        # [ORIGINAL]
-        #Z = tf.transpose(Z, [1,3,0,2]) #                                                  shape (N, U, ntiles, tile_size-k+1)
-        ##Z = tf.transpose(Z, [1,4,0,2, 3]) #                                               shape (N, U, ntiles, 6, tile_size-k+1)
-        #Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) #                                 shape (N, U, ntiles*(tile_size-k+1))
-        
-        # [IDEA] normalize scores for softmax
-        #mean = tf.reduce_mean(Z)
-        #stdv = tf.math.reduce_std(Z)
-        #Znorm = tf.math.multiply( tf.math.subtract(Z, mean), np.math.reciprocal_no_nan(stdv) )
-        
-        # [ORIGINAL]
-        #Zsm = tf.nn.softmax(self.gamma*Z, axis=2) # compute softmax over all positions,   shape (N, U, ntiles*(tile_size-k+1))
-        #Zsm = tf.square(Zsm) # boost softmax effect
-        
-        # [IDEA] minmax normalize softmax
-        #smmax = tf.expand_dims(tf.reduce_max(Zsm, axis=2), -1)                                  # shape (N, U, 1)
-        #smmin = tf.expand_dims(tf.reduce_min(Zsm, axis=2), -1)                                  # shape (N, U, 1)
-        #Zsm = tf.math.multiply( tf.math.subtract(Zsm, smmin), 
-        #                        tf.math.reciprocal_no_nan( tf.math.subtract(smmax, smmin) ) )   # shape (N, U, ntiles*(tile_size-k+1))
-        
-        # [IDEA] given softmax mean theshold, either multiply or divide scores by softmax
-        #smmean = tf.reduce_mean(Zsm, axis=2) # mean of softmax,                                   shape (N, U)
-        #smmeanThreshold = 0.05
-        #mulfmask = tf.cast(tf.greater_equal(smmean, smmeanThreshold), tf.float32) # 1. if softmax mean >= threshold, 0. else
-        #divfmask = tf.cast(tf.less(smmean, smmeanThreshold), tf.float32) # 1. if softmax mean < threshold, 0. else
-        #Zmul = tf.math.multiply(Zsm, tf.multiply(Z, tf.expand_dims(mulfmask, -1)))
-        #Zdiv = tf.math.multiply(tf.math.reciprocal_no_nan(Zsm), tf.multiply(Z, tf.expand_dims(divfmask, -1)))
-        #Z = tf.math.add(Zmul, Zdiv)
-        
-        # [ORIGINAL] use softmax to scale scores
-        #Z = tf.math.multiply(Z, Zsm) # effectively the scores are divided by the number of matches
-        #return Z
-        
-        return L, Z
-    
-    # custom loss
-    def loss_bak(self, Z):
-        Lgu, _ = self._loss_calculation(Z) #                                  shape (N, U, ntiles*(tile_size-k+1))
-        Lgu = tf.squeeze(Lgu, axis=-1) # remove last dimenson (should be 1)   shape (N, U)
-        #Z = tf.reduce_max(Z, axis=2) # single best score per genome and profile,   shape (N, U)
-        #loss_by_unit = tf.reduce_sum(-Z, axis=0) / self.units # sum over genomes   shape (U)
-        loss_by_unit = tf.reduce_sum(Lgu, axis=0) / self.units # sum over genomes   shape (U)
-        L = tf.reduce_sum(loss_by_unit) # sum over profiles=units
-        
-        #print("[DEBUG] Loss_Z before:", L)
-        #print("[DEBUG] sum log P:    ", tf.reduce_sum(tf.math.log(self.getP())))
-        #print("[DEBUG] alpha:        ", self.alpha)
-        #print("[DEBUG] norm:         ", (- self.alpha * tf.reduce_sum(tf.math.log(self.getP()))))
-        L += - self.alpha * tf.reduce_sum(tf.math.log(self.getP())) # penalize profile values close to zero
-        #print("[DEBUG] Loss_Z + norm:", L)
-        
-        return L, loss_by_unit             # shape: (), (U)
-    
     # Mario's loss
     def loss(self, Z):
         #print ("1st of loss calculation: Z.shape=", Z.shape)
@@ -386,7 +284,8 @@ class SpecificProfile(tf.keras.Model):
         loss_by_unit = -tf.math.reduce_max(Z, axis=-1)
         loss_by_unit = tf.reduce_sum(loss_by_unit, axis=0) # sum over genomes
         # print ("5th of loss calculation: loss_by_unit.shape=", loss_by_unit.shape)
-        loss = tf.reduce_sum(loss_by_unit) # sum over profiles=units
+        #loss = tf.reduce_sum(loss_by_unit) # sum over profiles=units
+        # ^^^ unused
         
         return score, loss_by_unit
 
@@ -433,20 +332,37 @@ class SpecificProfile(tf.keras.Model):
         grad = tape.gradient(negscore, self.P_logit)
         self.opt.apply_gradients([(grad, self.P_logit)])
         
-        return S, R, L
+        return S, R, negscore#L
 
     # Mario's training
     def train_ds(self, ds, steps_per_epoch, epochs, verbose=True):
         self.opt = tf.keras.optimizers.Adam(learning_rate=1.) # large learning rate is much faster
+        
+        Lb = []
+        Smin, Smax = float('inf'), float('-inf')
+        Rmin, Rmax = float('inf'), float('-inf')
+        
         for i in range(epochs):
             steps = 0
             for batch, _ in ds:
                 for X in batch:
-                    _, _, _ = self.train_step(X)
+                    S, R, L = self.train_step(X)
+                    
+                    Lb.append(L)
+                    Rmax = max(Rmax, tf.reduce_max(R).numpy())
+                    Rmin = min(Rmin, tf.reduce_min(R).numpy())
+                    Smax = max(Smax, tf.reduce_max(S).numpy())
+                    Smin = min(Smin, tf.reduce_min(S).numpy())
                     
                 steps += 1
                 if steps >= steps_per_epoch:
                     break
+                    
+            self.history['loss'].append(np.mean(Lb))
+            self.history['Rmax'].append(Rmax)
+            self.history['Rmin'].append(Rmin)
+            self.history['Smax'].append(Smax)
+            self.history['Smin'].append(Smin)
                     
             if verbose and (i%(25) == 0 or i==epochs-1):
                 S, R, Z = self(X)
@@ -454,8 +370,10 @@ class SpecificProfile(tf.keras.Model):
                 print(f"epoch {i:>5} score={score.numpy():.4f}" +
                       " max R: {:.3f}".format(tf.reduce_max(R).numpy()) +
                       " min R: {:.3f}".format((tf.reduce_min(R).numpy())))
+                
+            
     
-    def train_bak(self, genomes, tiles_per_X, tile_size, 
+    def train(self, genomes, tiles_per_X, tile_size, 
               batch_size, steps_per_epoch, epochs, prefetch=3,
               profile_plateau=5, profile_plateau_dev=1, match_score_factor=0.8,
               learning_rate=1.,

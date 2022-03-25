@@ -352,7 +352,7 @@ class SpecificProfile(tf.keras.Model):
         return L, Z
     
     # custom loss
-    def loss(self, Z):
+    def loss_bak(self, Z):
         Lgu, _ = self._loss_calculation(Z) #                                  shape (N, U, ntiles*(tile_size-k+1))
         Lgu = tf.squeeze(Lgu, axis=-1) # remove last dimenson (should be 1)   shape (N, U)
         #Z = tf.reduce_max(Z, axis=2) # single best score per genome and profile,   shape (N, U)
@@ -368,6 +368,27 @@ class SpecificProfile(tf.keras.Model):
         #print("[DEBUG] Loss_Z + norm:", L)
         
         return L, loss_by_unit             # shape: (), (U)
+    
+    # Mario's loss
+    def loss(self, Z):
+        #print ("1st of loss calculation: Z.shape=", Z.shape)
+        # shape of Z: ntiles x N x 6 x tile_size-k+1 x U 
+        S = tf.reduce_max(Z, axis=[0,2,3]) # N x U
+        score = tf.reduce_sum(S)
+        
+        Z = tf.transpose(Z, [1,4,0,2,3]) # shape N x U x ntiles x 6 x tile_size-k+1
+        # print ("2nd of loss calculation: Z.shape=", Z.shape)
+        Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1])
+        # print ("3rd of loss calculation: Z.shape=", Z.shape, "\n", tf.reduce_max(Z, axis=[-1]))
+        Zsm = tf.nn.softmax(Z, axis=-1) # compute softmax
+        Z = tf.math.multiply(Z, Zsm)
+        # print ("4th of loss calculation: Z.shape=", Z.shape, "\n", tf.reduce_max(Z, axis=[-1]))
+        loss_by_unit = -tf.math.reduce_max(Z, axis=-1)
+        loss_by_unit = tf.reduce_sum(loss_by_unit, axis=0) # sum over genomes
+        # print ("5th of loss calculation: loss_by_unit.shape=", loss_by_unit.shape)
+        loss = tf.reduce_sum(loss_by_unit) # sum over profiles=units
+        
+        return score, loss_by_unit
 
     # return for each profile the best score at any position in the dataset
     def max_profile_scores(self, ds):
@@ -395,18 +416,46 @@ class SpecificProfile(tf.keras.Model):
                                     
         return losses
     
+    def min_profile_losses(self, ds):
+        lossesPerBatch = self.profile_losses(ds)        # (U, x)
+        losses = tf.reduce_sum(lossesPerBatch, axis=-1) # (U)
+        return losses
+    
     @tf.function()
     def train_step(self, X):
         with tf.GradientTape() as tape:
             S, R, Z = self.call(X)
             L, _ = self.loss(Z)
+            # Mario's loss
+            negscore = -L
 
-        grad = tape.gradient(L, self.P_logit)
+        #grad = tape.gradient(L, self.P_logit)
+        grad = tape.gradient(negscore, self.P_logit)
         self.opt.apply_gradients([(grad, self.P_logit)])
         
         return S, R, L
 
-    def train(self, genomes, tiles_per_X, tile_size, 
+    # Mario's training
+    def train_ds(self, ds, steps_per_epoch, epochs, verbose=True):
+        self.opt = tf.keras.optimizers.Adam(learning_rate=1.) # large learning rate is much faster
+        for i in range(epochs):
+            steps = 0
+            for batch, _ in ds:
+                for X in batch:
+                    _, _, _ = self.train_step(X)
+                    
+                steps += 1
+                if steps >= steps_per_epoch:
+                    break
+                    
+            if verbose and (i%(25) == 0 or i==epochs-1):
+                S, R, Z = self(X)
+                score, _ = self.loss(Z)
+                print(f"epoch {i:>5} score={score.numpy():.4f}" +
+                      " max R: {:.3f}".format(tf.reduce_max(R).numpy()) +
+                      " min R: {:.3f}".format((tf.reduce_min(R).numpy())))
+    
+    def train_bak(self, genomes, tiles_per_X, tile_size, 
               batch_size, steps_per_epoch, epochs, prefetch=3,
               profile_plateau=5, profile_plateau_dev=1, match_score_factor=0.8,
               learning_rate=1.,

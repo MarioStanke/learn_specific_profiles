@@ -76,8 +76,11 @@ class SpecificProfile(tf.keras.Model):
                 
         self.setP_logit(P_logit_init)      # shape: (k, alphabet_size, U)
         self.P_report = []
+        self.P_report_whole = []
         self.P_report_thresold = []
         self.P_report_loss = []
+        self.P_report_masked_sites = []
+        self.P_report_kmer_scores = []
         
     def _getRandomProfiles(self):
         Q1 = tf.expand_dims(self.Q,0)
@@ -88,7 +91,7 @@ class SpecificProfile(tf.keras.Model):
         return P_logit_init                # shape: (k, alphabet_size, U)
         
     # return for each (or one desired) profile match positions in the dataset, given a score threshold
-    def get_profile_match_sites(self, ds, score_threshold, pIdx = None):
+    def get_profile_match_sites(self, ds, score_threshold, pIdx = None, otherP = None):
         matches = None
         scores = None
         for batch in ds:
@@ -102,7 +105,7 @@ class SpecificProfile(tf.keras.Model):
             for b in range(X_b.shape[0]): # iterate samples in batch
                 X = X_b[b]
                 posTrack = posTrack_b[b]                                           # (tilePerX, N, 6, (genomeID, contigID, startPos, aa_seqlen))
-                _, _, Z = self.call(X)                                             # (tilePerX, N, 6, T-k+1, U)
+                _, _, Z = self.call(X, otherP)                                     # (tilePerX, N, 6, T-k+1, U)
                 if pIdx is not None:
                     Z = Z[:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
                 
@@ -225,8 +228,13 @@ class SpecificProfile(tf.keras.Model):
         P = tf.nn.softmax(self.getP_report_raw(), axis=1, name="P_report")
         return P, self.P_report_thresold, self.P_report_loss
     
-    def getR(self):
-        P = self.getP()
+    def getP_report_whole(self):
+        P = tf.transpose(self.P_report_whole, [1,2,0]) # shape: (k, alphabet_size, -1)
+        P = tf.nn.softmax(P, axis=1, name="P_report_whole")
+        return P
+    
+    def getR(self, otherP = None):
+        P = self.getP() if otherP is None else otherP
         Q1 = tf.expand_dims(self.Q,0)
         Q2 = tf.expand_dims(Q1,-1)
         # Limit the odds-ratio, to prevent problem with log(0).
@@ -240,8 +248,8 @@ class SpecificProfile(tf.keras.Model):
             
         return R                                 # shape: (k, alphabet_size, U)
     
-    def getZ(self, X):
-        R = self.getR()
+    def getZ(self, X, otherP = None):
+        R = self.getR(otherP)
 
         X1 = tf.expand_dims(X,-1) # 1 input channel   shape: (ntiles, N, 6, tile_size, alphabet_size, 1)
         R1 = tf.expand_dims(R,-2) # 1 input channel   shape: (k, alphabet_size, 1, U)
@@ -262,8 +270,8 @@ class SpecificProfile(tf.keras.Model):
         
         return Z, R
         
-    def call(self, X):
-        Z, R = self.getZ(X)
+    def call(self, X, otherP = None):
+        Z, R = self.getZ(X, otherP)
 
         S = tf.reduce_max(Z, axis=[2,3])   # shape (ntiles, N, U)
         return S, R, Z
@@ -291,34 +299,36 @@ class SpecificProfile(tf.keras.Model):
         return score, loss_by_unit
 
     # return for each profile the best score at any position in the dataset
-    def max_profile_scores(self, ds):
-        scores = tf.ones([self.units], dtype=tf.float32) * -np.infty
+    def max_profile_scores(self, ds, otherP = None):
+        U = self.units if otherP is None else otherP.shape[-1]
+        scores = tf.ones([U], dtype=tf.float32) * -np.infty
         for batch, _ in ds:
             #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
             for X in batch:
                 assert len(X.shape) == 5, str(X.shape)
-                S, _, _ = self.call(X)                                    # shape (ntiles, N, U)
+                S, _, _ = self.call(X, otherP)                            # shape (ntiles, N, U)
                 scores = tf.maximum(tf.reduce_max(S, axis=(0,1)), scores) # shape (U)
                                     
         return scores
     
     # return for each profile the loss contribution
-    def profile_losses(self, ds):
-        losses = tf.zeros([self.units, 0], dtype=tf.float32) # shape (U, 0)
+    def profile_losses(self, ds, otherP = None):
+        U = self.units if otherP is None else otherP.shape[-1]
+        losses = tf.zeros([U, 0], dtype=tf.float32) # shape (U, 0)
         for batch, _ in ds:
             #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
             for X in batch:
                 assert len(X.shape) == 5, str(X.shape)
-                _, _, Z = self.call(X)
+                _, _, Z = self.call(X, otherP)
                 _, losses_by_unit = self.loss(Z) # shape (U)
                 #losses += losses_by_unit
                 losses = tf.concat([losses, tf.expand_dims(losses_by_unit, -1)], axis=1) # shape (U, x) (where x is number of batches*batch_size)
                                     
         return losses
     
-    def min_profile_losses(self, ds):
-        lossesPerBatch = self.profile_losses(ds)        # (U, x)
-        losses = tf.reduce_sum(lossesPerBatch, axis=-1) # (U)
+    def min_profile_losses(self, ds, otherP = None):
+        lossesPerBatch = self.profile_losses(ds, otherP)   # (U, x)
+        losses = tf.reduce_sum(lossesPerBatch, axis=-1)    # (U)
         return losses
     
     @tf.function()
@@ -433,11 +443,12 @@ class SpecificProfile(tf.keras.Model):
                     if all(np.logical_and(profileHist['score'] >= sm-profile_plateau_dev,
                                           profileHist['score'] <= sm+profile_plateau_dev)):
                         #ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
-                        maxscores = self.max_profile_scores(dsHelper.getDataset())
-                        tau = match_score_factor * maxscores[p.numpy()]
+                        #maxscores = self.max_profile_scores(dsHelper.getDataset())
+                        #tau = match_score_factor * maxscores[p.numpy()]
                         print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
-                        print("cleaning up profile", p.numpy(), "with threshold", tau.numpy())
-                        self.profile_cleanup(p, tau, dsHelper)# genomes, ds_loss, ds_cleanup)
+                        print("cleaning up profile", p.numpy())#, "with threshold", tau.numpy())
+                        #self.profile_cleanup_bak(p, tau, dsHelper)
+                        self.profile_cleanup(p, match_score_factor, dsHelper)
                         profileHist = profileHistInit()
                     
             self.history['loss'].append(np.mean(Lb))
@@ -463,7 +474,7 @@ class SpecificProfile(tf.keras.Model):
                 run = (i < epochs)
 
     # old way without shift
-    def profile_cleanup(self, pIdx, threshold, dsHelper):
+    def profile_cleanup_bak(self, pIdx, threshold, dsHelper):
         losses = self.profile_losses(dsHelper.getDataset())[pIdx,:] # shape (x) where x is batch_size * number of batches
         # "remove" match sites from genomes
         matches, _ = self.get_profile_match_sites(dsHelper.getDataset(withPosTracking = True), 
@@ -491,35 +502,44 @@ class SpecificProfile(tf.keras.Model):
         self.P_report_loss.append(tf.reduce_min(losses).numpy())
         self.P_logit.assign(self.seed_P_genome(genomes)) # completely new set of seeds
         
-    def profile_cleanup_new(self, pIdx, match_score_factor, dsHelper):
+    def profile_cleanup(self, pIdx, match_score_factor, dsHelper):
         # get ks-mer, extract all k-mers, temporarily set k-mers as new profiles
         P = self.P_logit # shape: (k, alphabet_size, U)
         b = P[:,:,pIdx].numpy()
-        Pk = np.empty(shape=(self.k, self.alphabet_size, (2*self.shift)+1), dtype=np.float)
+        Pk_logit = np.empty(shape=(self.k, self.alphabet_size, (2*self.s)+1), dtype=np.float32)
         for s in range(b.shape[0]-self.k+1):
-            Pk[:,:,s] = b[s:(s+self.k),:]
+            Pk_logit[:,:,s] = b[s:(s+self.k),:]
             
-        self.P_logit.assign(Pk)
-        Ubak = self.units
-        self.units = Pk.shape[2]
+        Pk = tf.nn.softmax(Pk_logit, axis=1, name="Pk")
+        #self.P_logit.assign(Pk)
+        #Ubak = self.units
+        #self.units = Pk.shape[2]
         
         # get best k-mer and report (unless it is the first or last k-mer when shit > 0)
         genomes = dsHelper.genomes
-        losses = self.min_profile_losses(dsHelper.getDataset())   # (U)
-        bestIdx = tf.math.argmin(losses, axis=0).numpy()
-        if bestIdx not in [0, Pk.shape[2]-1] or self.shift == 0:
-            threshold = match_score_factor * self.max_profile_scores(dsHelper.getDataset())[bestIdx]
-            minloss = tf.reduce_min(self.profile_losses(dsHelper.getDataset())[bestIdx,:]).numpy()
+        #losses = self.min_profile_losses(dsHelper.getDataset(), otherP = Pk)   # (U)
+        #bestIdx = tf.math.argmin(losses, axis=0).numpy()
+        scores = self.max_profile_scores(dsHelper.getDataset(), otherP = Pk)   # (U)
+        bestIdx = tf.math.argmax(scores, axis=0).numpy()
+        if bestIdx not in [0, Pk.shape[2]-1] or self.s == 0:
+            #threshold = match_score_factor * self.max_profile_scores(dsHelper.getDataset(), otherP = Pk)[bestIdx]
+            threshold = match_score_factor * scores[bestIdx]
+            minloss = tf.reduce_min(self.profile_losses(dsHelper.getDataset(), otherP = Pk)[bestIdx,:]).numpy()
             # "remove" match sites from genomes
             matches, _ = self.get_profile_match_sites(dsHelper.getDataset(withPosTracking = True), 
-                                                      threshold, bestIdx) # site: (genomeID, contigID, pos, u)
+                                                      threshold, bestIdx, otherP = Pk) # site: (genomeID, contigID, pos, u)
             #print("DEBUG >>> matches:", matches)
+            reportSites = []
             for site in matches:
                 #print("DEBUG >>> site:", site)
                 g = site[0]
                 c = site[1]
                 a = site[2]
                 b = a+(self.k*3)
+                
+                # [DEBUG] report matched sites for each reported profile
+                reportSites.append((dsg.sequence_translation(genomes[g][c][a:b].upper()), g, c, a, b))
+                
                 if a >= 0 and b <= len(genomes[g][c]):
                     #print("DEBUG >>>  pre:", genomes[g][c][:a])
                     #print("DEBUG >>>  new:", genomes[g][c][a:b].lower())
@@ -527,13 +547,17 @@ class SpecificProfile(tf.keras.Model):
                     genomes[g][c] = genomes[g][c][:a]+genomes[g][c][a:b].lower()+genomes[g][c][b:] # mask match
 
             # report profile, get new seeds
-            self.P_report.append(Pk[:,:,bestIdx])
+            self.P_report.append(Pk_logit[:,:,bestIdx])
+            self.P_report_whole.append(P[:,:,pIdx])
             self.P_report_thresold.append(threshold)
             #self.P_report_loss.append(tf.reduce_mean(losses).numpy())
             self.P_report_loss.append(minloss)
+            self.P_report_masked_sites.append(reportSites)
+            #self.P_report_kmer_losses.append(losses)
+            self.P_report_kmer_scores.append(scores)
 
         # reset profiles
-        self.units = Ubak
+        #self.units = Ubak
         self.P_logit.assign(self.seed_P_genome(genomes)) # completely new set of seeds
 
     def seed_P_ds(self, ds):

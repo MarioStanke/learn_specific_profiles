@@ -100,6 +100,17 @@ class SpecificProfile(tf.keras.Model):
         
     # return for each (or one desired) profile match positions in the dataset, given a score threshold
     def get_profile_match_sites(self, ds, score_threshold, pIdx = None, otherP = None):
+        #print("[DEBUG] >>> score_threshold:", score_threshold)
+        #print("[DEBUG] >>> pIdx:", pIdx)
+        #if otherP is not None:
+        #    print("[DEBUG] >>> otherP.shape:", otherP.shape)
+        
+        score_threshold = tf.convert_to_tensor(score_threshold)
+        if otherP is not None:
+            assert score_threshold.shape in [(1), (otherP.shape[-1])], str(score_threshold.shape)
+        else:
+            assert score_threshold.shape in [(1), (self.P_logit.shape[-1])], str(score_threshold.shape)
+            
         matches = None
         scores = None
         for batch in ds:
@@ -122,7 +133,14 @@ class SpecificProfile(tf.keras.Model):
 
                 # collapse genome and tile dimensions
                 Z = tf.reshape(Z, [-1, Z.shape[-3], Z.shape[-2], Z.shape[-1]])     # (tilesPerX*N, 6, T-k+1, U)
+                #print("[DEBUG] >>> Z.shape:", Z.shape)
+                #print("[DEBUG] >>> score_threshold.shape:", score_threshold.shape)
+                if score_threshold.shape != (1):
+                    score_threshold = tf.broadcast_to(score_threshold, Z.shape)    # (tilesPerX*N, 6, T-k+1, U)
+                #print("[DEBUG] >>> score_threshold.shape:", score_threshold.shape)
                 M = tf.greater_equal(Z, score_threshold)                           # (tilesPerX*N, 6, T-k+1, U), >>> consider match if score >= threshold <<<
+                #print("[DEBUG] >>> M.shape:", M.shape)
+                #print("[DEBUG] >>> M reduce any:", tf.reduce_any(M))
                 T = tf.reshape(posTrack, [-1, 6, pTdim])                           # (tilesPerX*N, 6, (genomeID, contigID, startPos, aa_seqlen))
                 Idx = tf.reshape(Idx, [-1, Idx.shape[-4], Idx.shape[-3], 
                                            Idx.shape[-2], Idx.shape[-1]])          # (tilesPerX*N, 6, T-k+1, U, (f,r,u))
@@ -251,6 +269,7 @@ class SpecificProfile(tf.keras.Model):
         pLosses = self.min_profile_losses(dsHelper.getDataset())
         mask = tf.less_equal(pLosses, loss_threshold)
         P = tf.boolean_mask(self.P_logit, mask, axis=2)   # (k+2s, alphabet_size, -1)
+        P = tf.nn.softmax(P, axis=1)
         U = P.shape[-1]
         
         # Extract k-profiles from P
@@ -287,13 +306,13 @@ class SpecificProfile(tf.keras.Model):
         #print("[DEBUG] >>> gathered P2 shape:", P2.shape)
         P2 = tf.transpose(P2, [1,2,0]) # (k, alphabet_size, U*)
         #print("[DEBUG] >>> transposed P2 shape:", P2.shape)
-        P2 = tf.nn.softmax(P2, axis=1)
         
         return P2, scores, losses
         
         
         
     def getR(self, otherP = None):
+        """ otherP must be _softmaxed_, don't pass the logits """
         P = self.getP() if otherP is None else otherP
         Q1 = tf.expand_dims(self.Q,0)
         Q2 = tf.expand_dims(Q1,-1)

@@ -259,7 +259,7 @@ def backGroundAAFreqs(genomes, verbose:bool = False):
             for frame in range(6):
                 aa_seq = aa_seqs[frame]
                 x = su.to_idx(aa_seq)
-                Q += I[x].sum(axis=0)[1:]
+                Q += I[x].sum(axis=0)[1:] # skip missing AA (' ')
     sum = Q.sum()
     if sum > 0:
         Q /= Q.sum()

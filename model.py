@@ -425,8 +425,8 @@ class SpecificProfile(tf.keras.Model):
         return S, R, negscore
 
     # Mario's training
-    def train_ds(self, ds, steps_per_epoch, epochs, verbose=True):
-        self.opt = tf.keras.optimizers.Adam(learning_rate=1.) # large learning rate is much faster
+    def train_ds(self, ds, steps_per_epoch, epochs, learning_rate=1., verbose=True):
+        self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate) # large learning rate is much faster
         
         Lb = []
         Smin, Smax = float('inf'), float('-inf')
@@ -482,19 +482,13 @@ class SpecificProfile(tf.keras.Model):
         profileHist = profileHistInit()
         run = True
         while run:
-        #for i in range(epochs):
             steps = 0
             Lb = []
             Smin, Smax = float('inf'), float('-inf')
             Rmin, Rmax = float('inf'), float('-inf')
-            #ds_train = dsg.getDataset(genomes, tiles_per_X, tile_size).repeat().batch(batch_size).prefetch(prefetch)
-            #ds_eval = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(prefetch)
-            #ds_loss = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
-            #ds_cleanup = dsg.getDataset(genomes, tiles_per_X, tile_size, True).batch(batch_size).prefetch(prefetch)
             ds_train = dsHelper.getDataset(repeat = True)
             ds_eval = dsHelper.getDataset(withPosTracking = True)
             for batch, _ in ds_train:         # shape: (batchsize, ntiles, N, 6, tile_size, alphabet_size)
-                #assert len(batch.shape) == 6, str(batch.shape)+" -- use batch dataset without position tracking!"
                 for X in batch:            # shape: (ntiles, N, 6, tile_size, alphabet_size)
                     assert len(X.shape) == 5, str(X.shape)
                     #print("[DEBUG] >>> performing train_step")
@@ -521,12 +515,8 @@ class SpecificProfile(tf.keras.Model):
                     sm = np.mean(profileHist['score'])
                     if all(np.logical_and(profileHist['score'] >= sm-profile_plateau_dev,
                                           profileHist['score'] <= sm+profile_plateau_dev)):
-                        #ds_score = dsg.getDataset(genomes, tiles_per_X, tile_size).batch(batch_size).prefetch(prefetch)
-                        #maxscores = self.max_profile_scores(dsHelper.getDataset())
-                        #tau = match_score_factor * maxscores[p.numpy()]
                         print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
-                        print("cleaning up profile", p.numpy())#, "with threshold", tau.numpy())
-                        #self.profile_cleanup_bak(p, tau, dsHelper)
+                        print("cleaning up profile", p.numpy())
                         self.profile_cleanup(p, match_score_factor, dsHelper)
                         profileHist = profileHistInit()
                     
@@ -701,7 +691,7 @@ class SpecificProfile(tf.keras.Model):
                     
         return P_logit
     
-    def seed_P_genome(self, genomes):
+    def seed_P_genome(self, genomes, rho=2.0, sigma=0.1):
         if True:
             flatg = []
             for seqs in genomes:
@@ -715,7 +705,7 @@ class SpecificProfile(tf.keras.Model):
 
             oneProfile_logit_like_Q = np.log(self.Q)
             P_logit_init = np.zeros((ks, self.alphabet_size, self.units), dtype=np.float32)
-            rho = 2.0
+            #rho = 2.0
             kdna = ks * 3
             for j in range(self.units):
                 i = seqs[j] # seq index
@@ -724,7 +714,7 @@ class SpecificProfile(tf.keras.Model):
                 aa = dsg.sequence_translation(flatg[i][pos:pos+kdna])
                 OH = dsg.oneHot(aa)
                 assert OH.shape == (ks, self.alphabet_size), str(OH.shape)+" != "+str((ks, self.alphabet_size))
-                seed = rho * OH + oneProfile_logit_like_Q
+                seed = rho * OH + oneProfile_logit_like_Q + np.random.normal(scale=sigma, size=OH.shape)
                 P_logit_init[:,:,j] = seed
 
             return P_logit_init

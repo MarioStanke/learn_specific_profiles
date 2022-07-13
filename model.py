@@ -112,6 +112,10 @@ class SpecificProfile(tf.keras.Model):
                 
         self.P_report_kmer_scores = []
         
+        self.P_report_plosshist = None
+        self.P_report_bestlosshist = []
+        self.P_report_bestlosshistIdx = []
+        
         
         
     def _getRandomProfiles(self):
@@ -292,8 +296,15 @@ class SpecificProfile(tf.keras.Model):
                     print("[DEBUG] >>> W:", W)
                     print("[DEBUG] >>> W1:", W1)
                     print("[DEBUG] >>> Ms:", Ms)
-
+                    
         B = tf.reduce_mean(Ls, axis=0) # get overall lowest mean loss per profile
+        
+        # [DEBUG] track profile losses over time
+        if self.P_report_plosshist is None:
+            self.P_report_plosshist = tf.reshape(B, (1,-1))
+        else:
+            self.P_report_plosshist =  tf.concat([self.P_report_plosshist, tf.reshape(B, (1,-1))], axis=0)
+        
         return tf.argmin(B), tf.reduce_min(B) # index, mean loss
 
     def getP(self):
@@ -539,7 +550,8 @@ class SpecificProfile(tf.keras.Model):
     def train_reporting(self, genomes, dsHelper, steps_per_epoch, epochs,
                         profile_plateau=5, profile_plateau_dev=1, match_score_factor=0.8,
                         learning_rate=1., n_best_profiles=None, verbose=True, verbose_freq=100):
-        self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate) # large learning rate is much faster
+        learning_rate_init = float(learning_rate)
+        self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate_init) # large learning rate is much faster
 
         def profileHistInit():
             return {
@@ -547,6 +559,21 @@ class SpecificProfile(tf.keras.Model):
                 'score': np.ndarray([profile_plateau], dtype=np.int),
                 'i': 0,
                 'c': 0}
+        
+        def setLR(learning_rate):
+            print("[DEBUG] >>> Setting learning rate to", learning_rate)
+            self.opt.learning_rate.assign(learning_rate)
+            
+        def reduceLR(learning_rate, patience=5, factor=0.75):
+            if len(self.history['loss']) > patience:
+                lastmin = self.history['loss'][-(patience+1)]
+                if not any([l < lastmin for l in self.history['loss'][-patience:]]):
+                    print("[INFO] >>> Learning rate did not decrease for", patience, "epochs, reducing from", learning_rate, "to", factor*learning_rate)
+                    learning_rate *= factor
+                    #self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+                    setLR(learning_rate)
+                    
+            return learning_rate
 
         tstart = time()
         i = 0
@@ -577,6 +604,11 @@ class SpecificProfile(tf.keras.Model):
                     break
                     
             p, s = self.get_best_profile(ds_eval)
+            
+            # [DEBUG]
+            self.P_report_bestlosshist.append(s)
+            self.P_report_bestlosshistIdx.append(p)
+            
             #print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
             profileHist['idx'][profileHist['i']] = p
             profileHist['score'][profileHist['i']] = s.numpy()
@@ -585,8 +617,10 @@ class SpecificProfile(tf.keras.Model):
             if profileHist['c'] >= profile_plateau:
                 if all(profileHist['idx'] == p):
                     sm = np.mean(profileHist['score'])
-                    if all(np.logical_and(profileHist['score'] >= sm-profile_plateau_dev,
-                                          profileHist['score'] <= sm+profile_plateau_dev)):
+                    sd = np.std(profileHist['score'])
+                    #if all(np.logical_and(profileHist['score'] >= sm-profile_plateau_dev,
+                    #                      profileHist['score'] <= sm+profile_plateau_dev)):
+                    if sd <= profile_plateau_dev:
                         print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
                         print("cleaning up profile", p.numpy())
                         edgeCase = self.profile_cleanup(p, match_score_factor, dsHelper)
@@ -595,7 +629,11 @@ class SpecificProfile(tf.keras.Model):
                         else:
                             edgeCaseCounter = 0
                             
+                        # reset training
+                        print("[DEBUG] >>> Resetting training")
                         profileHist = profileHistInit()
+                        setLR(learning_rate_init)
+                        learning_rate = learning_rate_init
                     
             self.history['loss'].append(np.mean(Lb))
             self.history['Rmax'].append(Rmax)
@@ -621,6 +659,8 @@ class SpecificProfile(tf.keras.Model):
                     run = False
             else:
                 run = (i < epochs)
+                
+            learning_rate = reduceLR(learning_rate)
 
                 
                 

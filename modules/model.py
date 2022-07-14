@@ -89,7 +89,8 @@ class SpecificProfile(tf.keras.Model):
                         'Rmax': [],
                         'Rmin': [],
                         'Smax': [],
-                        'Smin': []}
+                        'Smin': [],
+                        'learning rate': []}
         
         if P_logit_init is None:
             P_logit_init = self._getRandomProfiles()
@@ -292,10 +293,10 @@ class SpecificProfile(tf.keras.Model):
 
                 if tf.reduce_any( tf.math.is_nan(Z) ):
                     print("[DEBUG] >>> nan in Z")
-                    print("[DEBUG] >>> M:", M)
+                    #print("[DEBUG] >>> M:", M)
                     print("[DEBUG] >>> W:", W)
-                    print("[DEBUG] >>> W1:", W1)
-                    print("[DEBUG] >>> Ms:", Ms)
+                    #print("[DEBUG] >>> W1:", W1)
+                    #print("[DEBUG] >>> Ms:", Ms)
                     
         B = tf.reduce_mean(Ls, axis=0) # get overall lowest mean loss per profile
         
@@ -312,10 +313,16 @@ class SpecificProfile(tf.keras.Model):
         return P                                 # shape: (k, alphabet_size, U)
 
     def getP_report_raw(self):
+        if len(self.P_report) == 0:
+            return None
+
         P = tf.transpose(self.P_report, [1,2,0]) # shape: (k, alphabet_size, -1)
         return P
     
     def getP_report(self):
+        if len(self.P_report) == 0:
+            return None, None, None
+            
         P = tf.nn.softmax(self.getP_report_raw(), axis=1, name="P_report")
         return P, self.P_report_thresold, self.P_report_loss
     
@@ -537,6 +544,7 @@ class SpecificProfile(tf.keras.Model):
             self.history['Rmin'].append(Rmin)
             self.history['Smax'].append(Smax)
             self.history['Smin'].append(Smin)
+            self.history['learning rate'].append(learning_rate)
                     
             if verbose and (i%(25) == 0 or i==epochs-1):
                 S, R, Z = self(X)
@@ -550,6 +558,10 @@ class SpecificProfile(tf.keras.Model):
     def train_reporting(self, genomes, dsHelper, steps_per_epoch, epochs,
                         profile_plateau=5, profile_plateau_dev=1, match_score_factor=0.8,
                         learning_rate=1., n_best_profiles=None, verbose=True, verbose_freq=100):
+        """ epochs is the number of epochs to train if n_best_profiles is None, otherwise it's the max number
+              of epochs to wait before a forced profile report """
+        max_epochs = None if n_best_profiles is None else epochs
+        
         learning_rate_init = float(learning_rate)
         self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate_init) # large learning rate is much faster
 
@@ -568,9 +580,9 @@ class SpecificProfile(tf.keras.Model):
             if len(self.history['loss']) > patience:
                 lastmin = self.history['loss'][-(patience+1)]
                 if not any([l < lastmin for l in self.history['loss'][-patience:]]):
-                    print("[INFO] >>> Learning rate did not decrease for", patience, "epochs, reducing from", learning_rate, "to", factor*learning_rate)
+                    print("[INFO] >>> Learning rate did not decrease for", patience, "epochs, reducing from", 
+                          learning_rate, "to", factor*learning_rate)
                     learning_rate *= factor
-                    #self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate)
                     setLR(learning_rate)
                     
             return learning_rate
@@ -614,12 +626,31 @@ class SpecificProfile(tf.keras.Model):
             profileHist['score'][profileHist['i']] = s.numpy()
             profileHist['i'] = 0 if profileHist['i']+1 == profile_plateau else profileHist['i']+1
             profileHist['c'] += 1
-            if profileHist['c'] >= profile_plateau:
-                if all(profileHist['idx'] == p):
-                    sm = np.mean(profileHist['score'])
+
+            self.history['loss'].append(np.mean(Lb))
+            self.history['Rmax'].append(Rmax)
+            self.history['Rmin'].append(Rmin)
+            self.history['Smax'].append(Smax)
+            self.history['Smin'].append(Smin)
+            self.history['learning rate'].append(learning_rate)
+
+            if max_epochs is not None and profileHist['c'] > max_epochs:
+                print("[WARNING] >>> Could not find a good profile in time, force report of profile", p.numpy())
+                edgeCase = self.profile_cleanup(p, match_score_factor, dsHelper)
+                if edgeCase:
+                    edgeCaseCounter += 1
+                else:
+                    edgeCaseCounter = 0
+                    
+                # reset training
+                print("[DEBUG] >>> Resetting training")
+                profileHist = profileHistInit()
+                setLR(learning_rate_init)
+                learning_rate = learning_rate_init
+
+            else:
+                if profileHist['c'] >= profile_plateau and all(profileHist['idx'] == p):
                     sd = np.std(profileHist['score'])
-                    #if all(np.logical_and(profileHist['score'] >= sm-profile_plateau_dev,
-                    #                      profileHist['score'] <= sm+profile_plateau_dev)):
                     if sd <= profile_plateau_dev:
                         print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
                         print("cleaning up profile", p.numpy())
@@ -635,13 +666,7 @@ class SpecificProfile(tf.keras.Model):
                         setLR(learning_rate_init)
                         learning_rate = learning_rate_init
                     
-            self.history['loss'].append(np.mean(Lb))
-            self.history['Rmax'].append(Rmax)
-            self.history['Rmin'].append(Rmin)
-            self.history['Smax'].append(Smax)
-            self.history['Smin'].append(Smin)
-                    
-            if verbose and (i%(verbose_freq) == 0 or i==epochs-1):
+            if verbose and (i%(verbose_freq) == 0 or (n_best_profiles is None and i==epochs-1)):
                 _, R, Z = self(X)
                 _, loss_by_unit = self.loss(Z)
                 tnow = time()

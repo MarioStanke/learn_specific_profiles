@@ -170,7 +170,7 @@ Ploss = np.array(Ploss) if Ploss is not None else Ploss
 
 Phist = P.numpy() if P is not None else None
 histdict = {
-    'history': specProModel.history(),
+    'history': specProModel.getHistory(),
     'P_logit': specProModel.P_logit.numpy(),
     'P': Phist,
     'Pthresh': Pthresh,

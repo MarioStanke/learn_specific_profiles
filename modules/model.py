@@ -382,7 +382,7 @@ class SpecificProfile(tf.keras.Model):
         
         return P2, scores, losses
 
-    def history(self):
+    def getHistory(self):
         """ return training history """
         convHist = {} # convert tf list wrappers to numpy arrays
         for key in self.history:

@@ -161,14 +161,16 @@ print(f"[INFO] >>> Training time: {end-start:.2f}")
 
 # get results
 P, Pthresh, Ploss = specProModel.getP_report()
+Pthresh = np.array(Pthresh) if Pthresh is not None else Pthresh
+Ploss = np.array(Ploss) if Ploss is not None else Ploss
 
 # ~~~~~~~~~~~~
 # Save history
 # ~~~~~~~~~~~~
 
-Phist = P.numpy if P is not None else None
+Phist = P.numpy() if P is not None else None
 histdict = {
-    'history': specProModel.history,
+    'history': specProModel.history(),
     'P_logit': specProModel.P_logit.numpy(),
     'P': Phist,
     'Pthresh': Pthresh,
@@ -282,5 +284,8 @@ print("[INFO] >>> noise links:", noise)
 histdict['tp'] = tp
 histdict['noise'] = noise
 
-with open(args.output.name, 'wb') as fh:
+# add .pkl extension if no extension is specified in output
+outbase, outext = os.path.splitext(args.output.name)
+outname = args.output.name if outext != '' else outbase+".pkl"
+with open(outname, 'wb') as fh:
     pickle.dump(histdict, fh)

@@ -381,9 +381,17 @@ class SpecificProfile(tf.keras.Model):
         #print("[DEBUG] >>> transposed P2 shape:", P2.shape)
         
         return P2, scores, losses
+
+    def history(self):
+        """ return training history """
+        convHist = {} # convert tf list wrappers to numpy arrays
+        for key in self.history:
+            convHist[key] = np.array(self.history[key])
+
+        return convHist
         
         
-        
+
     def getR(self, otherP = None):
         """ otherP must be _softmaxed_, don't pass the logits """
         P = self.getP() if otherP is None else otherP

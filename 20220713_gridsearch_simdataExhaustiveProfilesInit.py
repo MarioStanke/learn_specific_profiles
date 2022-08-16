@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+from ast import excepthandler
 from Bio import SeqIO
 import itertools
 import json
@@ -260,8 +261,11 @@ if P is not None:
                                     genewidth = 20, linkwidth = 1, width = (1920*2))
 
         imgbase, imgext = os.path.splitext(args.output.name)
-        imgname = imgbase+".json"
-        img.save(imgname)
+        imgname = imgbase+".png"
+        try:
+            img.save(imgname)
+        except Exception as e:
+            print("[ERROR] >>> Exception while writing image file:", e)
 
     # count links hitting genes
     tp = 0

@@ -101,7 +101,8 @@ with open(args.input.name, 'rt') as fh:
 with open(jsonname, 'rt') as fh:
     posDict = json.load(fh)
 
-Q = np.ones(21, dtype=np.float32)/21
+#Q = np.ones(21, dtype=np.float32)/21
+Q = aadist.getBackgroundDist()
 
 # ~~~~~~~~~~~~~~~~
 # general settings

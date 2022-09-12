@@ -1,6 +1,8 @@
 [submodule "modules/MSAgen"]
 	path = modules/MSAgen
 	url = https://github.com/mabl3/MSAgen.git
+	branch = main
 [submodule "modules/GeneLinkDraw"]
 	path = modules/GeneLinkDraw
 	url = https://github.com/mabl3/GeneLinkDraw
+	branch = main

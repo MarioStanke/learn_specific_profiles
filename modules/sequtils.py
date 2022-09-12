@@ -52,6 +52,38 @@ def six_frame_translation(S):
             T.append(prot)
     return T
 
+def convert_six_frame_position(pos: int, frame_idx: int, dna_seqlen: int, dna_to_aa: bool=True):
+    """ Convert a sequence position according to six_frame_translation(),
+          i.e. either from the nucleotide sequence to a positon in the aa sequence according to frame_idx
+          or the other way around (dna_to_aa False)
+          
+        Parameters:
+            pos (int): position to be converted
+            frame_idx (int): frame index as returned from six_frame_translation, must be in [0,1,2,3,4,5]
+            dna_seqlen (int): length of the dna sequence
+            dna_to_aa (bool): direction of conversion
+    """
+    assert frame_idx in range(0,6), "[ERROR] >>> Invalid frame_idx "+str(frame_idx)+", must be a value from 0 to 5"
+    assert pos >= 0, "[ERROR] >>> Invalid position "+str(pos)+", must be positive"
+    
+    if dna_to_aa:
+        if frame_idx >= 3:
+            pos = dna_seqlen - 1 - pos
+            frame_idx -= 3
+            
+        return (pos-frame_idx) // 3
+    
+    else:
+        convPos = (pos*3)+frame_idx
+        if frame_idx >= 3:
+            convPos -= 3 # correct frame shift
+            convPos = dna_seqlen-1-convPos # count from back
+            convPos -= 2 # first codon base w.r.t. forward strand
+            
+        return convPos
+            
+            
+
 nuc_idx = dict((c,i) for i,c in enumerate(dna_alphabet))
 aa_idx = dict((c,i) for i,c in enumerate(aa_alphabet))
 

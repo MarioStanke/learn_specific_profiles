@@ -51,7 +51,11 @@ def indexTensor(T, N, F, P, U):
 
 
 class SpecificProfile(tf.keras.Model):
-    def __init__(self, k, alphabet_size, units, Q, P_logit_init=None, alpha=1e-6, gamma=0.2, l2 = 1, shift=0, loss = "softmax", **kwargs):
+    def __init__(self, k, alphabet_size, units, Q, 
+                 P_logit_init=None, alpha=1e-6, gamma=0.2, l2 = 1, 
+                 shift=0, loss = "softmax", 
+                 track_profiles = None,
+                 rand_seed=None, **kwargs):
         """
         Set up model and most metaparamters
             Parameters:
@@ -65,10 +69,19 @@ class SpecificProfile(tf.keras.Model):
                 l2 (float): scale the L2 regularization term (currently only in experiment loss)
                 shift (int): learn or evaluate shifts of learned profiles
                 loss (str): either of 'softmax' or 'score' ('score' turns off softmax in loss function, so loss becomes simply the negative score)
+                track_profiles (list of int): indices of profiles to track, i.e. after each training step store the intermediate profile and the max scores
+                rand_seed (int): optional set a seed for tensorflow's rng
         """
         super().__init__(**kwargs)
         
         assert loss in ['softmax', 'score', 'experiment'], "[ERROR] >>> loss must be either 'softmax', 'score' or 'experiment'"
+        
+        if rand_seed is not None:
+            print("[DEBUG] >>> setting tf global seed to", rand_seed)
+            tf.random.set_seed(rand_seed)
+            
+        self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
+        #np.random.seed(rand_seed)
         
         self.Q = Q                         # shape: (alphabet_size)
         self.alpha = alpha
@@ -84,7 +97,9 @@ class SpecificProfile(tf.keras.Model):
         self.softmaxLoss = (loss == 'softmax')
         self.experimentLoss = (loss == 'experiment')
         print("[DEBUG] >>> using softmaxLoss:", self.softmaxLoss, "// using experimentLoss:", self.experimentLoss)
-            
+        self.track_profiles = track_profiles
+        self.rand_seed = rand_seed
+        
         self.history = {'loss': [],
                         'Rmax': [],
                         'Rmin': [],
@@ -117,6 +132,20 @@ class SpecificProfile(tf.keras.Model):
         self.P_report_bestlosshist = []
         self.P_report_bestlosshistIdx = []
         
+        # [DEBUG] store tracked profiles here
+        self.tracking = {
+            'epoch': [],
+            'P': [], # list of np.arrays of all tracked profiles (k x 21 x U') where U'=len(track_profiles)
+            'max_score': [] # list of np.arrays of respective max scores (U')
+        }
+        
+        # initial state
+        if self.track_profiles is not None and len(self.track_profiles) > 0:
+            Pt = tf.gather(self.getP(), self.track_profiles, axis=2)
+            self.tracking['epoch'].append(0)
+            self.tracking['P'].append(Pt)
+            self.tracking['max_score'].append(tf.constant(np.zeros(Pt.shape[2]), dtype=tf.float32))
+        
         
         
     def _getRandomProfiles(self):
@@ -124,7 +153,8 @@ class SpecificProfile(tf.keras.Model):
         Q2 = tf.expand_dims(Q1,-1)         # shape: (1, alphabet_size, 1)
         
         P_logit_like_Q = np.log(Q2.numpy())
-        P_logit_init = P_logit_like_Q + np.random.normal(scale=4., size=[self.k+(2*self.s), self.alphabet_size, self.units]).astype('float32')
+        #P_logit_init = P_logit_like_Q + np.random.normal(scale=4., size=[self.k+(2*self.s), self.alphabet_size, self.units]).astype('float32')
+        P_logit_init = P_logit_like_Q + self.nprng.normal(scale=4., size=[self.k+(2*self.s), self.alphabet_size, self.units]).astype('float32')
         return P_logit_init                # shape: (self.k+(2*self.s), alphabet_size, U)
         
         
@@ -629,6 +659,13 @@ class SpecificProfile(tf.keras.Model):
             self.P_report_bestlosshist.append(s)
             self.P_report_bestlosshistIdx.append(p)
             
+            # [DEBUG] track profiles
+            if self.track_profiles is not None and len(self.track_profiles) > 0:
+                Pt = tf.gather(self.getP(), self.track_profiles, axis=2)
+                self.tracking['epoch'].append(i+1)
+                self.tracking['P'].append(Pt)
+                self.tracking['max_score'].append(self.max_profile_scores(dsHelper.getDataset(), otherP = Pt))
+            
             #print("epoch", i, "best profile", p.numpy(), "with score", s.numpy())
             profileHist['idx'][profileHist['i']] = p
             profileHist['score'][profileHist['i']] = s.numpy()
@@ -836,8 +873,10 @@ class SpecificProfile(tf.keras.Model):
                     i = -1 # i-th profile is to be replaced, unless i<0
                     if m < self.units:
                         i = m
-                    elif np.random.choice(m) < self.units:
-                        i = np.random.choice(self.units)
+                    #elif np.random.choice(m) < self.units:
+                    elif self.nprng.choice(m) < self.units:
+                        #i = np.random.choice(self.units)
+                        i = self.nprng.choice(self.units)
                     if i >= 0:
                         # replace i-th profile with a seed profile build from the pattern starting at position j
                         # Seed is the background distribution, except the observed k-mer at pos j is more likely
@@ -877,7 +916,8 @@ class SpecificProfile(tf.keras.Model):
             lensum = sum([len(s) for s in flatg])
             weights = [len(s)/lensum for s in flatg]
             weights = tf.nn.softmax(weights).numpy()
-            seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
+            #seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
+            seqs = self.nprng.choice(len(flatg), self.units, replace=True, p=weights)
             ks = self.k + (2*self.s) # trained profile width (k +- shift)
 
             oneProfile_logit_like_Q = np.log(self.Q)
@@ -887,11 +927,13 @@ class SpecificProfile(tf.keras.Model):
             for j in range(self.units):
                 i = seqs[j] # seq index
                 assert len(flatg[i]) > kdna, str(len(flatg[i]))
-                pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
+                #pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
+                pos = self.nprng.choice(len(flatg[i])-kdna, 1)[0]
                 aa = dsg.sequence_translation(flatg[i][pos:pos+kdna])
                 OH = dsg.oneHot(aa)
                 assert OH.shape == (ks, self.alphabet_size), str(OH.shape)+" != "+str((ks, self.alphabet_size))
-                seed = rho * OH + oneProfile_logit_like_Q + np.random.normal(scale=sigma, size=OH.shape)
+                #seed = rho * OH + oneProfile_logit_like_Q + np.random.normal(scale=sigma, size=OH.shape)
+                seed = rho * OH + oneProfile_logit_like_Q + self.nprng.normal(scale=sigma, size=OH.shape)
                 P_logit_init[:,:,j] = seed
 
             return P_logit_init

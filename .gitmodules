@@ -2,7 +2,9 @@
 	path = modules/MSAgen
 	url = https://github.com/mabl3/MSAgen.git
 	branch = main
+	update = merge
 [submodule "modules/GeneLinkDraw"]
 	path = modules/GeneLinkDraw
-	url = https://github.com/mabl3/GeneLinkDraw
+	url = https://github.com/mabl3/GeneLinkDraw.git
 	branch = main
+	update = merge

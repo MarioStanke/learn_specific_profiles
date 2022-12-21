@@ -96,7 +96,7 @@ def sitesToLinks(sites, linkThreshold = 100):
 
 
 
-def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fonts/Ubuntu-M.ttf"):
+def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
     """
     Draw an image with simulated "genomes" as horizontal bars and links as connecting lines
 
@@ -106,6 +106,7 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fo
         posDict (dict): posDict as returned from genome simulation function
         imname (str): path to image file to write the image to
         font (str): path to the font to use in the image
+        **kwargs: named arguments forwarded to gld.draw()
     """
     drawGenes = []
     for g in range(len(genomes)):
@@ -129,12 +130,12 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fo
         drawLinks.append(gld.Link(lgenes, lpos))
         
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, width = (1920*2))
+                      genewidth = 20, linkwidth = 1, width = (1920*2), **kwargs)
     img.save(imname)
                         
                         
         
-def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda/fonts/Ubuntu-M.ttf"):
+def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
     """
     Draw an image with genomes as horizontal bars and links as connecting lines from real data
 
@@ -144,6 +145,7 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
         links (list of lists of occurrences): links between genome positions (occurrences)
         imname (str): path to image file to write the image to
         font (str): path to the font to use in the image
+        **kwargs: named arguments forwarded to gld.draw()
     """
     with open(os.path.join(datapath, "orthologs.json"), 'rt') as fh:
         orthology = json.load(fh)
@@ -260,14 +262,14 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
         
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
                       genewidth = 20, linkwidth = 1, width = (1920*2),
-                      genecols = drawGeneColors, linkcol = palette.color())
+                      genecols = drawGeneColors, linkcol = palette.color(), **kwargs)
     palette.inc()
     img.save(imname)
 
 
 
 def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname, 
-                          font = "/opt/conda/fonts/Ubuntu-M.ttf"):
+                          font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
     """
     Draw an image with toy data "genomes" as horizontal bars and links as connecting lines
 
@@ -278,6 +280,7 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
         repeatTracking (list of lists of dicts): tracking dicts of repeat inserts as returned from toy data creation
         imname (str): path to image file to write the image to
         font (str): path to the font to use in the image
+        **kwargs: named arguments forwarded to gld.draw()
     """
     drawGenes = []
     for g in range(len(genomes)):
@@ -303,7 +306,7 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
         drawLinks.append(gld.Link(lgenes, lpos))
             
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, width = (1920*2))  
+                      genewidth = 20, linkwidth = 1, width = (1920*2), **kwargs)  
     img.save(imname)
 
 

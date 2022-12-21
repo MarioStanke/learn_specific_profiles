@@ -140,7 +140,7 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fo
         genomes (list of lists of str): genome sequences
         links (list of lists of occurrences): links between genome positions (occurrences)
         posDict (dict): posDict as returned from genome simulation function
-        imname (str): path to image file to write the image to
+        imname (str): path to image file to write the image to, sot to None for no writing
         font (str): path to the font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
@@ -168,7 +168,10 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fo
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
                       genewidth = 20, linkwidth = 1, #width = (1920*2), 
                       **kwargs)
-    img.save(imname)
+    if imname:
+        img.save(imname)
+
+    img.close()
                         
                         
         
@@ -180,7 +183,7 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
         datapath (str): path to directory in which the files "orthologs.json"and "hg38.GTF.json" reside
         seqnames (list of lists of str): sequence names, one list per genome
         links (list of lists of occurrences): links between genome positions (occurrences)
-        imname (str): path to image file to write the image to
+        imname (str): path to image file to write the image to, set to None for no writing
         font (str): path to the font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
@@ -301,7 +304,10 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
                       genewidth = 20, linkwidth = 1, #width = (1920*2),
                       genecols = drawGeneColors, linkcol = palette.color(), **kwargs)
     palette.inc()
-    img.save(imname)
+    if imname:
+        img.save(imname)
+
+    img.close()
 
 
 
@@ -315,7 +321,7 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
         links (list of lists of occurrences): links between genome positions (occurrences)
         insertTracking (list of lists of dicts): tracking dicts of pattern inserts as returned from toy data creation
         repeatTracking (list of lists of dicts): tracking dicts of repeat inserts as returned from toy data creation
-        imname (str): path to image file to write the image to
+        imname (str): path to image file to write the image to, set to None for no writing
         font (str): path to the font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
@@ -345,7 +351,10 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
                       genewidth = 20, linkwidth = 1, #width = (1920*2), 
                       **kwargs)  
-    img.save(imname)
+    if imname:
+        img.save(imname)
+
+    img.close()
 
 
 
@@ -457,3 +466,4 @@ def combinePlots(plots: list,
                 draw.text((x,y), labels[int(imgIdx)], 'black', font)
     
     im.save(out, **kwargs)
+    im.close()

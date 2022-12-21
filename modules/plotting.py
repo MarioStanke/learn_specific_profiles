@@ -7,6 +7,7 @@ import logomaker
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from PIL import Image, ImageDraw, ImageFont
 
 import dataset as ds
 import GeneLinkDraw.geneLinkDraw as gld
@@ -25,7 +26,7 @@ def plotHistory(history):
     Returns
         fig, ax: matplotlib figure and axes objects
     """
-    
+
     loss = history['loss']
     Rmax = history['Rmax']
     Rmin = history['Rmin']
@@ -374,3 +375,83 @@ def makeVideo(path, video_name, fps = 1):
     # Deallocating memories taken for window creation
     cv2.destroyAllWindows()
     video.release()
+
+
+
+def combinePlots(plots: list, 
+                 rows: int, cols: int, 
+                 out: str, 
+                 space=0, labels=None, fontsize=36, fontpath=None,
+                 **kwargs):
+    """ 
+    General function to concatenate plots (from disk) to a multi-plot image
+
+    Parameters
+        plots (list of str): paths to the images that should be concatenated
+        rows (int): number of vertical plots
+        cols (int): number of horizontal plots
+        out (str): path to the output image
+        space (int): space between two plots in pixels
+        labels (list of str): optional list of plot labels (e.g. ['A)', 'B)'])
+        fontsize (int): fontsize in pt
+        fontpath (str): optional path to the desired font
+        **kwargs: keyword arguments passed to PIL.Image.save() 
+    """
+
+    assert len(plots) <= rows*cols, "Too many plots"
+    assert len(plots) > (rows-1)*cols, "Too few plots, reduce rows or columns"
+    if labels is not None:
+        if fontpath is not None:
+            assert os.path.isfile(fontpath), "Font not found"
+        else:
+            fontpath = '/usr/share/fonts/truetype/freefont/FreeSerif.ttf'
+
+        if not os.path.isfile(fontpath):
+            addLabels = False
+            print("[WARNING] >>> Ignoring labels, default fontpath not found: "+fontpath)
+        else:
+            addLabels = True
+            font = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSerif.ttf', fontsize)
+    else:
+        addLabels = False
+        
+    if addLabels:
+        assert len(labels) == len(plots), "provide one label for each plot"
+    
+    # load images
+    images = [Image.open(p) for p in plots]
+    
+    # arrange images row-wise
+    arrange = np.empty([rows, cols, 3]) # last: [idx, w, h]
+    arrange *= np.nan
+    k = 0
+    for i in range(rows):
+        for j in range(cols):
+            if k < len(plots):
+                arrange[i,j,0] = k
+                arrange[i,j,1] = images[k].width
+                arrange[i,j,2] = images[k].height
+                k += 1
+        
+    # get canvas dimensions    
+    canvasWidth = int(max(np.nansum(arrange[:,:,1], axis=1)) + space*(cols-1))
+    canvasHeight = int(max(np.nansum(arrange[:,:,2], axis=0)) + space*(rows-1))
+    
+    # assemble images
+    im = Image.new('RGB', (canvasWidth, canvasHeight), color='white')
+    if addLabels:
+        draw = ImageDraw.Draw(im)
+        
+    y = 0
+    for i in range(rows):
+        x = 0
+        y += 0 if i == 0 else int(np.nanmax(arrange[(i-1),:,2])) + space # add row heights
+        for j in range(cols):
+            x += 0 if j == 0 else int(np.nanmax(arrange[:,(j-1),1])) + space # add col widhts
+            imgIdx = arrange[i,j,0]
+            if not np.isnan(imgIdx):
+                im.paste(images[int(imgIdx)], (x,y))
+            if addLabels:
+                draw.text((x,y), labels[int(imgIdx)], 'black', font)
+    
+    im.save(out, **kwargs)

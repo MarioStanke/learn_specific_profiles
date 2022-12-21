@@ -166,7 +166,8 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fo
         drawLinks.append(gld.Link(lgenes, lpos))
         
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, width = (1920*2), **kwargs)
+                      genewidth = 20, linkwidth = 1, #width = (1920*2), 
+                      **kwargs)
     img.save(imname)
                         
                         
@@ -297,7 +298,7 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
         drawLinks.append(gld.Link(lgenes, lpos))
         
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, width = (1920*2),
+                      genewidth = 20, linkwidth = 1, #width = (1920*2),
                       genecols = drawGeneColors, linkcol = palette.color(), **kwargs)
     palette.inc()
     img.save(imname)
@@ -342,7 +343,8 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
         drawLinks.append(gld.Link(lgenes, lpos))
             
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, width = (1920*2), **kwargs)  
+                      genewidth = 20, linkwidth = 1, #width = (1920*2), 
+                      **kwargs)  
     img.save(imname)
 
 

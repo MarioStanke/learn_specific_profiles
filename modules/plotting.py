@@ -4,6 +4,7 @@ import cv2
 import itertools
 import json
 import logomaker
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 
@@ -11,6 +12,40 @@ import dataset as ds
 import GeneLinkDraw.geneLinkDraw as gld
 import model
 import sequtils as su
+
+
+
+def plotHistory(history):
+    """ 
+    Plot the training history as loss and accuracy curves 
+    
+    Parameters
+        history (dict): History dict from trained model
+
+    Returns
+        fig, ax: matplotlib figure and axes objects
+    """
+    
+    loss = history['loss']
+    Rmax = history['Rmax']
+    Rmin = history['Rmin']
+    Smax = history['Smax']
+    Smin = history['Smin']
+    epochs = range(1, len(loss) + 1)
+
+    fig, ax = plt.subplots(ncols = 2, figsize = (15, 6))
+    ax[0].plot(epochs, loss, 'bo', label = 'Training loss')
+    ax[0].set_title('Training loss')
+    ax[0].legend()
+
+    ax[1].plot(epochs, Rmax, 'bo', label = 'Rmax')
+    ax[1].plot(epochs, Rmin, 'b+', label = 'Rmin')
+    ax[1].plot(epochs, Smax, 'go', label = 'Smax')
+    ax[1].plot(epochs, Smin, 'g+', label = 'Smin')
+    ax[1].set_title('Training R and S')
+    ax[1].legend()
+    
+    return fig, ax
 
 
 

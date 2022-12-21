@@ -239,6 +239,12 @@ class DatasetHelper:
             ds = ds.prefetch(prefetch_)
             
         return ds
+
+    def allUC(self):
+        """ Make all bases in the genome upper case (useful after training with reporting) """
+        for g in range(len(self.genomes)):
+            for c in range(len(self.genomes[g])):
+                self.genomes[g][c] = self.genomes[g][c].upper()
     
 
     

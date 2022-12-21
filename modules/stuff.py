@@ -141,7 +141,7 @@ def checkKmers(genomes, posDict, kmers, draw=False, history=None, verbose=True):
     links = []
     for i in range(len(kmers)):
         kmer = kmers[i]
-        found = findGeneSpanningKmer(kmerOccs[kmer], posDict, returnLink=draw, kmer=kmer)
+        found = findGeneSpanningKmer(len(genomes), kmerOccs[kmer], posDict, returnLink=draw, kmer=kmer)
         if found:
             contained.append(i)
             

@@ -117,9 +117,15 @@ def sitesToLinks(sites, linkThreshold = 100):
         for g in profileToOcc[p]:
             occs.append(profileToOcc[p][g])
             
-        nlinks = np.prod([len(og) for og in occs])
+        # nlinks = np.prod([len(og) for og in occs]) # does not handle overflow!
+        nlinks = 1
+        for og in occs:
+            nlinks *= len(og)
+            if nlinks > linkThreshold:
+                break
+
         if nlinks > linkThreshold:
-            print("[DEBUG] >>> Profile", p, "would produce", nlinks, "links, skipping")
+            print("[DEBUG] >>> Profile", p, "would produce at least", nlinks, "links, skipping")
             skipped.append((p, nlinks))
         else:
             l = list(itertools.product(*occs))

@@ -245,7 +245,7 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
                     lgenes.append(gid)
                     lpos.append(occDict[gid])
 
-            drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, col=col))
+            drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
         else:
             print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
 

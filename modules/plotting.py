@@ -210,17 +210,17 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
 
             clinkDict[u][gid].append(p)
 
-        for ld in clinkDict:
-            if len(ld.keys()) < 2:
+        for u in clinkDict:
+            if len(clinkDict[u].keys()) < 2:
                 continue # no links possible if less than two genomes
 
             lgenes = []
             lpos = []
             # create sorted, compressed Links
             for gid in geneids:
-                if gid in ld:
+                if gid in clinkDict[u]:
                     lgenes.append(gid)
-                    lpos.append(ld[gid])
+                    lpos.append(clinkDict[u][gid])
 
             drawLinks.append(gld.Link(lgenes, lpos, compressed=True))
 

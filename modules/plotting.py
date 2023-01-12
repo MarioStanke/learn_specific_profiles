@@ -138,15 +138,30 @@ def sitesToLinks(sites, linkThreshold = 100):
 
 
 
-def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
+def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False, 
+                          kmerSites = None, kmerCol = None, maskingSites = None, maskingCol = 'darkred',
+                          font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
     """
     Draw an image with simulated "genomes" as horizontal bars and links as connecting lines
 
     Parameters:
         genomes (list of lists of str): genome sequences
-        links (list of lists of occurrences): links between genome positions (occurrences)
+        links (list of lists of occurrences): links between genome positions (occurrences). Can alternatively be the
+                                              sites (np.ndarray of shape (sites, (genomeID, contigID, pos, u, f)) with 
+                                              the profile match sites), then linksAreSites must be True
         posDict (dict): posDict as returned from genome simulation function
         imname (str): path to image file to write the image to, sot to None for no writing
+        linksAreSites (bool): Must be set to True if links are acutally sites, otherwise must be False (default)
+        kmerSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of initial kmer 
+                                    positions. If given, these occurrences are drawn as small dots on the genes
+        kmerCol (str or tuple of RGB values): Optional color used when drawing initial kmer positions. If None and
+                                              kmerSites are given, color is determined automatically. Use gld.Palette
+                                              class to get some color names
+        maskingSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of sites where DNA
+                                       was softmasked during training
+        maskingCol (str or tuple of RGB values): Optional color used when drawing masking sites. Defaults to darkred. If
+                                                 None and maskingSites are given, color is determined automatically. Use
+                                                 gld.Palette class to get some color names
         font (str): path to the font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
@@ -158,19 +173,89 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, font = "/opt/conda/fo
                     
     for dgene in drawGenes:
         dgene.addElement("gene", posDict['start_codon'], posDict['stop_codon']+2)
+
+    # for some assertions
+    geneids = []
+    for dg in drawGenes:
+        geneids.append(dg.id)
+    geneids = sorted(geneids)
+    assert len(geneids) == len(set(geneids)), "[ERROR] >>> Duplicate gene ids in "+str(geneids)
         
     # create links to draw
     drawLinks = []
-    for link in links:
-        lgenes = []
-        lpos = []
-        for occ in link:
-            gid = str(occ[0])+"_"+str(occ[1])
-            lgenes.append(gid)
-            lpos.append(occ[2])
-            
-        drawLinks.append(gld.Link(lgenes, lpos))
-        
+    if not linksAreSites:
+        for link in links:
+            lgenes = []
+            lpos = []
+            for occ in link:
+                gid = str(occ[0])+"_"+str(occ[1])
+                assert gid in geneids, "[ERROR] >>> gene id {} from occurrence {} not found in {}".format(gid, str(occ),
+                                                                                                          str(geneids))
+                lgenes.append(gid)
+                lpos.append(occ[2])
+                
+            drawLinks.append(gld.Link(lgenes, lpos))
+    else:
+        # links: array of shape (sites, (genomeID, contigID, pos, u, f)) with the profile match sites
+        clinkDict = {}
+        for g, c, p, u, _ in links:
+            if u not in clinkDict:
+                clinkDict[u] = {}
+
+            gid = str(g)+"_"+str(c)
+            assert gid in geneids, "[ERROR] >>> gene id {} from site {} not found in {}".format(gid, str((g,c,p,u)),
+                                                                                                str(geneids))
+            if gid not in clinkDict[u]:
+                clinkDict[u][gid] = []
+
+            clinkDict[u][gid].append(p)
+
+        for ld in clinkDict:
+            if len(ld.keys()) < 2:
+                continue # no links possible if less than two genomes
+
+            lgenes = []
+            lpos = []
+            # create sorted, compressed Links
+            for gid in geneids:
+                if gid in ld:
+                    lgenes.append(gid)
+                    lpos.append(ld[gid])
+
+            drawLinks.append(gld.Link(lgenes, lpos, compressed=True))
+
+    # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
+    def createAdditionalSites(sites, col):
+        occDict = {}
+        for site in sites:
+            gid = str(site[0])+"_"+str(site[1])
+            assert gid in geneids, "[ERROR] >>> gene id {} from kmer site {} not found in {}".format(gid, 
+                                                                                           str((g,c,p,u)), str(geneids))
+            if gid not in occDict:
+                occDict[gid] = []
+
+            occDict[gid].append(site[2])
+
+        if len(occDict.keys()) >= 2:
+            # no links possible if less than two genomes
+            lgenes = []
+            lpos = []
+            for gid in geneids:
+                if gid in occDict:
+                    lgenes.append(gid)
+                    lpos.append(occDict[gid])
+
+            drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, col=col))
+        else:
+            print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
+
+    if kmerSites is not None:
+        createAdditionalSites(kmerSites, kmerCol)
+    if maskingSites is not None:
+        createAdditionalSites(maskingSites, maskingCol)
+
+
+
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
                       genewidth = 20, linkwidth = 1, #width = (1920*2), 
                       **kwargs)

@@ -255,9 +255,13 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
         createAdditionalSites(maskingSites, maskingCol)
 
 
-
+    # avoid masking kwargs and set defaults here that can be overwritten in function call
+    gw = 20 if 'genewidth' not in kwargs else kwargs['genewidth']
+    kwargs.pop('genewidth') if 'genewidth' in kwargs else ()
+    lw = 1  if 'linkwidth' not in kwargs else kwargs['linkwidth']
+    kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, #width = (1920*2), 
+                      genewidth = gw, linkwidth = lw, #width = (1920*2), 
                       **kwargs)
     if imname:
         img.save(imname)
@@ -446,8 +450,13 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
             
         drawLinks.append(gld.Link(lgenes, lpos))
             
+    # avoid masking kwargs and set defaults here that can be overwritten in function call
+    gw = 20 if 'genewidth' not in kwargs else kwargs['genewidth']
+    kwargs.pop('genewidth') if 'genewidth' in kwargs else ()
+    lw = 1  if 'linkwidth' not in kwargs else kwargs['linkwidth']
+    kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, #width = (1920*2), 
+                      genewidth = gw, linkwidth = lw, #width = (1920*2), 
                       **kwargs)  
     if imname:
         img.save(imname)

@@ -140,6 +140,7 @@ def sitesToLinks(sites, linkThreshold = 100):
 
 def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False, 
                           kmerSites = None, kmerCol = None, maskingSites = None, maskingCol = 'darkred',
+                          highlightProfiles = None, highlightcol = 'darkgreen',
                           font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
     """
     Draw an image with simulated "genomes" as horizontal bars and links as connecting lines
@@ -162,6 +163,10 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
         maskingCol (str or tuple of RGB values): Optional color used when drawing masking sites. Defaults to darkred. If
                                                  None and maskingSites are given, color is determined automatically. Use
                                                  gld.Palette class to get some color names
+        highlightProfiles (list of int): Optional list of profile indices, only works if linksAreSites is True! Use it
+                                         to define profile indices (u) in the site tuples that get a different link 
+                                         color
+        highlightcol (str or tuple of RGB values): Color to use for highlighted links
         font (str): path to the font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
@@ -222,7 +227,8 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
                     lgenes.append(gid)
                     lpos.append(clinkDict[u][gid])
 
-            drawLinks.append(gld.Link(lgenes, lpos, compressed=True))
+            linkcol = highlightcol if highlightProfiles is not None and u in highlightProfiles else None
+            drawLinks.append(gld.Link(lgenes, lpos, compressed=True, color=linkcol))
 
     # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
     def createAdditionalSites(sites, col):

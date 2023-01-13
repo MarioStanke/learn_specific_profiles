@@ -391,9 +391,16 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
             
         drawLinks.append(gld.Link(lgenes, lpos))
         
+    # avoid masking kwargs and set defaults here that can be overwritten in function call
+    gw = 20 if 'genewidth' not in kwargs else kwargs['genewidth']
+    kwargs.pop('genewidth') if 'genewidth' in kwargs else ()
+    lw = 1  if 'linkwidth' not in kwargs else kwargs['linkwidth']
+    kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
+    lc = palette.color() if 'linkcol' not in kwargs else kwargs['linkcol']
+    kwargs.pop('linkcol') if 'linkcol' in kwargs else ()
     img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = 20, linkwidth = 1, #width = (1920*2),
-                      genecols = drawGeneColors, linkcol = palette.color(), **kwargs)
+                      genewidth = gw, linkwidth = lw, #width = (1920*2),
+                      genecols = drawGeneColors, linkcol = lc, **kwargs)
     palette.inc()
     if imname:
         img.save(imname)

@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-import pandas as pd
-import json
-import argparse
-import os
-import time
-import re
-from Bio import SeqIO
-import math
 
-################################################################################
+import argparse
+from Bio import SeqIO
+import json
+import math
+import numpy as np
+import os
+import pandas as pd
+import re
+import time
+from Viterbi import fasta_true_state_seq_and_optional_viterbi_guess_alignment
+
+
+
+########################################################################################################################
 def get_output_dir():
+    """ Create output directory name from config and return it. """
     lengths_config_str = str(args.min_left_neighbour_exon_len)
     lengths_config_str += "_" + str(args.len_of_left_to_be_lifted)
     lengths_config_str += "_" + str(args.min_left_neighbour_intron_len)
@@ -19,90 +25,142 @@ def get_output_dir():
     lengths_config_str += "_" + str(args.len_of_right_to_be_lifted)
     lengths_config_str += "_" + str(args.min_right_neighbour_exon_len)
 
+    def getFilename(path):
+        return os.path.splitext(os.path.split(path)[1])[0]
+
     # dirs
-    output_dir = f"{args.path}/out_{'' if not args.n else str(args.n) + 'Exons_'}{args.species.split('/')[-1]}"\
-                     +f"_{lengths_config_str}_{args.hal.split('/')[-1]}"
-    if not os.path.exists(output_dir):
-        os.system(f"mkdir -p {output_dir}")
+    output_dir = os.path.join(args.path, 
+                              f"out_{'' if not args.n else str(args.n) + 'Exons_'}{getFilename(args.species)}" \
+                                  + f"_{lengths_config_str}_{getFilename(args.hal)}")
+    os.makedirs(output_dir, exist_ok=True)
     return output_dir
-################################################################################
+
+
+
+########################################################################################################################
 def load_hg38_refseq_bed():
+    """ Load hg38 refseq bed file (specified in arguments) as Pandas DataFrame and return it. """
     start = time.perf_counter()
-    print("started load_hg38_refseq_bed()")
+    print("[INFO] >>> started load_hg38_refseq_bed()")
     hg38_refseq_bed = pd.read_csv(args.hg38, delimiter = "\t", header = None)
+    assert hg38_refseq_bed.columns.size == 12, \
+        f"[ERROR] >>> hg38 refseq bed has {hg38_refseq_bed.columns.size} columns, 12 expected"
     hg38_refseq_bed.columns = ["chrom", "chromStart", "chromEnd", "name", "score", "strand", "thickStart", "thickEnd", 
                                "itemRgb", "blockCount", "blockSizes", "blockStarts"]
-    hg38_refseq_bed["blockSizes"] = hg38_refseq_bed["blockSizes"].apply(lambda s: [int(a) for a in s[:-1].split(",")])
-    hg38_refseq_bed["blockStarts"] = hg38_refseq_bed["blockStarts"].apply(lambda s: [int(a) for a in s[:-1].split(",")])
-    print("finished load_hg38_refseq_bed(). It took:", time.perf_counter() - start)
+    def parseBlockList(s):
+        fields = s.split(",")
+        if fields[-1] == '':
+            return [int(a) for a in fields[:-1]]
+        else:
+            return [int(a) for a in fields]
+
+    hg38_refseq_bed["blockSizes"] = hg38_refseq_bed["blockSizes"].map(parseBlockList)
+    hg38_refseq_bed["blockStarts"] = hg38_refseq_bed["blockStarts"].map(parseBlockList)
+    assert all(hg38_refseq_bed["blockCount"] == hg38_refseq_bed["blockSizes"].map(len)), \
+        "[ERROR] >>> blockCount != len(blockSizes)"
+    assert all(hg38_refseq_bed["blockCount"] == hg38_refseq_bed["blockStarts"].map(len)), \
+        "[ERROR] >>> blockCount != len(blockStarts)"
+
+    # just to be safe
+    def ensureNumericColumn(column):
+        if not pd.api.types.is_numeric_dtype(hg38_refseq_bed[column]):
+            hg38_refseq_bed[column] = pd.to_numeric(hg38_refseq_bed[column])
+
+        return hg38_refseq_bed
+    
+    hg38_refseq_bed = ensureNumericColumn("chromStart")
+    hg38_refseq_bed = ensureNumericColumn("chromEnd")
+    hg38_refseq_bed = ensureNumericColumn("score")
+    hg38_refseq_bed = ensureNumericColumn("thickStart")
+    hg38_refseq_bed = ensureNumericColumn("thickEnd")
+    hg38_refseq_bed = ensureNumericColumn("blockCount")
+
+    print("[INFO] >>> finished load_hg38_refseq_bed(). It took:", time.perf_counter() - start)
     return hg38_refseq_bed
-################################################################################
-def get_all_internal_exons(hg38_refseq_bed):
+
+
+
+########################################################################################################################
+def get_all_internal_exons(hg38_refseq_bed: pd.DataFrame):
+    """ Get all internal exons from the given hg38 refseq bed file and return them as a dictionary where the keys are
+        (chromosome, exon start, exon stop) and the values are lists of rows that mapped to this exon range. """
     start = time.perf_counter()
-    print("started get_all_internal_exons()")
-    internal_exons = {} # key is chromosom, start and stop of exon in genome, value is list of rows that mapped to this exon range
-    for index, row in hg38_refseq_bed.iterrows():
-        if args.n and index > args.n * 100: # cant just break at args.n since, exons are filtered in an additional step. So i have to build some more here, such that after filtering sufficiently many remain.
-            break
-        if row["blockCount"] < 3:
+    print("[INFO] >>> started get_all_internal_exons()")
+    internal_exons = {} # keys: (chromosome, exon start, exon stop), values: list of rows that mapped to this exon range
+    for row in hg38_refseq_bed.itertuples():
+        # cant just break at args.n (exon number limit), since some exons may be filtered out
+        #   So I have to build some more here, such that after filtering sufficiently many remain.
+        # [ME]: The BED file has only 188k lines, we might as well extract all exons here and just filter later, right?
+        #if args.n and row.Index > args.n * 100:
+        #    break
+        if row.blockCount < 3:
             continue
 
-        # print(row)
-        for exon_id, (exon_len, exon_start) in enumerate(zip(row["blockSizes"][1:-1], row["blockStarts"][1:-1])):
-            assert row["chromStart"] <= row["chromEnd"], 'row["chromStart"] <= row["chromEnd"]'
-            assert row["thickStart"] <= row["thickEnd"], 'row["thickStart"] <= row["thickEnd"]'
-            chromosom = row["chrom"]
-            exon_start_in_genome = row["chromStart"] + exon_start
-            exon_end_in_genome = row["chromStart"] + exon_start + exon_len # the end id is not included
+        assert row.chromStart <= row.chromEnd, \
+            f'[ERROR] >>> chromStart ({row.chromStart}) > chromEnd ({row["chromEnd"]})'
+        assert row.thickStart <= row.thickEnd, \
+            f'[ERROR] >>> thickStart ({row.thickStart}) > thickEnd ({row["thickEnd"]})'
+
+        # excluding first and last exon, yields list [(exon_len, exon_start), (exon_len, exon_start), ...]
+        chromosom = row.chrom
+        for exon_len, exon_start in zip(row.blockSizes[1:-1], row.blockStarts[1:-1]):
+            exon_start_in_genome = row.chromStart + exon_start
+            exon_end_in_genome = row.chromStart + exon_start + exon_len # the end pos is not included
             key = (chromosom, exon_start_in_genome, exon_end_in_genome)
-            if key in internal_exons:
-                internal_exons[key].append(row)
-            else:
-                internal_exons[key] = [row]
+            if key not in internal_exons:
+                internal_exons[key] = []
+
+            internal_exons[key].append(row)
+
     if args.v:
-        print("since the same exon occures in multiple genes, which may just be spliced differently")
-        for i, key in enumerate(sorted(internal_exons.keys())):
+        print("[INFO|V] >>> since the same exon occures in multiple genes, which may just be spliced differently") #wat?
+        for key in sorted(internal_exons.keys()):
             if len(internal_exons[key]) > 3:
                 print(f"key is exon = {key}")
                 print("value is list of df_rows:")
                 for df_row in internal_exons[key]:
-                    print(df_row)
+                    print("  ", df_row)
                 break
-    print("finished get_all_internal_exons(). It took:", time.perf_counter() - start)
+
+    print("[INFO] >>> finished get_all_internal_exons(). It took:", time.perf_counter() - start)
     return internal_exons
-################################################################################
+
+
+
+########################################################################################################################
 def filter_and_choose_exon_neighbours(all_internal_exons):
-    '''
-    because of alternative spliced genes, an exon might have multiple exons neigbhours to choose one.
-    '''
+    """ Because of alternatively spliced genes, an exon might have multiple neighboring exons to choose from. 
+        Currently, simply the first splice form that matches the requirements is chosen for each exon. """
     start = time.perf_counter()
-    print("started filter_and_choose_exon_neighbours()")
+    print("[INFO] >>> started filter_and_choose_exon_neighbours()")
     filtered_internal_exons = []
-    for i, key in enumerate(all_internal_exons.keys()):
+    for key in all_internal_exons.keys():
         if args.n and len(filtered_internal_exons) >= args.n:
             break
+        # filter out exons that do not match requirements given in arguments (neighbor exon lengths etc.)
         for row in all_internal_exons[key]:
-            exon_start_in_gene = key[1] - row["chromStart"]
-            exon_id = row["blockStarts"].index(exon_start_in_gene)
-            assert row["blockSizes"][exon_id] == key[2] - key[1], \
-                "calculated id exon len is not same as stop - start in genome"
-            if row["blockSizes"][exon_id] < args.min_exon_len:
+            exon_start_in_gene = key[1] - row.chromStart
+            exon_id = row.blockStarts.index(exon_start_in_gene) # dies if exon_start_in_gene not found in blockStarts
+            assert row.blockSizes[exon_id] == key[2] - key[1], \
+                f"[ERROR] >>> blockSize {row.blockSizes[exon_id]} of exon {exon_id} is not same as " \
+                    +f"calculated stop - start ({key[2]} - {key[1]}) in genome (exon: {key}, row: {row})"
+            if exon_id == 0 or exon_id == len(row.blockSizes) - 1:
+                print(f"[WARNING] >>> exon_id == {exon_id} for exon {key} in row {row}")
                 continue
-            if row["blockSizes"][exon_id - 1] < args.min_left_neighbour_exon_len:
+            if row.blockSizes[exon_id] < args.min_exon_len:
                 continue
-            left_intron_len = row["blockStarts"][exon_id] - row["blockStarts"][exon_id-1] \
-                                  - row["blockSizes"][exon_id - 1]
+            if row.blockSizes[exon_id - 1] < args.min_left_neighbour_exon_len:
+                continue
+            left_intron_len = row.blockStarts[exon_id] - row.blockStarts[exon_id-1] - row.blockSizes[exon_id - 1]
             if left_intron_len < args.min_left_neighbour_intron_len:
                 continue
-            right_intron_len = row["blockStarts"][exon_id + 1] - row["blockStarts"][exon_id] \
-                                   - row["blockSizes"][exon_id]
+            right_intron_len = row.blockStarts[exon_id + 1] - row.blockStarts[exon_id] - row.blockSizes[exon_id]
             if right_intron_len < args.min_right_neighbour_intron_len:
                 continue
             if row["blockSizes"][exon_id + 1] < args.min_right_neighbour_exon_len:
                 continue
 
-            # getting coordinates from rightmost end of left exon that will be lifted to the other genomes
-            # getting coordinates from leftmost end of right exon that will be lifted to the other genome
+            # getting coordinates from left/rightmost end of left/right exon that will be lifted to the other genomes
             left_lift_start = key[1] - left_intron_len - args.len_of_left_to_be_lifted
             left_lift_end = left_lift_start + args.len_of_left_to_be_lifted
             right_lift_start = key[2] + right_intron_len
@@ -118,48 +176,58 @@ def filter_and_choose_exon_neighbours(all_internal_exons):
                   "right_lift_end" : right_lift_end,
                   "left_intron_len" : left_intron_len,
                   "right_intron_len" : right_intron_len,
-                  "row" : dict(row)}
+                  "row" : row._asdict()} # row is a namedtuple, convert for json serializability
             filtered_internal_exons.append(di)
 
-            # for an internal exon the neigbhours are choosen
-            # (simply the first occurance is selected)
-            # so other occurances of this exon in alternatively spliced genes (= rows in hg38.bed)
-            # are discarded
+            # for an internal exon the neigbhours are choosen (simply the first occurance is selected)
+            # so other occurances of this exon in alternatively spliced genes (= rows in hg38.bed) are discarded
             break
 
     if args.v:
         for i in range(3):
-            print()
+            print("[INFO|V] >>> filtered_internal_exons[", i, "]")
             for key in sorted(filtered_internal_exons[i].keys()):
-                print(key, filtered_internal_exons[i][key])
-    print("finished filter_and_choose_exon_neighbours(). It took:", time.perf_counter() - start)
+                print("  ", key, filtered_internal_exons[i][key])
+    print("[INFO] >>> Finished filter_and_choose_exon_neighbours(). It took:", time.perf_counter() - start)
     return filtered_internal_exons
-################################################################################
-def write_filtered_internal_exons(filtered_internal_exons):
+
+
+
+########################################################################################################################
+def write_filtered_internal_exons(filtered_internal_exons, json_path):
+    """ Store the filtered internal exons in a json file for later use. Avoid recomputing them. """
     start = time.perf_counter()
-    print("started write_filtered_internal_exons()")
+    print("[INFO] >>> Started write_filtered_internal_exons()")
     with open(json_path, "w") as json_out:
         json.dump(filtered_internal_exons, json_out)
-    print("finished write_filtered_internal_exons(). It took:", time.perf_counter() - start)
-################################################################################
-def get_to_be_lifted_exons(hg38_refseq_bed):
+    print("[INFO] >>> Finished write_filtered_internal_exons(). It took:", time.perf_counter() - start)
+
+
+
+########################################################################################################################
+def get_to_be_lifted_exons(hg38_refseq_bed, json_path):
+    """ Either load the filtered internal exons from a json file or compute them. """
     if os.path.exists(json_path) and not args.overwrite:
-        print(f"the file {json_path} exists, so it isnt calculated again")
+        print(f"[INFO] >>> The file {json_path} exists, so it isn't computed again")
         start = time.perf_counter()
-        print("started json.load(filtered_internal_exons.json)")
+        print(f"[INFO] >>> Started json.load({json_path})")
         with open(json_path) as file:
             filtered_internal_exons = json.load(file)
-        print("finished json.load(filtered_internal_exons.json). It took:", time.perf_counter() - start)
+        print(f"[INFO] >>> Finished json.load({json_path}). It took:", time.perf_counter() - start)
     else:
         all_internal_exons = get_all_internal_exons(hg38_refseq_bed)
         filtered_internal_exons = filter_and_choose_exon_neighbours(all_internal_exons)
-        write_filtered_internal_exons(filtered_internal_exons)
-    if args.n:
+        write_filtered_internal_exons(filtered_internal_exons, json_path)
+    if args.n and len(filtered_internal_exons) > args.n:
         filtered_internal_exons = filtered_internal_exons[:args.n]
+
     return filtered_internal_exons
-################################################################################
-################################################################################
-################################################################################
+
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 def create_bed_file_to_be_lifted(exon = None, out_path = None):
     # seq     start           stop            name    score   strand
     # chr1    67093589        67093604        left    0       -
@@ -196,7 +264,7 @@ def create_bed_file_to_be_lifted(exon = None, out_path = None):
         # add_bed_line(start = str(exon["stop_in_genome"] -  args.len_of_exon_middle_to_be_lifted), \
         #              stop = str(exon["stop_in_genome"]), \
         #              name = f"{base_name}_exonend")
-################################################################################
+########################################################################################################################
 def get_new_or_old_species_bed(human_exon_to_be_lifted_path = None, species_name = None, out_dir = None):
     ''' either creates new lifted over bed file and returns path to it
         or it returns file to existing bed file
@@ -215,7 +283,7 @@ def get_new_or_old_species_bed(human_exon_to_be_lifted_path = None, species_name
             #     return f"{out_dir}/{bed_file}"
             if bed_file == f"{species_name}.bed":
                 return 1
-################################################################################
+########################################################################################################################
 def extract_info_and_check_bed_file(bed_dir = None, species_name = None, extra_seq_data = None, extra_exon_data = None):
     bed_file_path = f"{bed_dir}/{species_name}.bed"
 
@@ -287,7 +355,7 @@ def extract_info_and_check_bed_file(bed_dir = None, species_name = None, extra_s
         return False
 
     return True
-################################################################################
+########################################################################################################################
 def write_extra_data_to_fasta_description_and_reverse_complement(fa_path = None, extra_seq_data = None, exon = None):
     for i, record in enumerate(SeqIO.parse(fa_path, "fasta")):
         assert i == 0, f"found more than one seq in fasta file {fa_path}"
@@ -322,14 +390,14 @@ def write_extra_data_to_fasta_description_and_reverse_complement(fa_path = None,
                 reverse_seq = record.seq.reverse_complement()
                 record.seq = reverse_seq
             SeqIO.write(record, out_file, "fasta")
-################################################################################
+########################################################################################################################
 def run_hal_2_fasta(species_name = None, start = None, len = None, seq = None, outpath = None):
     command = f"time hal2fasta {args.hal} {species_name} --start {start} --length {len} --sequence {seq} \
                 --ucscSequenceNames --outFaPath {outpath}"
     print("running:", command)
     os.system(command)
     os.system(f"head {outpath}")
-################################################################################
+########################################################################################################################
 # TODO: can I maybe use the old fasta description such that i dont have to pass extra_seq_data
 def strip_seqs(fasta_file = None, exon = None, out_path = None, extra_seq_data = None):
     if os.path.exists(fasta_file):
@@ -357,7 +425,7 @@ def strip_seqs(fasta_file = None, exon = None, out_path = None, extra_seq_data =
                                    if not extra_seq_data["on_reverse_strand"] else exon["start_in_genome"]}
                 record.description = json.dumps(description)
                 SeqIO.write(record, stripped_seq_file, "fasta")
-################################################################################
+########################################################################################################################
 def convert_short_acgt_to_ACGT(outpath, input_files, threshold):
     def capitalize_lowercase_subseqs(seq, threshold_local):
         pattern = f"(?<![a-z])([a-z]{{1,{threshold_local}}})(?![a-z])"
@@ -380,20 +448,20 @@ def convert_short_acgt_to_ACGT(outpath, input_files, threshold):
                     # with open(handleish, mode, **kwargs) as fp:
 
 
-################################################################################
+########################################################################################################################
 def get_input_files_with_human_at_0(from_path = None):
     input_files = [f"{from_path}/{f}" for f in os.listdir(from_path) if f.endswith(".fa")]
     input_files = sorted(input_files, key = lambda x: 0 if re.search("Homo_sapiens", x) else 1)
     assert re.search("Homo_sapiens", input_files[0]), "homo sapiens not in first pos of combined.fasta"
     return input_files
-################################################################################
+########################################################################################################################
 def combine_fasta_files(output_file = None, input_files = None):
     with open(output_file, "w") as out:
         for input_file in input_files:
             for seq_record in SeqIO.parse(input_file, "fasta"):
                 SeqIO.write(seq_record, out, "fasta")
     out.close()
-################################################################################
+########################################################################################################################
 def create_exon_data_sets(filtered_internal_exons):
     def get_all_species():
         with open(args.species, "r") as species_file:
@@ -463,7 +531,6 @@ def create_exon_data_sets(filtered_internal_exons):
 
             # create alignment of fasta and true splice sites
             if single_species == "Homo_sapiens":
-                from Viterbi import fasta_true_state_seq_and_optional_viterbi_guess_alignment
                 fasta_true_state_seq_and_optional_viterbi_guess_alignment(stripped_fasta_file_path, 
                                                                           out_dir_path = exon_dir)
 
@@ -478,9 +545,6 @@ def create_exon_data_sets(filtered_internal_exons):
             convert_short_acgt_to_ACGT(output_file, input_files, threshold = args.convert_short_acgt_to_ACGT)
 
 def make_stats_table():
-    import pandas as pd
-    import numpy as np
-
     df = pd.DataFrame(columns = ["path", "exon", "exon_len", "human_seq_len",
                                  "exon_len_to_human_len_ratio", "median_len",
                                  "exon_len_to_median_len_ratio","average_len",
@@ -595,7 +659,7 @@ if __name__ == "__main__":
                     print("your answer must be either y or n")
 
         hg38_refseq_bed = load_hg38_refseq_bed()
-        filtered_internal_exons = get_to_be_lifted_exons(hg38_refseq_bed)
+        filtered_internal_exons = get_to_be_lifted_exons(hg38_refseq_bed, json_path)
         create_exon_data_sets(filtered_internal_exons)
         make_stats_table()
     else:

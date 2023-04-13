@@ -2,12 +2,15 @@
 
 import argparse
 from Bio import SeqIO
+from collections import namedtuple
 import json
 import math
 import numpy as np
 import os
 import pandas as pd
 import re
+import shutil
+import subprocess
 import time
 from Viterbi import fasta_true_state_seq_and_optional_viterbi_guess_alignment
 
@@ -205,9 +208,9 @@ def write_filtered_internal_exons(filtered_internal_exons, json_path):
 
 
 ########################################################################################################################
-def get_to_be_lifted_exons(hg38_refseq_bed, json_path):
+def get_to_be_lifted_exons(hg38_refseq_bed, json_path, overwrite):
     """ Either load the filtered internal exons from a json file or compute them. """
-    if os.path.exists(json_path) and not args.overwrite:
+    if os.path.exists(json_path) and not overwrite:
         print(f"[INFO] >>> The file {json_path} exists, so it isn't computed again")
         start = time.perf_counter()
         print(f"[INFO] >>> Started json.load({json_path})")
@@ -226,21 +229,16 @@ def get_to_be_lifted_exons(hg38_refseq_bed, json_path):
 
 
 ########################################################################################################################
-########################################################################################################################
-########################################################################################################################
-def create_bed_file_to_be_lifted(exon = None, out_path = None):
+def create_bed_file_to_be_lifted(exon, out_path):
+    """ Create a bed formatted file for a single exon, 
+        containing three lines with the left, right and middle lift areas, respectively. """
     # seq     start           stop            name    score   strand
     # chr1    67093589        67093604        left    0       -
-    with open(out_path, "w") as bed_file:
-        def add_bed_line(seq = exon["seq"], start = None, stop = None, name = None, 
-                         score = "0", strand = exon["row"]["strand"]):
-            bed_file.write(seq + "\t")
-            bed_file.write(start + "\t")
-            bed_file.write(stop + "\t")
-            bed_file.write(name + "\t")
-            bed_file.write(score + "\t")
-            bed_file.write(strand + "\n")
-
+    with open(out_path, "wt") as bed_file:
+        def add_bed_line(start, stop, name, seq = exon["seq"], score = "0", strand = exon["row"]["strand"]):
+            bed_file.write("\t".join([str(seq), str(start), str(stop), str(name), str(score), str(strand)]) + "\n")
+            
+        # name will match "\d+_\d+_\d+_(left|right|middle)"
         base_name = f"exon_{exon['start_in_genome']}_{exon['stop_in_genome']}_{exon['exon_id']}"
 
         # left and right neighbouring exon
@@ -251,75 +249,93 @@ def create_bed_file_to_be_lifted(exon = None, out_path = None):
 
         # middle of exon
         left_middle = (exon["stop_in_genome"] + exon['start_in_genome'] - args.len_of_exon_middle_to_be_lifted)//2
-        right_middle = left_middle + args.len_of_exon_middle_to_be_lifted # this index does not part of the area to be lifted
+        right_middle = left_middle + args.len_of_exon_middle_to_be_lifted #this pos is not part of the area to be lifted
         add_bed_line(start = str(left_middle),
                      stop = str(right_middle),
                      name = f"{base_name}_middle")
 
         # start and stop of exon
 
-        # add_bed_line(start = str(exon["start_in_genome"]), \
-        #              stop = str(exon["start_in_genome"] + args.len_of_exon_middle_to_be_lifted), \
+        # add_bed_line(start = str(exon["start_in_genome"]),
+        #              stop = str(exon["start_in_genome"] + args.len_of_exon_middle_to_be_lifted),
         #              name = f"{base_name}_exonstart")
-        # add_bed_line(start = str(exon["stop_in_genome"] -  args.len_of_exon_middle_to_be_lifted), \
-        #              stop = str(exon["stop_in_genome"]), \
+        # add_bed_line(start = str(exon["stop_in_genome"] -  args.len_of_exon_middle_to_be_lifted),
+        #              stop = str(exon["stop_in_genome"]),
         #              name = f"{base_name}_exonend")
+
+
+
 ########################################################################################################################
-def get_new_or_old_species_bed(human_exon_to_be_lifted_path = None, species_name = None, out_dir = None):
-    ''' either creates new lifted over bed file and returns path to it
-        or it returns file to existing bed file
-    '''
-    bed_file_path = f"{out_dir}/{species_name}.bed"
+def get_new_or_old_species_bed(human_exon_to_be_lifted_path, species_name, out_dir):
+    """ Either creates new lifted over bed file or searches for an old one. Returns named tuple with returncode
+        that can be checked for success (returncode 0) """
+    bed_file_path = os.path.join(out_dir, species_name+".bed")
     if not args.use_old_bed:
         command = f"time halLiftover {args.hal} Homo_sapiens {human_exon_to_be_lifted_path} {species_name} \
                     {bed_file_path}"
-        print("running:", command)
-        os.system(command)
-        return 1
+        print("[INFO] >>> running:", command)
+        status = subprocess.run(command, shell=True, capture_output=True)
+        #os.system(command)
+        return status
     else:
+        mock_status = namedtuple("BED found", ["returncode", "message"]) # simulate subprocess status with returncode
         bed_files = [f for f in os.listdir(out_dir) if f.endswith(".bed")]
         for bed_file in bed_files:
             # if bed_file.startswith(single_species):
             #     return f"{out_dir}/{bed_file}"
             if bed_file == f"{species_name}.bed":
-                return 1
-########################################################################################################################
-def extract_info_and_check_bed_file(bed_dir = None, species_name = None, extra_seq_data = None, extra_exon_data = None):
-    bed_file_path = f"{bed_dir}/{species_name}.bed"
+                return mock_status(0, f"Found {os.path.join(out_dir, bed_file)}")
+            
+        return mock_status(1, f"Found no file that matched {os.path.join(out_dir, species_name+'.bed')}")
+    
 
+
+########################################################################################################################
+def extract_info_and_check_bed_file(bed_dir, species_name, extra_seq_data, extra_exon_data):
+    """ Extracts the information from the bed file and checks if it is valid. Stores data in extra_seq_data and
+        extra_exon_data. Returns true if everything was successful, false if something was wrong with the bed file. """
+    bed_file_path = os.path.join(bed_dir, species_name+".bed")
     if os.path.getsize(bed_file_path) == 0:
-        os.system(f"mv {bed_file_path} {bed_dir}/{species_name}_errorcode_empty.bed")
+        shutil.move(bed_file_path, os.path.join(bed_dir, species_name+"_errorcode_empty.bed"))
         return False
 
     species_bed = pd.read_csv(bed_file_path, delimiter = "\t", header = None)
-    species_bed.columns = ["seq", "start", "stop", "name", "score", "strand"]
+    assert species_bed.columns.size == 6, \
+        f"[ERROR] >>> Bed file {bed_file_path} has {species_bed.columns.size} columns, 6 expected"
+    species_bed.columns = ["chrom", "chromStart", "chromEnd", "name", "score", "strand"]
     if len(species_bed.index) != 3 and args.discard_multiple_bed_hits:
-        os.system(f"mv {bed_dir}/{species_name}.bed {bed_dir}/{species_name}_errorcode_more_than_3_lines.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"), 
+                    os.path.join(bed_dir, species_name+"_errorcode_more_than_3_lines.bed"))
         return False
-    l_m_r = {}
-    for index, row in species_bed.iterrows():
-        x = re.search(r"\d+_\d+_\d+_(.+)",row["name"])
+    
+    l_m_r = {} # find longest bed hit for each left, middle and right
+    for row in species_bed.itertuples():
+        x = re.search(r"\d+_\d+_\d+_(.+)", row.name)
         try:
             if (y := x.group(1)) in l_m_r: # y = left, right or middle
-                len_of_previous_bed_hit = l_m_r[y]["stop"] - l_m_r[y]["start"]
-                len_of_current_bed_hit = row["stop"] - row["start"]
+                # TODO there is exactly one line for each left, middle and right, so this should be unnecessary
+                len_of_previous_bed_hit = l_m_r[y]["chromEnd"] - l_m_r[y]["chromStart"]
+                len_of_current_bed_hit = row["chromEnd"] - row["chromStart"]
                 if len_of_current_bed_hit > len_of_previous_bed_hit:
-                    l_m_r[y] = row
+                    l_m_r[y] = row._asdict()
             else:
-                l_m_r[y] = row
+                l_m_r[y] = row._asdict()
         except:
-            print("l_m_r[x.group(1)] didnt work")
-            print("row['name']", row["name"])
-            exit()
+            print("[ERROR] >>> l_m_r[x.group(1)] didnt work")
+            print("            row.name", row.name)
+            exit(1)
 
     if len(l_m_r) != 3:
-        os.system(f"mv {bed_dir}/{species_name}.bed {bed_dir}/{species_name}_errorcode_not_all_l_m_r.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"), 
+                    os.path.join(bed_dir, species_name+"_errorcode_not_all_l_m_r.bed"))
         return False
     if l_m_r["left"]["strand"] != l_m_r["right"]["strand"] or l_m_r["left"]["strand"] != l_m_r["middle"]["strand"]:
-        os.system(f"mv {bed_dir}/{species_name}.bed {bed_dir}/{species_name}_errorcode_unequal_strands.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"), 
+                    os.path.join(bed_dir, species_name+"_errorcode_unequal_strands.bed"))
         return False
     if l_m_r["left"]["seq"] != l_m_r["left"]["seq"] or l_m_r["left"]["seq"] != l_m_r["middle"]["seq"]:
-        os.system(f"mv {bed_dir}/{species_name}.bed {bed_dir}/{species_name}_errorcode_unequal_seqs.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"), 
+                    os.path.join(bed_dir, species_name+"_errorcode_unequal_seqs.bed"))
         return False
 
     # if strand is opposite to human, left and right swap
@@ -327,21 +343,24 @@ def extract_info_and_check_bed_file(bed_dir = None, species_name = None, extra_s
         extra_seq_data["seq_start_in_genome"] = l_m_r["left"]["stop"]
         extra_seq_data["seq_stop_in_genome"] = l_m_r["right"]["start"]
     else:
-        # i think        [left_start, left_stop] ... [middle_start, middle_stop] ... [right_start, right_stop]
+        # I think        [left_start, left_stop] ... [middle_start, middle_stop] ... [right_start, right_stop]
         # gets mapped to [right_start, right_stop] ... [middle_start, middle_stop] ... [left_start, left_stop]
         extra_seq_data["seq_start_in_genome"]  = l_m_r["right"]["stop"]
         extra_seq_data["seq_stop_in_genome"]  = l_m_r["left"]["start"]
+
     extra_seq_data["middle_of_exon_start"] = l_m_r["middle"]["start"]
     extra_seq_data["middle_of_exon_stop"] = l_m_r["middle"]["stop"]
 
     if extra_seq_data["seq_start_in_genome"] >= extra_seq_data["middle_of_exon_start"]:
-        os.system(f"mv {bed_dir}/{species_name}.bed {bed_dir}/{species_name}_errorcode_left_greater_middle.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"), 
+                    os.path.join(bed_dir, species_name+"_errorcode_left_greater_middle.bed"))
         return False
     if extra_seq_data["middle_of_exon_stop"] >= extra_seq_data["seq_stop_in_genome"]:
-        os.system(f"mv {bed_dir}/{species_name}.bed {bed_dir}/{species_name}_errorcode_right_less_middle.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"), 
+                    os.path.join(bed_dir, species_name+"_errorcode_right_less_middle.bed"))
         return False
 
-    extra_seq_data["on_reverse_strand"] = l_m_r["left"]["strand"] == "-"
+    extra_seq_data["on_reverse_strand"] = (l_m_r["left"]["strand"] == "-")
     extra_seq_data["seq_name"] = l_m_r['left']['seq']
     extra_seq_data["len_of_seq_substring_in_single_species"] = extra_seq_data["seq_stop_in_genome"] \
                                                                    - extra_seq_data["seq_start_in_genome"]
@@ -350,90 +369,122 @@ def extract_info_and_check_bed_file(bed_dir = None, species_name = None, extra_s
     l1 = extra_seq_data["len_of_seq_substring_in_single_species"]
     l2 = extra_exon_data["len_of_seq_substring_in_human"]
     if abs(math.log10(l1) - math.log10(l2)) >= threshold:
-        os.system(f"mv {bed_dir}/{species_name}.bed \
-                    {bed_dir}/{species_name}_errorcode_lengths_differ_substantially.bed")
+        shutil.move(os.path.join(bed_dir, species_name+".bed"),
+                    os.path.join(bed_dir, species_name+"_errorcode_lengths_differ_substantially.bed"))
         return False
 
     return True
+
+
+
 ########################################################################################################################
-def write_extra_data_to_fasta_description_and_reverse_complement(fa_path = None, extra_seq_data = None, exon = None):
-    for i, record in enumerate(SeqIO.parse(fa_path, "fasta")):
-        assert i == 0, f"found more than one seq in fasta file {fa_path}"
+def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, extra_seq_data, exon):
+    """ Reads single sequence fasta from fa_path, adds exon description as a json string to the sequence,
+        converts the sequence to reverse complement if the exon is on the - strand, writes the sequence back to 
+        fa_path """
+    record = None
+    for i, entry in enumerate(SeqIO.parse(fa_path, "fasta")):
+        record = entry
+        assert i == 0, f"[ERROR] >>> found more than one seq in fasta file {fa_path}"
+        assert len(record.seq) == extra_seq_data["seq_stop_in_genome"] - extra_seq_data["seq_start_in_genome"], \
+            "[ERROR] >>> non stripped: actual seq len and calculated coordinate len differ"
 
-        # write coordinates in genome to seq description
-        with open(fa_path, "w") as out_file:
-            assert len(record.seq) == extra_seq_data["seq_stop_in_genome"] - extra_seq_data["seq_start_in_genome"], \
-                "non stripped: actual seq len and calculated coordinate len differ"
+    assert record is not None, f"[ERROR] >>> no seq found in fasta file {fa_path}"
 
-            # if exon is on - strand
-            # extracetd fasta is from + strand
-            # TAA -> gets converted to TTA
-            # these coords are from bed file and hg38:
-            # 1 start in genome +     2 exon start +      3 exon stop +      4 stop in genome +
-            # these are adjusted to the reversed and complemented fasta
-            # 4 start in genomce cd
+    # write coordinates in genome to seq description
+    with open(fa_path, "wt") as out_file:
+        # Extracetd fasta is from + strand
+        # if exon is on - strand, TAA -> gets converted to TTA
+        # these coords are from bed file and hg38:
+        # 1 start in genome +     2 exon start +      3 exon stop +      4 stop in genome +
+        # these are adjusted to the reversed and complemented fasta
+        # 4 start in genomce cd
 
-            description = {"seq_start_in_genome_+_strand" : extra_seq_data["seq_start_in_genome"],
-                           "seq_stop_in_genome_+_strand" : extra_seq_data["seq_stop_in_genome"],
-                           "exon_start_in_human_genome_+_strand": exon['start_in_genome'],
-                           "exon_stop_in_human_genome_+_strand" : exon['stop_in_genome'],
-                           "seq_start_in_genome_cd_strand" : extra_seq_data["seq_start_in_genome"] \
-                               if not extra_seq_data["on_reverse_strand"] else extra_seq_data["seq_stop_in_genome"],
-                           "seq_stop_in_genome_cd_strand" : extra_seq_data["seq_start_in_genome"] \
-                               if extra_seq_data["on_reverse_strand"] else extra_seq_data["seq_stop_in_genome"],
-                           "exon_start_in_human_genome_cd_strand" : exon["start_in_genome"] \
-                               if not extra_seq_data["on_reverse_strand"] else exon["stop_in_genome"],
-                           "exon_stop_in_human_genome_cd_strand" : exon["stop_in_genome"] \
-                               if not extra_seq_data["on_reverse_strand"] else exon["start_in_genome"]}
-            record.description = json.dumps(description)
-            if extra_seq_data["on_reverse_strand"]:
-                reverse_seq = record.seq.reverse_complement()
-                record.seq = reverse_seq
-            SeqIO.write(record, out_file, "fasta")
+        description = {"seq_start_in_genome_+_strand": extra_seq_data["seq_start_in_genome"],
+                        "seq_stop_in_genome_+_strand": extra_seq_data["seq_stop_in_genome"],
+                        "exon_start_in_human_genome_+_strand": exon['start_in_genome'],
+                        "exon_stop_in_human_genome_+_strand": exon['stop_in_genome'],
+                        "seq_start_in_genome_cd_strand": extra_seq_data["seq_start_in_genome"] \
+                            if not extra_seq_data["on_reverse_strand"] else extra_seq_data["seq_stop_in_genome"],
+                        "seq_stop_in_genome_cd_strand": extra_seq_data["seq_start_in_genome"] \
+                            if extra_seq_data["on_reverse_strand"] else extra_seq_data["seq_stop_in_genome"],
+                        "exon_start_in_human_genome_cd_strand": exon["start_in_genome"] \
+                            if not extra_seq_data["on_reverse_strand"] else exon["stop_in_genome"],
+                        "exon_stop_in_human_genome_cd_strand": exon["stop_in_genome"] \
+                            if not extra_seq_data["on_reverse_strand"] else exon["start_in_genome"]}
+        record.description = json.dumps(description)
+        if extra_seq_data["on_reverse_strand"]:
+            reverse_seq = record.seq.reverse_complement()
+            record.seq = reverse_seq
+        SeqIO.write(record, out_file, "fasta")
+
+
+
 ########################################################################################################################
-def run_hal_2_fasta(species_name = None, start = None, len = None, seq = None, outpath = None):
+def run_hal_2_fasta(species_name, start, len, seq, outpath):
+    """ Executes shell command hal2fasta and prints the first 10 lines of the output fasta file """
     command = f"time hal2fasta {args.hal} {species_name} --start {start} --length {len} --sequence {seq} \
                 --ucscSequenceNames --outFaPath {outpath}"
-    print("running:", command)
-    os.system(command)
-    os.system(f"head {outpath}")
+    print("[INFO] >>> Running:", command)
+    subprocess.run(command, shell=True, capture_output=True, check=True)
+    #os.system(command)
+    print(f"[INFO] >>> Running: head {outpath}")
+    status = subprocess.run(f"head {outpath}", shell=True, capture_output=True, check=True)
+    print(status.stdout.decode("utf-8"))
+    #os.system(f"head {outpath}")
+
+
+
 ########################################################################################################################
 # TODO: can I maybe use the old fasta description such that i dont have to pass extra_seq_data
-def strip_seqs(fasta_file = None, exon = None, out_path = None, extra_seq_data = None):
+def strip_seqs(fasta_file, exon, out_path, extra_seq_data):
+    """ If fasta_file exists, strips the sequence in the fasta file according to the exon coordinates and writes the
+        stripped sequence to out_path. out_path will be overwritten when fasta_file contains more than one sequence
+        and only the last stripped sequence will be stored in out_path """
     if os.path.exists(fasta_file):
-        for i, record in enumerate(SeqIO.parse(fasta_file, "fasta")):
-            with open(out_path, "w") as stripped_seq_file:
-                left_strip_len = int(args.min_left_neighbour_exon_len /2)
+        for record in SeqIO.parse(fasta_file, "fasta"):
+            # TODO if there is more than one record, out_path will be overwritten every time
+            with open(out_path, "wt") as stripped_seq_file:
+                left_strip_len = int(args.min_left_neighbour_exon_len/2)
                 right_strip_len = int(args.min_right_neighbour_exon_len/2)
-                record.seq = record.seq[left_strip_len : - right_strip_len]
+                record.seq = record.seq[left_strip_len:-right_strip_len]
                 seq_start_in_genome = extra_seq_data["seq_start_in_genome"] + left_strip_len
                 seq_stop_in_genome = seq_start_in_genome + extra_seq_data["len_of_seq_substring_in_single_species"] \
                                          - left_strip_len - right_strip_len
                 assert seq_stop_in_genome - seq_start_in_genome == len(record.seq), \
-                    "stripped: actual seq len and calculated coordinate len differ"
-                description = {"seq_start_in_genome_+_strand" : seq_start_in_genome,
-                               "seq_stop_in_genome_+_strand" : seq_stop_in_genome,
+                    "[ERROR] >>> Stripped: actual seq len and calculated coordinate len differ"
+                description = {"seq_start_in_genome_+_strand": seq_start_in_genome,
+                               "seq_stop_in_genome_+_strand": seq_stop_in_genome,
                                "exon_start_in_human_genome_+_strand": exon['start_in_genome'],
-                               "exon_stop_in_human_genome_+_strand" : exon['stop_in_genome'],
-                               "seq_start_in_genome_cd_strand" : seq_start_in_genome \
+                               "exon_stop_in_human_genome_+_strand": exon['stop_in_genome'],
+                               "seq_start_in_genome_cd_strand": seq_start_in_genome \
                                    if not extra_seq_data["on_reverse_strand"] else seq_stop_in_genome,
-                               "seq_stop_in_genome_cd_strand" : seq_start_in_genome \
+                               "seq_stop_in_genome_cd_strand": seq_start_in_genome \
                                    if extra_seq_data["on_reverse_strand"] else seq_stop_in_genome,
-                               "exon_start_in_human_genome_cd_strand" : exon["start_in_genome"] \
+                               "exon_start_in_human_genome_cd_strand": exon["start_in_genome"] \
                                    if not extra_seq_data["on_reverse_strand"] else exon["stop_in_genome"],
-                               "exon_stop_in_human_genome_cd_strand" : exon["stop_in_genome"] \
+                               "exon_stop_in_human_genome_cd_strand": exon["stop_in_genome"] \
                                    if not extra_seq_data["on_reverse_strand"] else exon["start_in_genome"]}
                 record.description = json.dumps(description)
                 SeqIO.write(record, stripped_seq_file, "fasta")
+
+
+
 ########################################################################################################################
 def convert_short_acgt_to_ACGT(outpath, input_files, threshold):
+    """ Converts short (up to threshold length) softmasked parts of the sequences in input_files to upper case and
+        append the results to outpath. The sequences in input_files are assumed to be in fasta format. """
     def capitalize_lowercase_subseqs(seq, threshold_local):
-        pattern = f"(?<![a-z])([a-z]{{1,{threshold_local}}})(?![a-z])"
+        # (?<![a-z]) negative lookbehind, (?![a-z]) negative lookahead, i.e. only match if the character before and 
+        #   after the match is not a lowercase letter
+        pattern = f"(?<![a-z])([a-z]{{1,{threshold_local}}})(?![a-z])" 
         def repl(match):
             return match.group(1).upper()
         result = re.sub(pattern, repl, seq)
         return str(result)
-    with open(outpath, "w") as output_handle:
+    
+    # TODO this looks horrible, fix it and use SeqIO
+    with open(outpath, "wt") as output_handle:
         for input_file in input_files:
             with open(outpath, "a") as output_handle, open(input_file, "r") as in_file_handle:
                 for i, record in enumerate(SeqIO.parse(in_file_handle, "fasta")):
@@ -449,41 +500,51 @@ def convert_short_acgt_to_ACGT(outpath, input_files, threshold):
 
 
 ########################################################################################################################
-def get_input_files_with_human_at_0(from_path = None):
-    input_files = [f"{from_path}/{f}" for f in os.listdir(from_path) if f.endswith(".fa")]
+def get_input_files_with_human_at_0(from_path):
+    """ Gets all file paths of .fa file from from_path, returns them as a list with the Homo_sapiens fasta as first
+        element. """
+    input_files = [os.path.join(from_path, f) for f in os.listdir(from_path) if f.endswith(".fa")]
     input_files = sorted(input_files, key = lambda x: 0 if re.search("Homo_sapiens", x) else 1)
-    assert re.search("Homo_sapiens", input_files[0]), "homo sapiens not in first pos of combined.fasta"
+    assert re.search("Homo_sapiens", input_files[0]), f"[ERROR] >>> Homo sapiens not in first pos of {from_path}"
     return input_files
+
+
+
 ########################################################################################################################
-def combine_fasta_files(output_file = None, input_files = None):
-    with open(output_file, "w") as out:
+def combine_fasta_files(output_file, input_files):
+    """ Write all sequences from the fasta files in input_files to output_file """
+    # TODO this looks weird, also out.close() should be unneccessary, refactor this
+    with open(output_file, "wt") as out:
         for input_file in input_files:
             for seq_record in SeqIO.parse(input_file, "fasta"):
                 SeqIO.write(seq_record, out, "fasta")
     out.close()
+
+
+
 ########################################################################################################################
-def create_exon_data_sets(filtered_internal_exons):
-    def get_all_species():
-        with open(args.species, "r") as species_file:
-            species = species_file.readlines()
-        return [s.strip() for s in species]
-    all_species = get_all_species()
+def create_exon_data_sets(filtered_internal_exons, output_dir):
+    """ For each exon in filtered_internal_exons, computes liftover for each species and stores all sequences in a
+        fasta file """
+    with open(args.species, "rt") as species_file:
+        species = species_file.readlines()
+
+    all_species = [s.strip() for s in species]
 
     for exon in filtered_internal_exons:
-        exon_dir = f"{output_dir}/exon_{exon['seq']}_{exon['start_in_genome']}_{exon['stop_in_genome']}"
-        bed_output_dir = f"{exon_dir}/species_bed"
-        seqs_dir = f"{exon_dir}/species_seqs"
-        non_stripped_seqs_dir = f"{seqs_dir}/non_stripped"
-        stripped_seqs_dir = f"{seqs_dir}/stripped"
-        capitalzed_subs_seqs_dir = f"{exon_dir}/combined_fast_capitalized_{args.convert_short_acgt_to_ACGT}"
+        exon_dir = os.path.join(output_dir, f"exon_{exon['seq']}_{exon['start_in_genome']}_{exon['stop_in_genome']}")
+        bed_output_dir = os.path.join(exon_dir, "species_bed")
+        seqs_dir = os.path.join(exon_dir, "species_seqs")
+        non_stripped_seqs_dir = os.path.join(seqs_dir, "non_stripped")
+        stripped_seqs_dir = os.path.join(seqs_dir, "stripped")
+        capitalzed_subs_seqs_dir = os.path.join(exon_dir,f"combined_fast_capitalized_{args.convert_short_acgt_to_ACGT}")
         extra_exon_data = {}
 
         for d in [exon_dir, bed_output_dir, seqs_dir, non_stripped_seqs_dir, 
                   stripped_seqs_dir, capitalzed_subs_seqs_dir]:
-            if not os.path.exists(d):
-                os.system(f"mkdir -p {d}")
+            os.makedirs(d, exist_ok = True)
 
-        human_exon_to_be_lifted_path = f"{exon_dir}/human_exons.bed"
+        human_exon_to_be_lifted_path = os.path.join(exon_dir, "human_exons.bed")
 
         extra_exon_data["len_of_seq_substring_in_human"] = exon["right_lift_start"] - exon["left_lift_end"]
         extra_exon_data["human_strand"] = exon["row"]["strand"]
@@ -492,12 +553,9 @@ def create_exon_data_sets(filtered_internal_exons):
 
         for single_species in all_species:
             extra_seq_data = {}
-
-            if not get_new_or_old_species_bed(
-                human_exon_to_be_lifted_path = human_exon_to_be_lifted_path,
-                species_name = single_species,
-                out_dir = bed_output_dir
-            ):
+            bed_stat = get_new_or_old_species_bed(human_exon_to_be_lifted_path, single_species, bed_output_dir)
+            if bed_stat.returncode == 1:
+                print(f"[WARNING] >>> No bed file for species {single_species}: {bed_stat}")
                 continue
 
             if not extract_info_and_check_bed_file(
@@ -511,7 +569,7 @@ def create_exon_data_sets(filtered_internal_exons):
 
             # getting the seq, from human: [left exon    [litfed]] [intron] [exon] [intron] [[lifted]right exon]
             # the corresponding seq of [intron] [exon] [intron] in other species
-            out_fa_path = f"{non_stripped_seqs_dir}/{single_species}.fa"
+            out_fa_path = os.path.join(non_stripped_seqs_dir, single_species+".fa")
             if not args.use_old_fasta:
                 run_hal_2_fasta(species_name = single_species,
                                 start = extra_seq_data["seq_start_in_genome"],
@@ -520,8 +578,8 @@ def create_exon_data_sets(filtered_internal_exons):
                                 outpath = out_fa_path)
 
                 write_extra_data_to_fasta_description_and_reverse_complement(fa_path = out_fa_path,
-                                                      extra_seq_data = extra_seq_data,
-                                                      exon = exon)
+                                                                             extra_seq_data = extra_seq_data,
+                                                                             exon = exon)
 
             stripped_fasta_file_path = re.sub("non_stripped","stripped", out_fa_path)
             strip_seqs(fasta_file = out_fa_path,
@@ -537,14 +595,18 @@ def create_exon_data_sets(filtered_internal_exons):
         # gather all usable fasta seqs in a single file
         input_files = get_input_files_with_human_at_0(from_path = stripped_seqs_dir)
 
-        output_file =f"{exon_dir}/combined.fasta"
+        output_file = os.path.join(exon_dir, "combined.fasta")
         combine_fasta_files(output_file = output_file, input_files = input_files)
 
-        output_file = f"{capitalzed_subs_seqs_dir}/combined.fasta"
+        output_file = os.path.join(capitalzed_subs_seqs_dir, "combined.fasta")
         if args.convert_short_acgt_to_ACGT > 0:
             convert_short_acgt_to_ACGT(output_file, input_files, threshold = args.convert_short_acgt_to_ACGT)
 
+
+
+########################################################################################################################
 def make_stats_table():
+    """ Create result overview from the created exon files """
     df = pd.DataFrame(columns = ["path", "exon", "exon_len", "human_seq_len",
                                  "exon_len_to_human_len_ratio", "median_len",
                                  "exon_len_to_median_len_ratio","average_len",
@@ -556,7 +618,7 @@ def make_stats_table():
             exon_coords = list(map(int, exon.split("_")[2:]))
             exon_len = exon_coords[1] - exon_coords[0]
             lens = []
-            for record in SeqIO.parse(f"{exon_dir}/combined.fasta","fasta"):
+            for record in SeqIO.parse(os.path.join(exon_dir, "combined.fasta"), "fasta"):
                 lens.append(len(record.seq))
                 if record.id.startswith("Homo_sapiens"):
                     human_len = len(record.seq)
@@ -564,29 +626,30 @@ def make_stats_table():
             median_len =  np.median(lens)
             average_len = np.average(lens)
 
-            if os.path.exists(f"{exon_dir}/true_alignment_exon_contains_ambiguous_bases.clw"):
+            if os.path.exists(os.path.join(exon_dir, "true_alignment_exon_contains_ambiguous_bases.clw")):
                 ambiguous = 1
-            elif os.path.exists(f"{exon_dir}/true_alignment.clw"):
+            elif os.path.exists(os.path.join(exon_dir, "true_alignment.clw")):
                 ambiguous = -1
             else:
                 ambiguous = 0
 
-            new_row_dict = {"path" : exon_dir,
-                            "exon" : exon,
-                            "exon_len" : exon_len,
-                            "human_seq_len" : human_len,
-                            "exon_len_to_human_len_ratio" : exon_len/human_len,
-                            "median_len" : median_len,
-                            "exon_len_to_median_len_ratio" : exon_len/median_len,
-                            "average_len" : average_len,
-                            "exon_len_to_average_len" : exon_len/average_len,
-                            "num_seqs" : len(lens),
-                            "ambiguous" : ambiguous}
+            new_row_dict = {"path": exon_dir,
+                            "exon": exon,
+                            "exon_len": exon_len,
+                            "human_seq_len": human_len,
+                            "exon_len_to_human_len_ratio": exon_len/human_len,
+                            "median_len": median_len,
+                            "exon_len_to_median_len_ratio": exon_len/median_len,
+                            "average_len": average_len,
+                            "exon_len_to_average_len": exon_len/average_len,
+                            "num_seqs": len(lens),
+                            "ambiguous": ambiguous}
 
             df.loc[len(df)] = new_row_dict
+
     pd.set_option('display.max_columns', None)
     # pd.set_option('display.max_rows', None)
-    df.to_csv(f'{dir}/stats_table.csv', index=True, header=True, line_terminator='\n', sep=";")
+    df.to_csv(os.path.join(dir, 'stats_table.csv'), index=True, header=True, line_terminator='\n', sep=";")
     return df
 
 
@@ -630,10 +693,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     assert args.len_of_left_to_be_lifted < args.min_left_neighbour_exon_len, \
-        "len_of_left_to_be_lifted > min_left_neighbour_exon_len"
+        "[ERROR] >>> len_of_left_to_be_lifted > min_left_neighbour_exon_len"
     assert args.len_of_right_to_be_lifted < args.min_right_neighbour_exon_len, \
-        "len_of_right_to_be_lifted > min_right_neighbour_exon_len"
-    assert args.len_of_exon_middle_to_be_lifted < args.min_exon_len, "len_of_exon_middle_to_be_lifted > min_exon_len"
+        "[ERROR] >>> len_of_right_to_be_lifted > min_right_neighbour_exon_len"
+    assert args.len_of_exon_middle_to_be_lifted < args.min_exon_len, \
+        "[ERROR] >>> len_of_exon_middle_to_be_lifted > min_exon_len"
     # TODO im using the above also for the start and end of th middle exon, not only the middle of the middle/current exon
 
     if not args.stats_table:
@@ -641,26 +705,26 @@ if __name__ == "__main__":
         output_dir = get_output_dir()
 
         # files
-        json_path = f"{output_dir}/filtered_internal_exons.json"
+        json_path = os.path.join(output_dir, "filtered_internal_exons.json")
 
-        args.overwrite = False
+        overwrite = False
         if os.path.exists(json_path):
             print("There exists a file with previously exported filtered_internal_exons with same config")
             print("do you want to overwrite it? [y/n] ", end = "")
             while True:
                 x = input().strip()
                 if x == "y":
-                    args.overwrite = True
+                    overwrite = True
                     break
                 elif x == "n":
-                    args.overwrite = False
+                    overwrite = False
                     break
                 else:
                     print("your answer must be either y or n")
 
         hg38_refseq_bed = load_hg38_refseq_bed()
-        filtered_internal_exons = get_to_be_lifted_exons(hg38_refseq_bed, json_path)
-        create_exon_data_sets(filtered_internal_exons)
+        filtered_internal_exons = get_to_be_lifted_exons(hg38_refseq_bed, json_path, overwrite)
+        create_exon_data_sets(filtered_internal_exons, output_dir)
         make_stats_table()
     else:
         if not os.path.isdir(args.stats_table):

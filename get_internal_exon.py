@@ -160,7 +160,7 @@ def filter_and_choose_exon_neighbours(all_internal_exons):
             right_intron_len = row.blockStarts[exon_id + 1] - row.blockStarts[exon_id] - row.blockSizes[exon_id]
             if right_intron_len < args.min_right_neighbour_intron_len:
                 continue
-            if row["blockSizes"][exon_id + 1] < args.min_right_neighbour_exon_len:
+            if row.blockSizes[exon_id + 1] < args.min_right_neighbour_exon_len:
                 continue
 
             # getting coordinates from left/rightmost end of left/right exon that will be lifted to the other genomes
@@ -202,7 +202,7 @@ def write_filtered_internal_exons(filtered_internal_exons, json_path):
     start = time.perf_counter()
     print("[INFO] >>> Started write_filtered_internal_exons()")
     with open(json_path, "w") as json_out:
-        json.dump(filtered_internal_exons, json_out)
+        json.dump(filtered_internal_exons, json_out, indent=2)
     print("[INFO] >>> Finished write_filtered_internal_exons(). It took:", time.perf_counter() - start)
 
 
@@ -315,14 +315,23 @@ def extract_info_and_check_bed_file(bed_dir, species_name, extra_seq_data, extra
             if (y := x.group(1)) in l_m_r: # y = left, right or middle
                 # TODO there is exactly one line for each left, middle and right, so this should be unnecessary
                 len_of_previous_bed_hit = l_m_r[y]["chromEnd"] - l_m_r[y]["chromStart"]
-                len_of_current_bed_hit = row["chromEnd"] - row["chromStart"]
+                len_of_current_bed_hit = row.chromEnd - row.chromStart
                 if len_of_current_bed_hit > len_of_previous_bed_hit:
                     l_m_r[y] = row._asdict()
             else:
                 l_m_r[y] = row._asdict()
+        # catch any error and print error message
+        except Exception as e:
+            print("[ERROR] >>> An error occured:", e)
+            print("[ERROR] >>> l_m_r[x.group(1)] didnt work")
+            print("            row.name", row.name)
+            print("            bed_file_path", bed_file_path)
+            exit(1)
+        # Exception might miss some errors, so catch all errors
         except:
             print("[ERROR] >>> l_m_r[x.group(1)] didnt work")
             print("            row.name", row.name)
+            print("            bed_file_path", bed_file_path)
             exit(1)
 
     if len(l_m_r) != 3:
@@ -333,23 +342,23 @@ def extract_info_and_check_bed_file(bed_dir, species_name, extra_seq_data, extra
         shutil.move(os.path.join(bed_dir, species_name+".bed"), 
                     os.path.join(bed_dir, species_name+"_errorcode_unequal_strands.bed"))
         return False
-    if l_m_r["left"]["seq"] != l_m_r["left"]["seq"] or l_m_r["left"]["seq"] != l_m_r["middle"]["seq"]:
+    if l_m_r["left"]["chrom"] != l_m_r["left"]["chrom"] or l_m_r["left"]["chrom"] != l_m_r["middle"]["chrom"]:
         shutil.move(os.path.join(bed_dir, species_name+".bed"), 
                     os.path.join(bed_dir, species_name+"_errorcode_unequal_seqs.bed"))
         return False
 
     # if strand is opposite to human, left and right swap
     if extra_exon_data["human_strand"] == l_m_r["left"]["strand"]:
-        extra_seq_data["seq_start_in_genome"] = l_m_r["left"]["stop"]
-        extra_seq_data["seq_stop_in_genome"] = l_m_r["right"]["start"]
+        extra_seq_data["seq_start_in_genome"] = l_m_r["left"]["chromEnd"]
+        extra_seq_data["seq_stop_in_genome"] = l_m_r["right"]["chromStart"]
     else:
         # I think        [left_start, left_stop] ... [middle_start, middle_stop] ... [right_start, right_stop]
         # gets mapped to [right_start, right_stop] ... [middle_start, middle_stop] ... [left_start, left_stop]
-        extra_seq_data["seq_start_in_genome"]  = l_m_r["right"]["stop"]
-        extra_seq_data["seq_stop_in_genome"]  = l_m_r["left"]["start"]
+        extra_seq_data["seq_start_in_genome"]  = l_m_r["right"]["chromEnd"]
+        extra_seq_data["seq_stop_in_genome"]  = l_m_r["left"]["chromStart"]
 
-    extra_seq_data["middle_of_exon_start"] = l_m_r["middle"]["start"]
-    extra_seq_data["middle_of_exon_stop"] = l_m_r["middle"]["stop"]
+    extra_seq_data["middle_of_exon_start"] = l_m_r["middle"]["chromStart"]
+    extra_seq_data["middle_of_exon_stop"] = l_m_r["middle"]["chromEnd"]
 
     if extra_seq_data["seq_start_in_genome"] >= extra_seq_data["middle_of_exon_start"]:
         shutil.move(os.path.join(bed_dir, species_name+".bed"), 
@@ -361,7 +370,7 @@ def extract_info_and_check_bed_file(bed_dir, species_name, extra_seq_data, extra
         return False
 
     extra_seq_data["on_reverse_strand"] = (l_m_r["left"]["strand"] == "-")
-    extra_seq_data["seq_name"] = l_m_r['left']['seq']
+    extra_seq_data["seq_name"] = l_m_r['left']['chrom']
     extra_seq_data["len_of_seq_substring_in_single_species"] = extra_seq_data["seq_stop_in_genome"] \
                                                                    - extra_seq_data["seq_start_in_genome"]
 
@@ -389,7 +398,9 @@ def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, extra_
         assert len(record.seq) == extra_seq_data["seq_stop_in_genome"] - extra_seq_data["seq_start_in_genome"], \
             "[ERROR] >>> non stripped: actual seq len and calculated coordinate len differ"
 
-    assert record is not None, f"[ERROR] >>> no seq found in fasta file {fa_path}"
+    if record is None:
+        print(f"[WARNING] >>> no seq found in fasta file {fa_path}, skipping")
+        return
 
     # write coordinates in genome to seq description
     with open(fa_path, "wt") as out_file:
@@ -426,12 +437,16 @@ def run_hal_2_fasta(species_name, start, len, seq, outpath):
     command = f"time hal2fasta {args.hal} {species_name} --start {start} --length {len} --sequence {seq} \
                 --ucscSequenceNames --outFaPath {outpath}"
     print("[INFO] >>> Running:", command)
-    subprocess.run(command, shell=True, capture_output=True, check=True)
-    #os.system(command)
-    print(f"[INFO] >>> Running: head {outpath}")
-    status = subprocess.run(f"head {outpath}", shell=True, capture_output=True, check=True)
-    print(status.stdout.decode("utf-8"))
-    #os.system(f"head {outpath}")
+    status = subprocess.run(command, shell=True, capture_output=True)
+    if not status.returncode == 0:
+        print(f"[WARNING] >>> hal2fasta failed with error code {status.returncode}")
+        print(status.stderr.decode("utf-8"))
+    else:
+        #os.system(command)
+        print(f"[INFO] >>> Running: head {outpath}")
+        status = subprocess.run(f"head -n 5 {outpath}", shell=True, capture_output=True)
+        print(status.stdout.decode("utf-8"))
+        #os.system(f"head {outpath}")
 
 
 
@@ -505,7 +520,10 @@ def get_input_files_with_human_at_0(from_path):
         element. """
     input_files = [os.path.join(from_path, f) for f in os.listdir(from_path) if f.endswith(".fa")]
     input_files = sorted(input_files, key = lambda x: 0 if re.search("Homo_sapiens", x) else 1)
-    assert re.search("Homo_sapiens", input_files[0]), f"[ERROR] >>> Homo sapiens not in first pos of {from_path}"
+    #assert re.search("Homo_sapiens", input_files[0]), f"[ERROR] >>> Homo sapiens not in first pos of {from_path}"
+    if not re.search("Homo_sapiens", input_files[0]):
+        print(f"[WARNING] >>> Homo sapiens not in first pos of {from_path}")
+
     return input_files
 
 
@@ -538,11 +556,23 @@ def create_exon_data_sets(filtered_internal_exons, output_dir):
         non_stripped_seqs_dir = os.path.join(seqs_dir, "non_stripped")
         stripped_seqs_dir = os.path.join(seqs_dir, "stripped")
         capitalzed_subs_seqs_dir = os.path.join(exon_dir,f"combined_fast_capitalized_{args.convert_short_acgt_to_ACGT}")
-        extra_exon_data = {}
+        extra_exon_data = {}            
 
         for d in [exon_dir, bed_output_dir, seqs_dir, non_stripped_seqs_dir, 
                   stripped_seqs_dir, capitalzed_subs_seqs_dir]:
             os.makedirs(d, exist_ok = True)
+
+        
+
+        # Quick fix to avoid reruns after failed jobs TODO do this properly
+        output_file = os.path.join(capitalzed_subs_seqs_dir, "combined.fasta") \
+            if args.convert_short_acgt_to_ACGT > 0 else os.path.join(exon_dir, "combined.fasta")
+        if os.path.isfile(output_file):
+            print(f"[WARNING] >>> Skipping exon {exon['seq']}_{exon['start_in_genome']}_{exon['stop_in_genome']}",
+                  f"because {output_file} already exists")
+            continue
+
+
 
         human_exon_to_be_lifted_path = os.path.join(exon_dir, "human_exons.bed")
 
@@ -598,8 +628,8 @@ def create_exon_data_sets(filtered_internal_exons, output_dir):
         output_file = os.path.join(exon_dir, "combined.fasta")
         combine_fasta_files(output_file = output_file, input_files = input_files)
 
-        output_file = os.path.join(capitalzed_subs_seqs_dir, "combined.fasta")
         if args.convert_short_acgt_to_ACGT > 0:
+            output_file = os.path.join(capitalzed_subs_seqs_dir, "combined.fasta")
             convert_short_acgt_to_ACGT(output_file, input_files, threshold = args.convert_short_acgt_to_ACGT)
 
 

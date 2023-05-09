@@ -437,11 +437,13 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
     for g in range(len(genomes)):
         for s in range(len(genomes[g])):
             dgene = gld.Gene(str(g)+"_"+str(s), str(g), len(genomes[g][s]), "+")
-            for p in insertTracking[g][s]['pos']:
-                dgene.addElement("pattern", p-10, p+10)
-                
-            for p in repeatTracking[g][s]['pos']:
-                dgene.addElement("repeat", p-10, p+10)
+            if len(insertTracking) > 0:
+                for p in insertTracking[g][s]['pos']:
+                    dgene.addElement("pattern", p-10, p+10)
+
+            if len(repeatTracking) > 0:
+                for p in repeatTracking[g][s]['pos']:
+                    dgene.addElement("repeat", p-10, p+10)
             
             drawGenes.append(dgene)
             

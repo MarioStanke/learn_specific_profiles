@@ -160,36 +160,46 @@ def getDataset(genomes,
                tile_size: int,
                withPosTracking: bool = False):
     if withPosTracking:
-        ds = tf.data.Dataset.from_generator(
-            createBatch,
-            args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
-                    tf.constant(True)),
-
-            # vvv used in newer versions of TF vvv
-            # output_signature = (tf.TensorSpec(shape = ([batch_size, len(genomes), 6, tile_size, su.aa_alphabet_size], 
-            #                                            [batch_size, len(genomes), 2]),
-            #                                   dtype = (tf.float32, tf.int32))
-
-            # vvv deprecated in newer versions of TF vvv
-            output_types = (tf.float32, tf.int32),
-            output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
-                             tf.TensorShape([tiles_per_X, len(genomes), 6, 4]))
-        )
+        # use deprecated way if tensorflow version is < 2.4
+        if tf.__version__.split('.')[0:2] < ['2','4']:
+            ds = tf.data.Dataset.from_generator(
+                createBatch,
+                args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(True)),
+                output_types = (tf.float32, tf.int32),
+                output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
+                                 tf.TensorShape([tiles_per_X, len(genomes), 6, 4]))
+            )
+        else:
+            ds = tf.data.Dataset.from_generator(
+                createBatch,
+                args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(True)),
+                output_signature = (tf.TensorSpec(shape = ([tiles_per_X, len(genomes), 6, tile_size, 
+                                                            su.aa_alphabet_size], 
+                                                           [tiles_per_X, len(genomes), 6, 4]),
+                                                  dtype = (tf.float32, tf.int32)))
+            )
     else:
-        ds = tf.data.Dataset.from_generator(
-            createBatch,
-            args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
-                    tf.constant(False)),
-
-            # vvv used in newer versions of TF vvv
-            # output_signature = (tf.TensorSpec(shape = [batch_size, len(genomes), 6, tile_size, su.aa_alphabet_size],
-            #                                   dtype = tf.float32))
-
-            # vvv deprecated in newer versions of TF vvv
-            output_types = (tf.float32, tf.float32),
-            output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
-                             tf.TensorShape(0))
-        )
+        if tf.__version__.split('.')[0:2] < ['2','4']:
+            ds = tf.data.Dataset.from_generator(
+                createBatch,
+                args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(False)),
+                output_types = (tf.float32, tf.float32),
+                output_shapes = (tf.TensorShape([tiles_per_X, len(genomes), 6, tile_size, su.aa_alphabet_size]),
+                                 tf.TensorShape(0))
+            )
+        else:
+            ds = tf.data.Dataset.from_generator(
+                createBatch,
+                args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
+                        tf.constant(False)),
+                output_signature = (tf.TensorSpec(shape = ([tiles_per_X, len(genomes), 6, tile_size, 
+                                                            su.aa_alphabet_size],
+                                                           0),
+                                                  dtype = (tf.float32, tf.float32)))
+            )
     return ds
 
 
@@ -241,7 +251,7 @@ class DatasetHelper:
         return ds
 
     def allUC(self):
-        """ Make all bases in the genome upper case (useful after training with reporting) """
+        """ Make all bases in the genome upper case (in place!, useful after training with reporting) """
         for g in range(len(self.genomes)):
             for c in range(len(self.genomes[g])):
                 self.genomes[g][c] = self.genomes[g][c].upper()

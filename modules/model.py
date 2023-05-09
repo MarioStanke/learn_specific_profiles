@@ -116,6 +116,7 @@ class SpecificProfile(tf.keras.Model):
                 
         self.setP_logit(P_logit_init)      # shape: (k, alphabet_size, U)
         self.P_report = []
+        self.P_report_idx = []
         self.P_report_discarded = [] # for deleted edge cases
         self.P_report_thresold = []
         self.P_report_loss = []
@@ -136,7 +137,8 @@ class SpecificProfile(tf.keras.Model):
         self.tracking = {
             'epoch': [],
             'P': [], # list of np.arrays of all tracked profiles (k x 21 x U') where U'=len(track_profiles)
-            'max_score': [] # list of np.arrays of respective max scores (U')
+            'max_score': [], # list of np.arrays of respective max scores (U')
+            'masking': [] # lookup sites in self.P_report_masked_sites
         }
         
         # initial state
@@ -602,6 +604,13 @@ class SpecificProfile(tf.keras.Model):
         
         learning_rate_init = float(learning_rate)
         self.opt = tf.keras.optimizers.Adam(learning_rate=learning_rate_init) # large learning rate is much faster
+        
+        # [DEBUG] update first max_scores in tracking if desired
+        if self.track_profiles is not None and len(self.track_profiles) > 0:
+            assert len(self.tracking['max_score']) == 1, str(self.tracking)
+            assert len(self.tracking['P']) == 1, str(self.tracking)
+            self.tracking['max_score'][0] = self.max_profile_scores(dsHelper.getDataset(), otherP = self.tracking['P'][0])
+        # [DEBUG]/
 
         def profileHistInit():
             return {
@@ -618,7 +627,7 @@ class SpecificProfile(tf.keras.Model):
             if len(self.history['loss']) > patience:
                 lastmin = self.history['loss'][-(patience+1)]
                 if not any([l < lastmin for l in self.history['loss'][-patience:]]):
-                    print("[INFO] >>> Learning rate did not decrease for", patience, "epochs, reducing from", 
+                    print("[INFO] >>> Loss did not decrease for", patience, "epochs, reducing learning rate from", 
                           learning_rate, "to", factor*learning_rate)
                     learning_rate *= factor
                     setLR(learning_rate)
@@ -699,11 +708,16 @@ class SpecificProfile(tf.keras.Model):
                     if sd <= profile_plateau_dev:
                         print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
                         print("cleaning up profile", p.numpy())
+                        
                         edgeCase = self.profile_cleanup(p, match_score_factor, dsHelper)
                         if edgeCase:
                             edgeCaseCounter += 1
                         else:
                             edgeCaseCounter = 0
+                            
+                        # [DEBUG] track profiles
+                        if len(self.tracking['masking']) > 0 and self.tracking['masking'][-1]['after_epoch'] is None:
+                            self.tracking['masking'][-1]['after_epoch'] = i
                             
                         # reset training
                         print("[DEBUG] >>> Resetting training")
@@ -818,6 +832,7 @@ class SpecificProfile(tf.keras.Model):
 
             # report profile, get new seeds
             self.P_report.append(Pk_logit[:,:,bestIdx])
+            self.P_report_idx.append(pIdx)
             self.P_report_thresold.append(threshold)
             #self.P_report_loss.append(tf.reduce_mean(losses).numpy())
             self.P_report_loss.append(minloss)
@@ -830,6 +845,10 @@ class SpecificProfile(tf.keras.Model):
             
             #self.P_report_kmer_losses.append(losses)
             self.P_report_kmer_scores.append(scores)
+            
+            # [DEBUG] track profiles
+            self.tracking['masking'].append({'P_report_masked_sites_index': len(self.P_report_masked_sites)-1,
+                                             'after_epoch': None})
             
         else:
             print("Profile is an edge case, starting over")

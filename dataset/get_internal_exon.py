@@ -37,6 +37,8 @@ class LiftoverSeq:
 # same reason, must match the named tuple returned by Pandas itertuples() method, check this later
 BedRow = namedtuple("BedRow", ["Index", "chrom", "chromStart", "chromEnd", "name", "score", "strand", 
                                "thickStart", "thickEnd", "itemRgb", "blockCount", "blockSizes", "blockStarts"])
+BedColumns = BedRow._fields[1:] # chrom, chromStart, chromEnd, ...
+
 
 
 ########################################################################################################################
@@ -61,6 +63,48 @@ def get_output_dir():
                                   + f"_{lengths_config_str}_{getFilename(args.hal)}")
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
+
+
+
+########################################################################################################################
+def parse_bed(bedfile):
+    """ Load a bed file into a Pandas DataFrame and return it. """
+    bedf = pd.read_csv(bedfile, delimiter = "\t", header = None)
+    assert bedf.columns.size <= 12, "[ERROR] >>> bed file has more than 12 columns"
+    assert bedf.columns.size >= 3, "[ERROR] >>> bed file has less than 3 columns"
+    ncol = bedf.columns.size
+    bedf.columns = BedColumns[:ncol]
+
+    def parseBlockList(s):
+        fields = s.split(",")
+        if fields[-1] == '':
+            return [int(a) for a in fields[:-1]]
+        else:
+            return [int(a) for a in fields]
+
+    if ncol >= 11:
+        bedf["blockSizes"] = bedf["blockSizes"].map(parseBlockList)
+        assert all(bedf["blockCount"] == bedf["blockSizes"].map(len)), "[ERROR] >>> blockCount != len(blockSizes)"
+    if ncol >= 12:
+        bedf["blockStarts"] = bedf["blockStarts"].map(parseBlockList)
+        assert all(bedf["blockCount"] == bedf["blockStarts"].map(len)), "[ERROR] >>> blockCount != len(blockStarts)"
+
+    # just to be safe
+    def ensureNumericColumn(column):
+        if column in bedf.columns:
+            if not pd.api.types.is_numeric_dtype(bedf[column]):
+                bedf[column] = pd.to_numeric(bedf[column])
+
+        return bedf
+    
+    bedf = ensureNumericColumn("chromStart")
+    bedf = ensureNumericColumn("chromEnd")
+    bedf = ensureNumericColumn("score")
+    bedf = ensureNumericColumn("thickStart")
+    bedf = ensureNumericColumn("thickEnd")
+    bedf = ensureNumericColumn("blockCount")
+
+    return bedf
 
 
 
@@ -300,17 +344,75 @@ def create_human_liftover_bed(exon: Exon, out_path):
 
 
 ########################################################################################################################
-def liftover(human_exon_to_be_lifted_path, species_name, out_dir):
+def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): # DEBUG: exon argument
     """ Either creates new bed file by calling halLiftover with the human exon bed file and the species name,
         or searches for an old  (only if --use_old_bed is given). 
         Returns named tuple with returncode that can be checked for success (returncode 0) """
     bed_file_path = os.path.join(out_dir, species_name+".bed")
     if not args.use_old_bed:
-        command = f"time halLiftover {args.hal} Homo_sapiens {human_exon_to_be_lifted_path} {species_name} \
-                    {bed_file_path}"
+        command = f"time halLiftover {args.hal} Homo_sapiens {human_exon_to_be_lifted_path} {species_name} " \
+                    + f"{bed_file_path}"
         print("[INFO] >>> running:", command)
         status = subprocess.run(command, shell=True, capture_output=True)
         #os.system(command)
+
+        # ~~~ DEBUG ~~~
+        if species_name == "Homo_sapiens":
+            print("[DEBUG] >>> Homo sapiens self liftover")
+            # create fasta from exon, human_exon_bed and lifted bed
+            exonfasta = os.path.join(out_dir, "DEBUG_human_exon.fasta")
+            bedfasta = os.path.join(out_dir, "DEBUG_human_bed.fasta")
+            #liftfasta = os.path.join(out_dir, "DEBUG_human_lift.fasta")
+            run_hal_2_fasta(species_name, exon.left_anchor_start, exon.substring_len, exon.seq, exonfasta)
+            
+            hgbed = parse_bed(human_exon_to_be_lifted_path)
+            assert len(hgbed.index) == 3, f"[ERROR] >>> human exon bedfile has {len(hgbed.index)} lines (3 expected)"
+            assert hgbed.iloc[0]['name'][-4:] == 'left', "[ERROR] >>> human exon bedfile not as expected:\n"+str(hgbed)
+            assert hgbed.iloc[1]['name'][-5:] == 'right', "[ERROR] >>> human exon bedfile not as expected:\n"+str(hgbed)
+            bedstart = hgbed.iloc[0]['chromStart']
+            bedend = hgbed.iloc[1]['chromEnd']
+            assert bedstart < bedend, "[ERROR] >>> left start after right end:\n"+str(hgbed)
+            bedlen = bedend-bedstart
+            run_hal_2_fasta(species_name, bedstart, bedlen, exon.seq, bedfasta)
+
+            liftbed = parse_bed(bed_file_path)
+
+            # load generated fastas and compare (should all be the same, 
+            #   especially lifted over sequence from human to human)
+            exonseq = []
+            with open(exonfasta) as handle:
+                for record in SeqIO.parse(handle, "fasta"):
+                    exonseq.append(record)
+
+            print(f"[DEBUG] >>> number of exon sequences: {len(exonseq)}")
+            print("[DEBUG] >>> Exon sequence:")
+            print(exonseq[0])
+
+            bedseq = []
+            with open(bedfasta) as handle:
+                for record in SeqIO.parse(handle, "fasta"):
+                    bedseq.append(record)
+
+            print(f"[DEBUG] >>> number of bed sequences: {len(bedseq)}")
+            print("[DEBUG] >>> BED sequence:")
+            print(bedseq[0])
+
+            def printStackedSeqs(seq1: str, seq2: str, lw=20):
+                # ...
+
+
+            if exonseq[0].seq != bedseq[0].seq:
+                print("[WARNING] >>> Exon seq and BED seq differ")
+            else:
+                print("[DEBUG] >>> Exon seq and BED seq are the same")
+
+            print("[DEBUG] >>> Lifted BED:")
+            print(liftbed)
+
+            exit(0)
+
+        # ~~~ /DEBUG ~~~
+
         return status
     else:
         mock_status = namedtuple("mock_status", ["returncode", "message"]) # simulate subprocess status with returncode
@@ -699,7 +801,7 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
         human_exon_bedfile = os.path.join(exon_dir, "human_exons.bed")
         create_human_liftover_bed(exon = exon, out_path = human_exon_bedfile)
         for single_species in all_species:
-            bed_status = liftover(human_exon_bedfile, single_species, bed_output_dir)
+            bed_status = liftover(human_exon_bedfile, single_species, bed_output_dir, exon)
             if bed_status.returncode == 1:
                 print(f"[WARNING] >>> No bed file for species {single_species}: {bed_status}")
                 continue

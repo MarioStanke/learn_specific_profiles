@@ -398,11 +398,31 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
             print(bedseq[0])
 
             def printStackedSeqs(seq1: str, seq2: str, lw=20):
-                # ...
+                a1 = a2 = 0
+                b1 = b2 = 0
+                while True:
+                    b1 = min(len(seq1), b1+lw)
+                    b2 = min(len(seq2), b2+lw)
+                    s1 = seq1[a1:b1]
+                    s2 = seq2[a2:b2]
+                    
+                    if len(s1) + len(s2) == 0:
+                        break
+
+                    m = ''.join([' ' if s1[i] == s2[i] else '#' for i in range(min(len(s1),len(s2)))])
+                    print(s1)
+                    print(m)
+                    print(s2)
+                    print()
+
+                    a1 = b1
+                    a2 = b2
+
 
 
             if exonseq[0].seq != bedseq[0].seq:
                 print("[WARNING] >>> Exon seq and BED seq differ")
+                printStackedSeqs(exonseq[0].seq, bedseq[0].seq)
             else:
                 print("[DEBUG] >>> Exon seq and BED seq are the same")
 

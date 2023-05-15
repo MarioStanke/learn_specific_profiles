@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
-from Bio import Seq, SeqIO, AlignIO
-from Bio.Align import MultipleSeqAlignment
-from Bio.SeqRecord import SeqRecord
+#import Bio
+from Bio import Align, AlignIO, Seq, SeqIO, SeqRecord
+#from Bio.Align import MultipleSeqAlignment
+#from Bio.SeqRecord import SeqRecord
 from collections import namedtuple
 import json
 import math
@@ -21,7 +22,7 @@ import time
 # define named tuple for exon to make it safer to use in a proper editor/IDE
 Exon = namedtuple("Exon", ["seq", "start_in_genome", "stop_in_genome", "id", 
                            "left_anchor_start", "left_anchor_end", "right_anchor_start", "right_anchor_end",
-                           "left_intron_len", "right_intron_len", "strand", "substring_len"])
+                           "left_intron_len", "right_intron_len", "strand", "substring_len", "total_len"])
 
 # for the same reason, create simple class for liftover_seq
 class LiftoverSeq:
@@ -253,7 +254,8 @@ def filter_and_choose_exon_neighbours(all_internal_exons: dict[tuple, list[BedRo
                      left_intron_len = left_intron_len,
                      right_intron_len = right_intron_len,
                      strand = row.strand,
-                     substring_len = right_anchor_start - left_anchor_end)
+                     substring_len = right_anchor_start - left_anchor_end,
+                     total_len = right_anchor_end - left_anchor_start)
             filtered_internal_exons.append(e)
 
             # for an internal exon the neigbhours are choosen (simply the first occurance is selected)
@@ -358,12 +360,14 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
 
         # ~~~ DEBUG ~~~
         if species_name == "Homo_sapiens":
+            die = False
             print("[DEBUG] >>> Homo sapiens self liftover")
+            print("[DEBUG] >>> Exon:", exon)
             # create fasta from exon, human_exon_bed and lifted bed
             exonfasta = os.path.join(out_dir, "DEBUG_human_exon.fasta")
             bedfasta = os.path.join(out_dir, "DEBUG_human_bed.fasta")
-            #liftfasta = os.path.join(out_dir, "DEBUG_human_lift.fasta")
-            run_hal_2_fasta(species_name, exon.left_anchor_start, exon.substring_len, exon.seq, exonfasta)
+            liftfasta = os.path.join(out_dir, "DEBUG_human_lift.fasta")
+            run_hal_2_fasta(species_name, exon.left_anchor_start, exon.total_len, exon.seq, exonfasta)
             
             hgbed = parse_bed(human_exon_to_be_lifted_path)
             assert len(hgbed.index) == 3, f"[ERROR] >>> human exon bedfile has {len(hgbed.index)} lines (3 expected)"
@@ -376,6 +380,14 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
             run_hal_2_fasta(species_name, bedstart, bedlen, exon.seq, bedfasta)
 
             liftbed = parse_bed(bed_file_path)
+            assert len(liftbed.index) == 3, f"[ERROR] >>> lifted bedfile has {len(liftbed.index)} lines (3 expected)"
+            assert liftbed.iloc[0]['name'][-4:] == 'left', "[ERROR] >>> lifted bedfile not as expected:\n"+str(liftbed)
+            assert liftbed.iloc[1]['name'][-5:] == 'right', "[ERROR] >>> lifted bedfile not as expected:\n"+str(liftbed)
+            bedstart = liftbed.iloc[0]['chromStart']
+            bedend = liftbed.iloc[1]['chromEnd']
+            assert bedstart < bedend, "[ERROR] >>> left start after right end:\n"+str(liftbed)
+            bedlen = bedend-bedstart
+            run_hal_2_fasta(species_name, bedstart, bedlen, exon.seq, liftfasta)
 
             # load generated fastas and compare (should all be the same, 
             #   especially lifted over sequence from human to human)
@@ -397,6 +409,15 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
             print("[DEBUG] >>> BED sequence:")
             print(bedseq[0])
 
+            liftseq = []
+            with open(liftfasta) as handle:
+                for record in SeqIO.parse(handle, "fasta"):
+                    liftseq.append(record)
+
+            print(f"[DEBUG] >>> number of lifted sequences: {len(liftseq)}")
+            print("[DEBUG] >>> Lifted sequence:")
+            print(liftseq[0])
+
             def printStackedSeqs(seq1: str, seq2: str, lw=20):
                 a1 = a2 = 0
                 b1 = b2 = 0
@@ -409,7 +430,7 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
                     if len(s1) + len(s2) == 0:
                         break
 
-                    m = ''.join([' ' if s1[i] == s2[i] else '#' for i in range(min(len(s1),len(s2)))])
+                    m = ''.join(['|' if s1[i] == s2[i] else '-' for i in range(min(len(s1),len(s2)))])
                     print(s1)
                     print(m)
                     print(s2)
@@ -422,14 +443,31 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
 
             if exonseq[0].seq != bedseq[0].seq:
                 print("[WARNING] >>> Exon seq and BED seq differ")
-                printStackedSeqs(exonseq[0].seq, bedseq[0].seq)
+                printStackedSeqs(exonseq[0].seq, bedseq[0].seq, 120)
+                die = True
             else:
                 print("[DEBUG] >>> Exon seq and BED seq are the same")
 
-            print("[DEBUG] >>> Lifted BED:")
-            print(liftbed)
+            if exonseq[0].seq != liftseq[0].seq:
+                print("[WARNING] >>> Exon seq and lifted seq differ")
+                printStackedSeqs(exonseq[0].seq, liftseq[0].seq, 120)
+                die = True
+            else:
+                print("[DEBUG] >>> Exon seq and lifted seq are the same")
 
-            exit(0)
+            if bedseq[0].seq != liftseq[0].seq:
+                print("[WARNING] >>> BED seq and lifted seq differ")
+                printStackedSeqs(bedseq[0].seq, liftseq[0].seq, 120)
+                die = True
+            else:
+                print("[DEBUG] >>> BED seq and lifted seq are the same")
+
+            #print("[DEBUG] >>> Lifted BED:")
+            #print(liftbed)
+            if die:
+                print("[ERROR] >>> Exiting due to errors")
+                exit(1)
+            #exit(0)
 
         # ~~~ /DEBUG ~~~
 
@@ -450,6 +488,7 @@ def liftover(human_exon_to_be_lifted_path, species_name, out_dir, exon: Exon): #
 ########################################################################################################################
 def extract_info_and_check_bed_file(bed_dir, species_name, exon: Exon, liftover_seq: LiftoverSeq):
     """ Checks the generated bedfile from halLiftover and extracts sequence information into liftover_seq.
+        Sequence coordinates exclude the left and right anchors.
         Returns true if everything was successful, false if something was wrong with the bed file. """
     bed_file_path = os.path.join(bed_dir, species_name+".bed")
     if os.path.getsize(bed_file_path) == 0:
@@ -502,13 +541,14 @@ def extract_info_and_check_bed_file(bed_dir, species_name, exon: Exon, liftover_
         shutil.move(bed_file_path, os.path.join(bed_dir, species_name+"_errorcode_unequal_seqs.bed"))
         return False
 
-    # if strand is opposite to human, left and right swap
+    # anchors get cut away here!
     if exon.strand == l_m_r["left"]["strand"]:
         liftover_seq.seq_start_in_genome = l_m_r["left"]["chromEnd"]
         liftover_seq.seq_stop_in_genome = l_m_r["right"]["chromStart"]
     else:
-        # I think        [left_start, left_stop] ... [middle_start, middle_stop] ... [right_start, right_stop]
-        # gets mapped to [right_start, right_stop] ... [middle_start, middle_stop] ... [left_start, left_stop]
+        # if strand is opposite to human, left and right swap
+        # I think        [left_start,   left_stop] ... [middle_start, middle_stop] ... [right_start, right_stop]
+        # gets mapped to [right_start, right_stop] ... [middle_start, middle_stop] ... [left_start,   left_stop]
         liftover_seq.seq_start_in_genome  = l_m_r["right"]["chromEnd"]
         liftover_seq.seq_stop_in_genome  = l_m_r["left"]["chromStart"]
 
@@ -744,7 +784,7 @@ def write_clw_true_state_seq(fasta_path, out_dir_path):
                            - coords["exon_stop_in_human_genome_cd_strand"])
         true_seq += "r" * (coords["exon_stop_in_human_genome_cd_strand"] - coords["seq_stop_in_genome_cd_strand"])
 
-    true_seq_record = SeqRecord(seq = Seq(true_seq), id = "true_seq")
+    true_seq_record = SeqRecord.SeqRecord(seq = Seq.Seq(true_seq), id = "true_seq")
 
     # create sequence of bars every 10 bases: |         |         |         |         | ...
     len_of_line_in_clw = 50
@@ -756,7 +796,7 @@ def write_clw_true_state_seq(fasta_path, out_dir_path):
         else:
             numerate_line += " "
 
-    numerate_line_record =  SeqRecord(seq = Seq(numerate_line), id = "numerate_line")
+    numerate_line_record =  SeqRecord.SeqRecord(seq = Seq.Seq(numerate_line), id = "numerate_line")
 
     # create descriptive sequence for each clw-Block (50 bases), giving the current position in the fasta and genome
     coords_fasta = ""
@@ -770,11 +810,11 @@ def write_clw_true_state_seq(fasta_path, out_dir_path):
 
     last_line_len = len(human_fasta.seq) - len(coords_fasta)
     coords_fasta += " " * last_line_len
-    coords_fasta_record = SeqRecord(seq = Seq(coords_fasta), id = "coords_fasta")
+    coords_fasta_record = SeqRecord.SeqRecord(seq = Seq.Seq(coords_fasta), id = "coords_fasta")
 
     # create "MSA" of the records
     records = [coords_fasta_record, numerate_line_record, human_fasta, true_seq_record]
-    alignment = MultipleSeqAlignment(records)
+    alignment = Align.MultipleSeqAlignment(records)
 
     filesuffix = "" # if exon sequence contains lowercase or N, add this to the filename
     for base, e_or_i in zip(human_fasta.seq, true_seq_record.seq):

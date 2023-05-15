@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-#import Bio
 from Bio import Align, AlignIO, Seq, SeqIO, SeqRecord
-#from Bio.Align import MultipleSeqAlignment
-#from Bio.SeqRecord import SeqRecord
 from collections import namedtuple
 import json
 import math
@@ -33,7 +30,7 @@ class LiftoverSeq:
         self.middle_of_exon_stop = None
         self.on_reverse_strand = None
         self.seq_name = None
-        self.substring_len = None
+        self.substring_len = None # without anchors
 
 # same reason, must match the named tuple returned by Pandas itertuples() method, check this later
 BedRow = namedtuple("BedRow", ["Index", "chrom", "chromStart", "chromEnd", "name", "score", "strand", 
@@ -86,7 +83,7 @@ def parse_bed(bedfile):
     if ncol >= 11:
         bedf["blockSizes"] = bedf["blockSizes"].map(parseBlockList)
         assert all(bedf["blockCount"] == bedf["blockSizes"].map(len)), "[ERROR] >>> blockCount != len(blockSizes)"
-    if ncol >= 12:
+    if ncol == 12:
         bedf["blockStarts"] = bedf["blockStarts"].map(parseBlockList)
         assert all(bedf["blockCount"] == bedf["blockStarts"].map(len)), "[ERROR] >>> blockCount != len(blockStarts)"
 
@@ -105,50 +102,58 @@ def parse_bed(bedfile):
     bedf = ensureNumericColumn("thickEnd")
     bedf = ensureNumericColumn("blockCount")
 
+    # check tuple names
+    if ncol == 12:
+        for row in bedf.itertuples():
+            # assert that row matches the BedRow namedtuple, this allows to hint the type of the row as BedRow
+            assert row._fields == BedRow._fields, "[ERROR] >>> BedRow namedtuple fields do not match hg38_refseq_bed " \
+                + f"columns: {BedRow._fields} != {row._fields}"
+            break # one iteration is enough
+
     return bedf
 
 
 
 ########################################################################################################################
-def load_hg38_refseq_bed():
-    """ Load hg38 refseq bed file (specified in arguments) as Pandas DataFrame and return it. """
-    start = time.perf_counter()
-    print("[INFO] >>> started load_hg38_refseq_bed()")
-    hg38_refseq_bed = pd.read_csv(args.hg38, delimiter = "\t", header = None)
-    assert hg38_refseq_bed.columns.size == 12, \
-        f"[ERROR] >>> hg38 refseq bed has {hg38_refseq_bed.columns.size} columns, 12 expected"
-    hg38_refseq_bed.columns = ["chrom", "chromStart", "chromEnd", "name", "score", "strand", "thickStart", "thickEnd", 
-                               "itemRgb", "blockCount", "blockSizes", "blockStarts"]
-    def parseBlockList(s):
-        fields = s.split(",")
-        if fields[-1] == '':
-            return [int(a) for a in fields[:-1]]
-        else:
-            return [int(a) for a in fields]
+# def load_hg38_refseq_bed():
+#     """ Load hg38 refseq bed file (specified in arguments) as Pandas DataFrame and return it. """
+#     start = time.perf_counter()
+#     print("[INFO] >>> started load_hg38_refseq_bed()")
+#     hg38_refseq_bed = pd.read_csv(args.hg38, delimiter = "\t", header = None)
+#     assert hg38_refseq_bed.columns.size == 12, \
+#         f"[ERROR] >>> hg38 refseq bed has {hg38_refseq_bed.columns.size} columns, 12 expected"
+#     hg38_refseq_bed.columns = ["chrom", "chromStart", "chromEnd", "name", "score", "strand", "thickStart", "thickEnd", 
+#                                "itemRgb", "blockCount", "blockSizes", "blockStarts"]
+#     def parseBlockList(s):
+#         fields = s.split(",")
+#         if fields[-1] == '':
+#             return [int(a) for a in fields[:-1]]
+#         else:
+#             return [int(a) for a in fields]
 
-    hg38_refseq_bed["blockSizes"] = hg38_refseq_bed["blockSizes"].map(parseBlockList)
-    hg38_refseq_bed["blockStarts"] = hg38_refseq_bed["blockStarts"].map(parseBlockList)
-    assert all(hg38_refseq_bed["blockCount"] == hg38_refseq_bed["blockSizes"].map(len)), \
-        "[ERROR] >>> blockCount != len(blockSizes)"
-    assert all(hg38_refseq_bed["blockCount"] == hg38_refseq_bed["blockStarts"].map(len)), \
-        "[ERROR] >>> blockCount != len(blockStarts)"
+#     hg38_refseq_bed["blockSizes"] = hg38_refseq_bed["blockSizes"].map(parseBlockList)
+#     hg38_refseq_bed["blockStarts"] = hg38_refseq_bed["blockStarts"].map(parseBlockList)
+#     assert all(hg38_refseq_bed["blockCount"] == hg38_refseq_bed["blockSizes"].map(len)), \
+#         "[ERROR] >>> blockCount != len(blockSizes)"
+#     assert all(hg38_refseq_bed["blockCount"] == hg38_refseq_bed["blockStarts"].map(len)), \
+#         "[ERROR] >>> blockCount != len(blockStarts)"
 
-    # just to be safe
-    def ensureNumericColumn(column):
-        if not pd.api.types.is_numeric_dtype(hg38_refseq_bed[column]):
-            hg38_refseq_bed[column] = pd.to_numeric(hg38_refseq_bed[column])
+#     # just to be safe
+#     def ensureNumericColumn(column):
+#         if not pd.api.types.is_numeric_dtype(hg38_refseq_bed[column]):
+#             hg38_refseq_bed[column] = pd.to_numeric(hg38_refseq_bed[column])
 
-        return hg38_refseq_bed
+#         return hg38_refseq_bed
     
-    hg38_refseq_bed = ensureNumericColumn("chromStart")
-    hg38_refseq_bed = ensureNumericColumn("chromEnd")
-    hg38_refseq_bed = ensureNumericColumn("score")
-    hg38_refseq_bed = ensureNumericColumn("thickStart")
-    hg38_refseq_bed = ensureNumericColumn("thickEnd")
-    hg38_refseq_bed = ensureNumericColumn("blockCount")
+#     hg38_refseq_bed = ensureNumericColumn("chromStart")
+#     hg38_refseq_bed = ensureNumericColumn("chromEnd")
+#     hg38_refseq_bed = ensureNumericColumn("score")
+#     hg38_refseq_bed = ensureNumericColumn("thickStart")
+#     hg38_refseq_bed = ensureNumericColumn("thickEnd")
+#     hg38_refseq_bed = ensureNumericColumn("blockCount")
 
-    print("[INFO] >>> finished load_hg38_refseq_bed(). It took:", time.perf_counter() - start)
-    return hg38_refseq_bed
+#     print("[INFO] >>> finished load_hg38_refseq_bed(). It took:", time.perf_counter() - start)
+#     return hg38_refseq_bed
 
 
 
@@ -495,10 +500,11 @@ def extract_info_and_check_bed_file(bed_dir, species_name, exon: Exon, liftover_
         shutil.move(bed_file_path, os.path.join(bed_dir, species_name+"_errorcode_empty.bed"))
         return False
 
-    species_bed = pd.read_csv(bed_file_path, delimiter = "\t", header = None)
+    species_bed = parse_bed(bed_file_path)
+    #species_bed = pd.read_csv(bed_file_path, delimiter = "\t", header = None)
     assert species_bed.columns.size == 6, \
         f"[ERROR] >>> Bed file {bed_file_path} has {species_bed.columns.size} columns, 6 expected"
-    species_bed.columns = ["chrom", "chromStart", "chromEnd", "name", "score", "strand"]
+    #species_bed.columns = ["chrom", "chromStart", "chromEnd", "name", "score", "strand"]
 
     if len(species_bed.index) != 3 and args.discard_multiple_bed_hits:
         shutil.move(bed_file_path, os.path.join(bed_dir, species_name+"_errorcode_more_than_3_lines.bed"))
@@ -1035,7 +1041,7 @@ if __name__ == "__main__":
                 else:
                     print("your answer must be either y or n")
 
-        hg38_refseq_bed = load_hg38_refseq_bed()
+        hg38_refseq_bed = parse_bed(args.hg38) # load_hg38_refseq_bed()
         filtered_internal_exons = get_to_be_lifted_exons(hg38_refseq_bed, json_path, overwrite)
         create_exon_data_sets(filtered_internal_exons, output_dir)
         make_stats_table()

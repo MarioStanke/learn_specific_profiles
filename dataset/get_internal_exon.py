@@ -13,6 +13,8 @@ import shutil
 import subprocess
 import time
 
+import SequenceRepresentation
+
 
 
 ########################################################################################################################
@@ -584,7 +586,8 @@ def extract_info_and_check_bed_file(bed_dir, species_name, exon: Exon, liftover_
 
 
 ########################################################################################################################
-def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, liftover_seq: LiftoverSeq, exon: Exon):
+def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, seqpath, 
+                                                                 liftover_seq: LiftoverSeq, exon: Exon, species: str):
     """ Reads single sequence fasta from fa_path, adds exon description as a json string to the sequence,
         converts the sequence to reverse complement if the exon is on the - strand, writes the sequence back to 
         fa_path """
@@ -632,6 +635,27 @@ def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, liftov
             record.seq = reverse_seq
         SeqIO.write(record, out_file, "fasta")
 
+    # Create a SequenceRepresentation.Sequence object from he Exon and LiftoverSeq objects and store it, this should
+    # contain all relevant information for the evaluation of the profile finding
+    hgSeq = SequenceRepresentation.Sequence(species="Homo_sapiens", chromosome=exon.seq, strand=exon.strand,
+                                            genome_start=exon.left_anchor_start, genome_end=exon.right_anchor_end,
+                                            no_homology=True)
+    hgSeq.addSubsequenceAsElement(exon.left_anchor_start, exon.left_anchor_end, 'left_anchor', genomic_positions=True,
+                                  no_elements=True, no_homology=True)
+    hgSeq.addSubsequenceAsElement(exon.right_anchor_start, exon.right_anchor_end, 'right_anchor', 
+                                  genomic_positions=True, no_elements=True, no_homology=True)
+    hgSeq.addSubsequenceAsElement(exon.start_in_genome, exon.stop_in_genome, 'exon', genomic_positions=True,
+                                  no_elements=True, no_homology=True)
+    
+    liftstrand = "-" if liftover_seq.on_reverse_strand else "+"
+    liftSeq = SequenceRepresentation.Sequence(species=species, chromosome=liftover_seq.seq_name, strand=liftstrand,
+                                              genome_start=liftover_seq.seq_start_in_genome, 
+                                              genome_end=liftover_seq.seq_stop_in_genome)
+    liftSeq.addHomology(hgSeq)
+    # TODO: scan annotation file of species for the exon and add candidates to the liftSeq object
+
+    with open(seqpath, 'wt') as fh:
+        json.dump(liftSeq.toDict(), fh, indent=4)
 
 
 ########################################################################################################################
@@ -885,6 +909,7 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
             # getting the seq, from human: [left exon [lifted]] [intron] [exon] [intron] [[lifted] right exon]
             # the corresponding seq of [intron] [exon] [intron] in other species
             out_fa_path = os.path.join(non_stripped_seqs_dir, single_species+".fa")
+            out_seq_path = os.path.join(non_stripped_seqs_dir, single_species+".seqrep")
             if not args.use_old_fasta:
                 run_hal_2_fasta(species_name = single_species,
                                 start = liftover_seq.seq_start_in_genome,
@@ -893,8 +918,10 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
                                 outpath = out_fa_path)
 
                 write_extra_data_to_fasta_description_and_reverse_complement(fa_path = out_fa_path,
+                                                                             seqpath = out_seq_path,
                                                                              liftover_seq = liftover_seq,
-                                                                             exon = exon)
+                                                                             exon = exon,
+                                                                             species = single_species)
 
             stripped_fasta_file_path = re.sub("non_stripped","stripped", out_fa_path)
             strip_seqs(fasta_file = out_fa_path,

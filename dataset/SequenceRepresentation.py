@@ -103,7 +103,7 @@ class Sequence:
 
     def __str__(self) -> str:
         """ String representation of the sequence. """
-        rep = f"{self.id} ({self.strand}, length = {self.lenght:,})"
+        rep = f"{self.id} ({self.strand}, length = {self.lenght:,}, type = {self.type})"
         if self.sequence is not None:
             if self.lenght > 23:
                 rep += f"\n{self.sequence[:10]}...{self.sequence[-10:]}"
@@ -118,23 +118,7 @@ class Sequence:
     
     def __repr__(self) -> str:
         """ Representation of the sequence. This is a JSON string. """
-        objdict = {
-            'id': self.id,
-            'species': self.species,
-            'chromosome': self.chromosome,
-            'strand': self.strand,
-            'genome_start': self.genome_start,
-            'genome_end': self.genome_end,
-            'lenght': self.lenght
-        }
-        if self.sequence is not None:
-            objdict['sequence'] = self.sequence
-        if hasattr(self, 'genomic_elements'):
-            objdict['genomic_elements'] = [json.loads(repr(element)) for element in self.genomic_elements]
-        if hasattr(self, 'homology'):
-            objdict['homology'] = [json.loads(repr(homology)) for homology in self.homology]
-
-        return json.dumps(objdict, indent = 4)
+        return json.dumps(self.toDict(), indent = 4)
     
     def __len__(self) -> int:
         """ Length of the sequence. """
@@ -193,6 +177,29 @@ class Sequence:
         """ Add a homology to the sequence. """
         _addHomologyToSequence(homology, self)
 
+    def toDict(self) -> dict:
+        """ Return a dictionary representation of the sequence. """
+        objdict = {
+            'id': self.id,
+            'species': self.species,
+            'chromosome': self.chromosome,
+            'strand': self.strand,
+            'genome_start': self.genome_start,
+            'genome_end': self.genome_end,
+            'lenght': self.lenght
+        }
+        if self.sequence is not None:
+            objdict['sequence'] = self.sequence
+
+        objdict['type'] = self.type
+
+        if hasattr(self, 'genomic_elements'):
+            objdict['genomic_elements'] = [element.toDict() for element in self.genomic_elements]
+        if hasattr(self, 'homology'):
+            objdict['homology'] = [homology.toDict() for homology in self.homology]
+
+        return objdict
+
 
 
 # helper functions for adding genomic elements and homology to a sequence
@@ -231,7 +238,8 @@ def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
         strand = objdict['strand'],
         genome_start = objdict['genome_start'],
         genome_end = objdict['genome_end'],
-        lenght = objdict['lenght']
+        lenght = objdict['lenght'],
+        seqtype = objdict['type']
     )
     if 'sequence' in objdict:
         sequence.sequence = objdict['sequence']

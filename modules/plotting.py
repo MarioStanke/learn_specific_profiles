@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 import dataset as ds
 import GeneLinkDraw.geneLinkDraw as gld
 import model
+import SequenceRepresentation
 import sequtils as su
 
 
@@ -138,6 +139,106 @@ def sitesToLinks(sites, linkThreshold = 100):
 
 
 
+def drawGeneLinks_SequenceRepresentationData(sequences: list[SequenceRepresentation.Sequence], links, imname,
+                                             kmerSites = None, kmerCol = None, 
+                                             maskingSites = None, maskingCol = 'darkred',
+                                             font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
+    """
+    Draw an image with sequences as horizontal bars and links as connecting lines
+
+    Parameters:
+        sequences (list of SequenceRepresentation.Sequence): sequences to draw
+        links (list of lists of occurrences): links between sequence positions (occurrences)
+        imname (str): path to image file to write the image to, set to None for no writing
+        kmerSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of initial kmer 
+                                    positions. If given, these occurrences are drawn as small dots on the genes
+        kmerCol (str or tuple of RGB values): Optional color used when drawing initial kmer positions. If None and
+                                              kmerSites are given, color is determined automatically. Use gld.Palette
+                                              class to get some color names
+        maskingSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of sites where DNA
+                                       was softmasked during training
+        maskingCol (str or tuple of RGB values): Optional color used when drawing masking sites. Defaults to darkred. If
+                                                 None and maskingSites are given, color is determined automatically. Use
+                                                 gld.Palette class to get some color names
+        font (str): path to font file to use for text
+        **kwargs: named arguments forwarded to gld.draw()
+    """
+
+    drawGenes = []
+    for sequence in sequences:
+        dg = gld.Gene(sequence.id, sequence.species, sequence.lenght, sequence.strand)
+        for element in sequence.genomic_elements:
+            start, end = element.get_relative_positions(sequence, from_rc = (sequence.strand == '-'))
+            dg.addElement(element.type, start, end-1) # TODO: refactor gld to also use exclusive end positions!
+
+        drawGenes.append(dg)
+
+    # for some assertions
+    geneids = []
+    for dg in drawGenes:
+        geneids.append(dg.id)
+    geneids = sorted(geneids)
+    assert len(geneids) == len(set(geneids)), "[ERROR] >>> Duplicate gene ids in "+str(geneids)
+        
+    # create links to draw
+    drawLinks = []
+    for link in links:
+        lgenes = []
+        lpos = []
+        for occ in link:
+            gid = sequences[occ[0]].id
+            assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {occ} not found in {geneids}"
+            lgenes.append(gid)
+            lpos.append(occ[2])
+            
+        drawLinks.append(gld.Link(lgenes, lpos))
+
+    # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
+    def createAdditionalSites(sites, col):
+        occDict = {}
+        for site in sites:
+            gid = sequences[occ[0]].id
+            assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {occ} not found in {geneids}"
+            if gid not in occDict:
+                occDict[gid] = []
+
+            occDict[gid].append(site[2])
+
+        if len(occDict.keys()) >= 2:
+            # no links possible if less than two genomes
+            lgenes = []
+            lpos = []
+            for gid in geneids:
+                if gid in occDict:
+                    lgenes.append(gid)
+                    lpos.append(occDict[gid])
+
+            drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
+        else:
+            print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
+
+    if kmerSites is not None:
+        createAdditionalSites(kmerSites, kmerCol)
+    if maskingSites is not None:
+        createAdditionalSites(maskingSites, maskingCol)
+
+
+    # avoid masking kwargs and set defaults here that can be overwritten in function call
+    gw = 20 if 'genewidth' not in kwargs else kwargs['genewidth']
+    kwargs.pop('genewidth') if 'genewidth' in kwargs else ()
+    lw = 1  if 'linkwidth' not in kwargs else kwargs['linkwidth']
+    kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
+    img, _ = gld.draw(drawGenes, drawLinks, font = font,
+                      genewidth = gw, linkwidth = lw, #width = (1920*2), 
+                      **kwargs)
+    if imname:
+        img.save(imname)
+
+    img.close()
+
+
+
+
 def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False, 
                           kmerSites = None, kmerCol = None, maskingSites = None, maskingCol = 'darkred',
                           highlightProfiles = None, highlightcol = 'darkgreen',
@@ -151,7 +252,7 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
                                               sites (np.ndarray of shape (sites, (genomeID, contigID, pos, u, f)) with 
                                               the profile match sites), then linksAreSites must be True
         posDict (dict): posDict as returned from genome simulation function
-        imname (str): path to image file to write the image to, sot to None for no writing
+        imname (str): path to image file to write the image to, set to None for no writing
         linksAreSites (bool): Must be set to True if links are acutally sites, otherwise must be False (default)
         kmerSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of initial kmer 
                                     positions. If given, these occurrences are drawn as small dots on the genes

@@ -170,6 +170,13 @@ class Sequence:
         """ Add a homology to the sequence. """
         _addHomologyToSequence(homology, self)
 
+    def get_relative_positions(self, parent, from_rc: bool = False):
+        """ Get the relative positions of the sequence within a parent sequence as a tuple (start, stop). 
+            If `from_rc` is True, the positions are calculated from the reverse complement of the parent sequence. 
+            For example: The parent sequence is AAAAAGGGAA and this sequence is GGG. The relative positions are (5, 8).
+                         If `from_rc` is True, the relative positions are (2, 5). """
+        return _getRelativePositions(self, parent, from_rc)
+
     def get_sequence(self, rc: bool = False):
         """ Get the sequence of the sequence object. Returns None if no sequence is stored. If `rc` is True, the
             reverse complement of the sequence is returned. """
@@ -263,6 +270,8 @@ def _addElementToSequence(element: Sequence, sequence: Sequence):
     assert _sequencesOverlap(element, sequence), "[ERROR] >>> `element` must overlap with `sequence`."
     sequence.genomic_elements.append(element)
 
+
+
 def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
     """ Helper function for adding a homology to a sequence, do not use directly """
     assert type(homology) == Sequence, "[ERROR] >>> `homology` must be of type Sequence."
@@ -270,10 +279,32 @@ def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
     assert hasattr(sequence, 'homology'), "[ERROR] >>> `sequence` must have attribute `homology`."
     sequence.homology.append(homology)
 
+
+
+def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = False):
+    """ Helper function, returns the relative positions of a sequence within a parent sequence """
+    assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
+    assert type(parent) == Sequence, "[ERROR] >>> `parent` must be of type Sequence."
+    assert _sequencesOverlap(sequence, parent), "[ERROR] >>> `sequence` must overlap with `parent`."
+
+    start = sequence.genome_start - parent.genome_start
+    end = sequence.genome_end - parent.genome_start
+
+    if from_rc:
+        start_rc = parent.lenght - end
+        end = parent.lenght - start
+        start = start_rc
+
+    return start, end
+
+
+
 def _sequencesOverlap(seq1: Sequence, seq2: Sequence):
     """ Helper function, returns true if two sequences are from the same species and chromosome and overlap """
     return seq1.species == seq2.species and seq1.chromosome == seq2.chromosome and \
         seq1.genome_start <= seq2.genome_end and seq1.genome_end >= seq2.genome_start
+
+
 
 # create a Sequence object from a JSON file or string
 def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
@@ -307,3 +338,13 @@ def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
             sequence.addHomology(fromJSON(jsonstring = json.dumps(homology)))
 
     return sequence
+
+
+
+def loadJSONlist(jsonfile: str) -> list[Sequence]:
+    """ Load a list of Sequence objects from a JSON file. """
+    assert os.path.isfile(jsonfile), "[ERROR] >>> `jsonfile` must be a valid file."
+    with open(jsonfile, 'rt') as f:
+        objlist = json.load(f)
+
+    return [fromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]

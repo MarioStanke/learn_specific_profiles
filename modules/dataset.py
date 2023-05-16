@@ -175,10 +175,11 @@ def getDataset(genomes,
                 createBatch,
                 args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
                         tf.constant(True)),
-                output_signature = (tf.TensorSpec(shape = ([tiles_per_X, len(genomes), 6, tile_size, 
-                                                            su.aa_alphabet_size], 
-                                                           [tiles_per_X, len(genomes), 6, 4]),
-                                                  dtype = (tf.float32, tf.int32)))
+                output_signature = (tf.TensorSpec(shape = (tiles_per_X, len(genomes), 6, tile_size, 
+                                                            su.aa_alphabet_size), 
+                                                  dtype = tf.float32),
+                                    tf.TensorSpec(shape = (tiles_per_X, len(genomes), 6, 4),
+                                                  dtype = tf.int32))
             )
     else:
         if tf.__version__.split('.')[0:2] < ['2','4']:
@@ -195,10 +196,11 @@ def getDataset(genomes,
                 createBatch,
                 args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
                         tf.constant(False)),
-                output_signature = (tf.TensorSpec(shape = ([tiles_per_X, len(genomes), 6, tile_size, 
-                                                            su.aa_alphabet_size],
-                                                           0),
-                                                  dtype = (tf.float32, tf.float32)))
+                output_signature = (tf.TensorSpec(shape = (tiles_per_X, len(genomes), 6, tile_size, 
+                                                            su.aa_alphabet_size),
+                                                  dtype = tf.float32),
+                                    tf.TensorSpec(shape = (0),
+                                                  dtype = tf.float32))
             )
     return ds
 

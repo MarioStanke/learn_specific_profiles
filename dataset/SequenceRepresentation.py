@@ -4,6 +4,7 @@
 This module contains classes for representing sequences and genomic elements.
 """
 
+from Bio.Seq import Seq
 import json
 import os
 
@@ -22,7 +23,7 @@ class Sequence:
             genome_start (int): Start position of the sequence on the chromosome.
             genome_end (int): End position of the sequence on the chromosome.
             lenght (int): Lenght of the sequence.
-            sequence (str): The sequence itself, might be None.
+            sequence (str): The top strand sequence itself, might be None.
             type (str): Description of sequence type, e.g. `sequence` or `exon`
             homology (list): List of homology relations to other sequences, might be None.
             genomic_elements (list): List of genomic elements, might be None.
@@ -91,7 +92,7 @@ class Sequence:
         assert hasattr(self, 'genome_end'), "[ERROR] >>> `genome_end` not set."
         assert hasattr(self, 'lenght'), "[ERROR] >>> `lenght` not set."
 
-        self.id = f"{self.species}:{self.chromosome}:{self.genome_start:,}-{self.genome_end:,}"
+        self._regenerate_id()
 
         if not hasattr(self, 'sequence'):
             self.sequence = None
@@ -124,6 +125,10 @@ class Sequence:
         """ Length of the sequence. """
         return self.lenght
     
+    def _regenerate_id(self):
+        """ Regenerate the sequence ID. Does not need to be called manually. """
+        self.id = f"{self.species}:{self.chromosome}:{self.genome_start:,}-{self.genome_end:,}"
+    
     def addElement(self, element):
         """ Add a genomic element to the sequence. """
         _addElementToSequence(element, self)
@@ -141,41 +146,86 @@ class Sequence:
                                             positions within the sequence.
                 **kwargs: Additional arguments for the element, i.e. `no_homology` and `no_elements`
         """
-        if genomic_positions:
-            assert start >= self.genome_start, "[ERROR] >>> `start` must be greater than or equal to `genome_start`."
-            assert end <= self.genome_end, "[ERROR] >>> `end` must be less than or equal to `genome_end`."
-            assert start <= end, "[ERROR] >>> `start` must be less than or equal to `end`."
-            if strand is None:
+        assert start <= end, "[ERROR] >>> `start` must be less than or equal to `end`."
+        if strand is None:
                 strand = self.strand
 
-            if self.sequence is not None:
-                sequence = self.sequence[start - self.genome_start:end - self.genome_start]
-            else:
-                sequence = None
-
-            element = Sequence(self.species, self.chromosome, strand, start, end, sequence=sequence, seqtype=seqtype, 
-                               **kwargs)
-            self.addElement(element)
-
+        if genomic_positions:            
+            element = Sequence(self.species, self.chromosome, strand, start, end, seqtype=seqtype, **kwargs)
         else:
-            assert start >= 0, "[ERROR] >>> `start` must be greater than or equal to 0."
-            assert end <= self.lenght, "[ERROR] >>> `end` must be less than or equal to `lenght`."
-            assert start <= end, "[ERROR] >>> `start` must be less than or equal to `end`."
-            if strand is None:
-                strand = self.strand
-
-            if self.sequence is not None:
-                sequence = self.sequence[start:end]
-            else:
-                sequence = None
-
             element = Sequence(self.species, self.chromosome, strand, self.genome_start+start, self.genome_end+end, 
-                               sequence=sequence, seqtype=seqtype, **kwargs)
-            self.addElement(element)
+                               seqtype=seqtype, **kwargs)
+            
+        assert _sequencesOverlap(self, element), "[ERROR] >>> Subsequence must overlap with sequence."
+
+        # add subsequence if applicable
+        if self.sequence is not None:
+            subseqstart = max(0, element.genome_start - self.genome_start)
+            subseqend = min(element.genome_end - self.genome_start, len(self.sequence))
+            element.sequence = self.sequence[subseqstart:subseqend]
+
+        self.addElement(element)
 
     def addHomology(self, homology):
         """ Add a homology to the sequence. """
         _addHomologyToSequence(homology, self)
+
+    def get_sequence(self, rc: bool = False):
+        """ Get the sequence of the sequence object. Returns None if no sequence is stored. If `rc` is True, the
+            reverse complement of the sequence is returned. """
+        if self.sequence is None:
+            return None
+        elif rc:
+            return str(Seq(self.sequence).reverse_complement())
+        else:
+            return self.sequence
+        
+    def get_subsequence(self, genome_start, genome_end, rc: bool = False):
+        """ Get a subsequence of the sequence object. Returns None if no sequence is stored or if the requested 
+            positions are not in the range of this sequence. If `rc` is True, the reverse complement of the sequence is
+            returned. """
+        if self.sequence is None:
+            return None
+        else:
+            seq = self.get_sequence(rc) 
+            if genome_end <= self.genome_start:
+                return None
+            if genome_start >= self.genome_end:
+                return None
+            
+            start = max(0, genome_start - self.genome_start)
+            end = min(genome_end - self.genome_start, len(self.sequence))
+            return seq[start:end]
+
+    def stripSequence(self, amount, from_start = True):
+        """ Remove `amount` positions from the sequence object. Discards genomic elements that no longer overlap 
+            afterwards, has no impact on homologies.
+            Args: 
+                amount (int): Number of positions to remove.
+                from_start (bool): If True, remove positions from the start of the sequence, otherwise from the end.
+            """
+        assert amount <= self.lenght, "[ERROR] >>> `amount` must be less than or equal to the length of the sequence."
+        if from_start:
+            self.genome_start += amount
+            self.lenght -= amount
+            if self.sequence is not None:
+                self.sequence = self.sequence[amount:]
+
+        else:
+            self.genome_end -= amount
+            self.lenght -= amount
+            if self.sequence is not None:
+                self.sequence = self.sequence[:-amount]
+
+        if hasattr(self, 'genomic_elements'):
+            new_elements = []
+            for element in self.genomic_elements:
+                if _sequencesOverlap(self, element):
+                    new_elements.append(element)
+
+            self.genomic_elements = new_elements
+
+        self._regenerate_id() # make sure the new range is reflected in the ID
 
     def toDict(self) -> dict:
         """ Return a dictionary representation of the sequence. """
@@ -208,8 +258,9 @@ def _addElementToSequence(element: Sequence, sequence: Sequence):
     assert type(element) == Sequence, "[ERROR] >>> `element` must be of type Sequence."
     assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
     assert hasattr(sequence, 'genomic_elements'), "[ERROR] >>> `sequence` must have attribute `genomic_elements`."
-    assert element.genome_start >= sequence.genome_start, "[ERROR] >>> `element` must start after `sequence`."
-    assert element.genome_end <= sequence.genome_end, "[ERROR] >>> `element` must end before `sequence`."
+    #assert element.genome_start >= sequence.genome_start, "[ERROR] >>> `element` must start after `sequence`."
+    #assert element.genome_end <= sequence.genome_end, "[ERROR] >>> `element` must end before `sequence`."
+    assert _sequencesOverlap(element, sequence), "[ERROR] >>> `element` must overlap with `sequence`."
     sequence.genomic_elements.append(element)
 
 def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
@@ -218,6 +269,11 @@ def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
     assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
     assert hasattr(sequence, 'homology'), "[ERROR] >>> `sequence` must have attribute `homology`."
     sequence.homology.append(homology)
+
+def _sequencesOverlap(seq1: Sequence, seq2: Sequence):
+    """ Helper function, returns true if two sequences are from the same species and chromosome and overlap """
+    return seq1.species == seq2.species and seq1.chromosome == seq2.chromosome and \
+        seq1.genome_start <= seq2.genome_end and seq1.genome_end >= seq2.genome_start
 
 # create a Sequence object from a JSON file or string
 def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:

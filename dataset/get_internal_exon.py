@@ -117,6 +117,97 @@ def parse_bed(bedfile):
 
 
 ########################################################################################################################
+def parseGTF(gtf_file, seqname = None, range_start = None, range_end = None, 
+             feature = None, strand = None, min_score = None, max_score = None, frame = None) -> pd.DataFrame:
+    """ Load a GTF file into a Pandas DataFrame and return it. The returned DataFrame does _not_ follow the GTF position
+        logic, i.e. positions are 0-based and range_end is exclusive. The returned DataFrame has the following columns:
+            seqname: the seqname
+            source: the source
+            feature: the feature
+            start: the start position
+            end: the end position
+            score: the score
+            strand: the strand
+            frame: the frame
+            attribute: the attribute
+
+        Note: range_start and range_end arguments also use the BED-file logic, i.e. positions are 0-based and range_end 
+              is exclusive.
+        Also note: This parser cannot handle track lines or other non-data lines in the GTF file.
+
+        The optional arguments can be used to filter the 
+        DataFrame:
+            seqname: only return entries that match the seqname
+            range_start: only return entries that _end_ after range_start (partial overlap is allowed)
+            range_end: only return entries that _start_ before range_end (partial overlap is allowed)
+            feature: only return entries that match the feature
+            strand: only return entries that match the strand
+            min_score: only return entries that have a score >= min_score
+            max_score: only return entries that have a score <= max_score
+            frame: only return entries that match the frame
+    """	
+    assert range_start is None or range_start >= 0, "[ERROR] >>> range_start < 0"
+    assert range_end is None or range_end >= 0, "[ERROR] >>> range_end < 0"
+    assert range_start is None or range_end is None or range_start < range_end, "[ERROR] >>> range_start >= range_end"
+    assert strand is None or strand in ["+", "-"], "[ERROR] >>> strand must be None, '+' or '-'"
+    assert min_score is None or max_score is None or min_score <= max_score, "[ERROR] >>> min_score > max_score"
+    assert frame is None or frame in [0, 1, 2], "[ERROR] >>> frame must be None, 0, 1 or 2"
+    
+    # Info: in GTF, positions are 1-based and ranges include both start and end, i.e. a range [1,2] includes the first
+    #       and second base of the sequence.
+    gtf_range_start = range_start + 1 if range_start is not None else None
+    gtf_range_end = range_end if range_end is not None else None
+
+    gtf = pd.read_csv(gtf_file, sep = "\t", header = None, index_col = None,
+                      names=["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"],
+                      na_values=".", comment="#")
+    
+    # filter by seqname
+    if seqname is not None:
+        gtf = gtf[gtf["seqname"] == seqname]
+    # filter by feature
+    if feature is not None:
+        gtf = gtf[gtf["feature"] == feature]
+    # filter by strand
+    if strand is not None:
+        gtf = gtf[gtf["strand"] == strand]
+    # filter by score
+    if min_score is not None:
+        gtf = gtf[gtf["score"] >= min_score]
+    if max_score is not None:
+        gtf = gtf[gtf["score"] <= max_score]
+    # filter by frame
+    if frame is not None:
+        gtf = gtf[gtf["frame"] == frame]
+    # filter by range
+    if range_start is not None:
+        gtf = gtf[gtf["end"] >= gtf_range_start]
+    if range_end is not None:
+        gtf = gtf[gtf["start"] <= gtf_range_end]
+
+    # convert start and end to 0-based positions and end-exclusive ranges
+    gtf["start"] = gtf["start"] - 1
+
+    return gtf
+
+
+
+########################################################################################################################
+def gtf_to_sequence_elements(sequence: SequenceRepresentation.Sequence, gtf: pd.DataFrame):
+    """ Turns each line in a GTF DataFrame into an element of the sequence. Expects `gtf` to be already filtered and
+        only contain valid lines that are actually conatined in `sequence` """
+    
+    for row in gtf.itertuples():
+        assert sequence.chromosome == row.seqname, f"[ERROR] >>> sequence.chromosome ({sequence.chromosome}) != " \
+                                                                                        + f"row.seqname ({row.seqname})"
+        
+        # create a new element
+        sequence.addSubsequenceAsElement(row.start, row.end, row.feature, row.strand, genomic_positions=True,
+                                         no_elements=True)
+
+
+
+########################################################################################################################
 # def load_hg38_refseq_bed():
 #     """ Load hg38 refseq bed file (specified in arguments) as Pandas DataFrame and return it. """
 #     start = time.perf_counter()
@@ -586,8 +677,7 @@ def extract_info_and_check_bed_file(bed_dir, species_name, exon: Exon, liftover_
 
 
 ########################################################################################################################
-def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, seqpath, 
-                                                                 liftover_seq: LiftoverSeq, exon: Exon, species: str):
+def write_extra_data_to_fasta_description_and_reverse_complement(fa_path,liftover_seq: LiftoverSeq, exon: Exon):
     """ Reads single sequence fasta from fa_path, adds exon description as a json string to the sequence,
         converts the sequence to reverse complement if the exon is on the - strand, writes the sequence back to 
         fa_path """
@@ -635,7 +725,48 @@ def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, seqpat
             record.seq = reverse_seq
         SeqIO.write(record, out_file, "fasta")
 
-    # Create a SequenceRepresentation.Sequence object from he Exon and LiftoverSeq objects and store it, this should
+    # # Create a SequenceRepresentation.Sequence object from he Exon and LiftoverSeq objects and store it, this should
+    # # contain all relevant information for the evaluation of the profile finding
+    # hgSeq = SequenceRepresentation.Sequence(species="Homo_sapiens", chromosome=exon.seq, strand=exon.strand,
+    #                                         genome_start=exon.left_anchor_start, genome_end=exon.right_anchor_end,
+    #                                         no_homology=True)
+    # hgSeq.addSubsequenceAsElement(exon.left_anchor_start, exon.left_anchor_end, 'left_anchor', genomic_positions=True,
+    #                               no_elements=True, no_homology=True)
+    # hgSeq.addSubsequenceAsElement(exon.right_anchor_start, exon.right_anchor_end, 'right_anchor', 
+    #                               genomic_positions=True, no_elements=True, no_homology=True)
+    # hgSeq.addSubsequenceAsElement(exon.start_in_genome, exon.stop_in_genome, 'exon', genomic_positions=True,
+    #                               no_elements=True, no_homology=True)
+    
+    # liftstrand = "-" if liftover_seq.on_reverse_strand else "+"
+    # liftSeq = SequenceRepresentation.Sequence(species=species, chromosome=liftover_seq.seq_name, strand=liftstrand,
+    #                                           genome_start=liftover_seq.seq_start_in_genome, 
+    #                                           genome_end=liftover_seq.seq_stop_in_genome)
+    # liftSeq.addHomology(hgSeq)
+    # # TODO: scan annotation file of species for the exon and add candidates to the liftSeq object
+
+    # with open(seqpath, 'wt') as fh:
+    #     json.dump(liftSeq.toDict(), fh, indent=4)
+
+
+########################################################################################################################
+def create_sequence_representation_object(fa_path: str, species: str, liftover_seq: LiftoverSeq, 
+                                          exon: Exon) -> SequenceRepresentation.Sequence:
+    """ Reads single sequence fasta from fa_path and creates a SequenceRepresentation.Sequence object from the Exon and
+        LiftoverSeq objects and returns it, this should contain all relevant information for the evaluation of 
+        profile_finding """
+    # read fasta file
+    sequence = None
+    for seq in SeqIO.parse(fa_path, "fasta"):
+        if sequence is not None:
+            print(f"[WARNING] >>> found more than one seq in fasta file {fa_path}, skipping")
+            return
+        
+        # has been converted to reverse complement before if liftover_seq is on reverse strand, undo that here
+        sequence = str(seq.seq) if not liftover_seq.on_reverse_strand else (str(seq.seq.reverse_complement()))
+
+    assert sequence is not None, f"[ERROR] >>> no seq found in fasta file {fa_path}"
+
+    # Create a SequenceRepresentation.Sequence object from the Exon and LiftoverSeq objects and store it, this should
     # contain all relevant information for the evaluation of the profile finding
     hgSeq = SequenceRepresentation.Sequence(species="Homo_sapiens", chromosome=exon.seq, strand=exon.strand,
                                             genome_start=exon.left_anchor_start, genome_end=exon.right_anchor_end,
@@ -650,12 +781,20 @@ def write_extra_data_to_fasta_description_and_reverse_complement(fa_path, seqpat
     liftstrand = "-" if liftover_seq.on_reverse_strand else "+"
     liftSeq = SequenceRepresentation.Sequence(species=species, chromosome=liftover_seq.seq_name, strand=liftstrand,
                                               genome_start=liftover_seq.seq_start_in_genome, 
-                                              genome_end=liftover_seq.seq_stop_in_genome)
+                                              genome_end=liftover_seq.seq_stop_in_genome, sequence=sequence)
     liftSeq.addHomology(hgSeq)
     # TODO: scan annotation file of species for the exon and add candidates to the liftSeq object
+    
+    print("[DEBUG] >>> adding annotation to sequence representation object for species", species)
+    annotfile = os.path.join("/home/ebelm/genomegraph/data/241_species/annot" , f"{species}.gtf")
+    if os.path.exists(annotfile):
+        annot = parseGTF(annotfile, liftSeq.chromosome, liftSeq.genome_start, liftSeq.genome_end, "CDS")
+        gtf_to_sequence_elements(liftSeq, annot)
+    print("[DEBUG] >>> done adding annotation to sequence representation object for species", species)
+    #print("[DEBUG] >>> sequence representation object for species", species, ":", liftSeq.toDict())
 
-    with open(seqpath, 'wt') as fh:
-        json.dump(liftSeq.toDict(), fh, indent=4)
+    return liftSeq
+
 
 
 ########################################################################################################################
@@ -681,7 +820,8 @@ def run_hal_2_fasta(species_name, start, len, seq, outpath):
 ########################################################################################################################
 # TODO: can I maybe use the old fasta description such that i dont have to pass liftover_seq
 def strip_seqs(fasta_file, exon: Exon, out_path, liftover_seq: LiftoverSeq):
-    """ If fasta_file exists, strips the sequence in the fasta file and writes the stripped sequence to `out_path`.
+    """ Uses the liftover fasta files. There, the left and right anchors are already removed.
+        If fasta_file exists, strips the sequence in the fasta file and writes the stripped sequence to `out_path`.
         It will cut `min_left_exon_len/2` and `min_right_exon_len/2` bases from each side of the
         sequence.
         `out_path` will be overwritten when fasta_file contains more than one sequence and only the last stripped 
@@ -715,10 +855,7 @@ def strip_seqs(fasta_file, exon: Exon, out_path, liftover_seq: LiftoverSeq):
 
 
 ########################################################################################################################
-def convert_short_lc_to_UC(outpath, input_files, threshold):
-    """ Converts short (up to threshold length) softmasked parts of the sequences in input_files to upper case and
-        append the results to outpath. The sequences in input_files are assumed to be in fasta format. """
-    def capitalize_lowercase_subseqs(seq):
+def capitalize_lowercase_subseqs(seq, threshold):
         # (?<![a-z]) negative lookbehind, (?![a-z]) negative lookahead, i.e. only match if the character before and 
         #   after the match is not a lowercase letter
         pattern = f"(?<![a-z])([a-z]{{1,{threshold}}})(?![a-z])" 
@@ -726,14 +863,20 @@ def convert_short_lc_to_UC(outpath, input_files, threshold):
             return match.group(1).upper()
         result = re.sub(pattern, repl, seq)
         return str(result)
-    
+
+
+
+########################################################################################################################
+def convert_short_lc_to_UC(outpath, input_files, threshold):
+    """ Converts short (up to threshold length) softmasked parts of the sequences in input_files to upper case and
+        append the results to outpath. The sequences in input_files are assumed to be in fasta format. """    
     # TODO this looks horrible, fix it and use SeqIO
     with open(outpath, "wt") as output_handle:
         for input_file in input_files:
             with open(outpath, "a") as output_handle, open(input_file, "r") as in_file_handle:
                 for i, record in enumerate(SeqIO.parse(in_file_handle, "fasta")):
                     assert i == 0, f"convert_short_lc_to_UC found more than one seq in fasta file {input_file}"
-                    new_seq = capitalize_lowercase_subseqs(str(record.seq))
+                    new_seq = capitalize_lowercase_subseqs(str(record.seq), threshold)
                     output_handle.write(f">{record.id} {record.description}\n")
                     output_handle.write(f"{new_seq}\n")
                     # new_record = record.__class__(seq = "ACGT", id="homo", name="name", description="description")
@@ -890,6 +1033,7 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
 
         human_exon_bedfile = os.path.join(exon_dir, "human_exons.bed")
         create_human_liftover_bed(exon = exon, out_path = human_exon_bedfile)
+        sequence_reps = [] # store all sequence representations here
         for single_species in all_species:
             bed_status = liftover(human_exon_bedfile, single_species, bed_output_dir, exon)
             if bed_status.returncode == 1:
@@ -909,7 +1053,6 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
             # getting the seq, from human: [left exon [lifted]] [intron] [exon] [intron] [[lifted] right exon]
             # the corresponding seq of [intron] [exon] [intron] in other species
             out_fa_path = os.path.join(non_stripped_seqs_dir, single_species+".fa")
-            out_seq_path = os.path.join(non_stripped_seqs_dir, single_species+".seqrep")
             if not args.use_old_fasta:
                 run_hal_2_fasta(species_name = single_species,
                                 start = liftover_seq.seq_start_in_genome,
@@ -918,22 +1061,26 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
                                 outpath = out_fa_path)
 
                 write_extra_data_to_fasta_description_and_reverse_complement(fa_path = out_fa_path,
-                                                                             seqpath = out_seq_path,
                                                                              liftover_seq = liftover_seq,
-                                                                             exon = exon,
-                                                                             species = single_species)
+                                                                             exon = exon)
+                
+            # [ME] here I gather the information for my pipeline, the remaining steps do not affect it
+            sr = create_sequence_representation_object(out_fa_path, single_species, liftover_seq, exon)
+            sequence_reps.append(sr)
+            # ----------------------------------------------------------------------------------------
 
+            # strip short segments from the beginning and end of the sequences (why though?)
             stripped_fasta_file_path = re.sub("non_stripped","stripped", out_fa_path)
             strip_seqs(fasta_file = out_fa_path,
                        exon = exon,
                        out_path = stripped_fasta_file_path,
                        liftover_seq = liftover_seq)
 
-            # create alignment of fasta and true splice sites
+            # create "alignment" of human fasta and true splice sites (via Intron/Exon state sequence)
             if single_species == "Homo_sapiens":
                 write_clw_true_state_seq(stripped_fasta_file_path, out_dir_path = exon_dir)
 
-        # gather all usable fasta seqs in a single file
+        # gather all usable fasta seqs in a single file, with human sequence first
         input_files = get_input_files_with_human_at_0(from_path = stripped_seqs_dir)
 
         output_file = os.path.join(exon_dir, "combined.fasta")
@@ -942,6 +1089,31 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
         if args.convert_short_lc_to_UC > 0:
             output_file = os.path.join(capitalzed_subs_seqs_dir, "combined.fasta")
             convert_short_lc_to_UC(output_file, input_files, threshold = args.convert_short_lc_to_UC)
+
+        # [ME] also apply above remaining steps to my SequenceRepresentation.Sequence objects, just so the script 
+        # parameters work as expected also on my data
+        hg_id = None
+        for i, sequence in enumerate(sequence_reps):
+            if sequence.species == "Homo_sapiens":
+                hg_id = i
+
+            sequence.stripSequence(int(args.min_left_exon_len/2))
+            sequence.stripSequence(int(args.min_right_exon_len/2), from_start=False)
+
+            if args.convert_short_lc_to_UC > 0 and sequence.sequence is not None:
+                new_seq = capitalize_lowercase_subseqs(sequence.sequence, args.convert_short_lc_to_UC)
+                sequence.sequence = new_seq
+
+        assert hg_id is not None, "[ERROR] >>> No human sequence found among input species"
+        hgseq = sequence_reps.pop(hg_id)
+        sequence_reps.insert(0, hgseq)
+
+        # store sequence data
+        sequence_reps = [s.toDict() for s in sequence_reps]
+        #print("[DEBUG] >>> Sequence Representations:")
+        #print(sequence_reps)
+        with open(os.path.join(exon_dir, "profile_finding_sequence_data.json"), 'wt') as fh:
+            json.dump(sequence_reps, fh, indent=4)
 
 
 

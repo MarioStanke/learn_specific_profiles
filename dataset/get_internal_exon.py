@@ -1067,7 +1067,8 @@ def create_exon_data_sets(filtered_internal_exons: list[Exon], output_dir):
                 
             # [ME] here I gather the information for my pipeline, the remaining steps do not affect it
             sr = create_sequence_representation_object(out_fa_path, single_species, liftover_seq, exon)
-            sequence_reps.append(sr)
+            if sr is not None:
+                sequence_reps.append(sr)
             # ----------------------------------------------------------------------------------------
 
             # strip short segments from the beginning and end of the sequences (why though?)

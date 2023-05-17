@@ -764,7 +764,9 @@ def create_sequence_representation_object(fa_path: str, species: str, liftover_s
         # has been converted to reverse complement before if liftover_seq is on reverse strand, undo that here
         sequence = str(seq.seq) if not liftover_seq.on_reverse_strand else (str(seq.seq.reverse_complement()))
 
-    assert sequence is not None, f"[ERROR] >>> no seq found in fasta file {fa_path}"
+    if sequence is None:
+        print(f"[WARNING] >>> no seq found in fasta file {fa_path}, skipping")
+        return
 
     # Create a SequenceRepresentation.Sequence object from the Exon and LiftoverSeq objects and store it, this should
     # contain all relevant information for the evaluation of the profile finding
@@ -783,7 +785,6 @@ def create_sequence_representation_object(fa_path: str, species: str, liftover_s
                                               genome_start=liftover_seq.seq_start_in_genome, 
                                               genome_end=liftover_seq.seq_stop_in_genome, sequence=sequence)
     liftSeq.addHomology(hgSeq)
-    # TODO: scan annotation file of species for the exon and add candidates to the liftSeq object
     
     print("[DEBUG] >>> adding annotation to sequence representation object for species", species)
     annotfile = os.path.join("/home/ebelm/genomegraph/data/241_species/annot" , f"{species}.gtf")

@@ -108,16 +108,17 @@ if ($filenameSave) {
     open(SAVE, "<$filenameSave") || die "\nCouldn't open $filenameSave.\n";
     while (<SAVE>) {
         chomp;
-        if ($_ =~ m/^\s*$/) { $emptyLineCount++; next; }
+        if ($_ =~ m/^\s*$/) { 
+            $emptyLineCount++; 
+            next; 
+        }
         if (!defined $taxaHash{$_}) { 
             die "\nERROR: The node $_ from the list in $filenameSave is not in the tree.\n\n$usage"; 
         }
         push(@saveTaxa, $_);
     }
     if ($emptyLineCount >= 2) { "WARNING: There are several empty lines in $filenameSave.\n"; }
-    if ($#saveTaxa < 0) {
-        die "\nERROR: Could not store taxa that should be saved. Maybe $filenameSave is empty.\n";
-    }
+    if ($#saveTaxa < 0) { die "\nERROR: Could not store taxa that should be saved. Maybe $filenameSave is empty.\n"; }
 
     # get nodes to the input taxa list
     my @saveNodes;
@@ -125,10 +126,9 @@ if ($filenameSave) {
         push(@saveNodes, $tree->find_node(-id => $_));
     }
 
-    # if there is only 1 node in the input list, we search directly for the farest node to add it and to complete the initialization
-    if ($#saveNodes == 0) {
-        push(@saveNodes, mostDistantNode($tree, $saveNodes[0], \@leaves));
-    }
+    # if there is only 1 node in the input list, we search directly for the farest node to add it and to complete the 
+    #   initialization
+    if ($#saveNodes == 0) { push(@saveNodes, mostDistantNode($tree, $saveNodes[0], \@leaves)); }
 
     # search for the actual lca of all nodes we already want to have in out output at this position
     $actualLca = $tree->get_lca(-nodes => \@saveNodes);
@@ -143,7 +143,8 @@ if ($taxa) {
     # get node to the input taxa list
     my @saveNode;
     push(@saveNode, $tree->find_node(-id => $taxa));
-    # there is only 1 node in the input list, so we search directly for the farest node to add it and to complete the initialization
+    # there is only 1 node in the input list, so we search directly for the farest node to add it 
+    #   and to complete the initialization
     push(@saveNode, mostDistantNode($tree, $saveNode[0], \@leaves));
 
     # search for the actual lca of all nodes we already want to have in out output at this position

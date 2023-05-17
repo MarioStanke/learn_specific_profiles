@@ -3,6 +3,8 @@
 #############################################################
 # maxSubtreeSet
 # gets the set of leaves of a tree that build the maximum subtree
+# This version is able to handle a list of taxa with scores
+# where the taxa with higher scores are preferred if they are equally distant
 #
 # usage: maxSubtreeSet inputtree [options]
 #
@@ -34,15 +36,17 @@ $usage .= "\n";
 $usage .= "options:\n";
 $usage .= "--size=i\t\tSets the number of the subset the program should find. (default: int(\#leaves/10 + 2))\n";
 $usage .= "--save=s\t\tSets the name of a file with a list of taxa you want to have in the output.\n";
+$usage .= "        \t\tTaxa names should be followed by a numeric score. With equally distant taxa, those with higher";
+$usage .=             "scores are preferred.\n";
 $usage .= "--taxa=s\t\tSets only one taxa you want to have in the output.\n";
 $usage .= "\n";
 
-sub condenseTree{
+sub condenseTree {
     my ($tree, $lca, $nodeSet) = @_;
-    foreach my $sN (@{$nodeSet}){
+    foreach my $sN (@{$nodeSet}) {
         my $act = $sN;
         my $temp;
-        while (!($act->id eq $lca->id)){
+        while (!($act->id eq $lca->id)) {
             $temp = $act->ancestor;
             $tree->splice(-remove_id => $act->id);
             $act = $temp;
@@ -54,10 +58,10 @@ sub mostDistantNode{
     my ($tree, $sinkNode, $nodeSet, $score) = @_;
     my $max = 0;
     my $farestNode;
-    foreach my $leaf (@{$nodeSet}){
+    foreach my $leaf (@{$nodeSet}) {
         my $distance = $tree->distance(-nodes => [$sinkNode, $leaf]);
-        if ($max<$distance){
-            $max=$distance;
+        if ($max < $distance) {
+            $max = $distance;
             $farestNode = $leaf;
         } elsif ($max == $distance) {
             if ($score->{$farestNode->id} < $score->{$leaf->id}) {
@@ -72,7 +76,6 @@ if ($#ARGV < 0) {
     die "\nERROR: Unknown Call $ARGV\n\n$usage";
 }
 my $inputfilename = $ARGV[0];
-
 
 my $input  = new Bio::TreeIO(-file   => $inputfilename,
                              -format => "newick");
@@ -94,7 +97,7 @@ if ($n > $#leaves + 1) { die "\nERROR: There are not enough leaves in the tree.\
 
 # test, if every node has a unique taxon
 my %taxaHash;
-foreach (@allNodes){
+foreach (@allNodes) {
     if ($_->id eq "") { die "\nERROR: There is at least one node without taxon.\n\n$usage"; }
     if (defined $taxaHash{$_->id}) { die "\nERROR: The taxon ".$_->id." is not unique\n\n$usage"; }
     $taxaHash{$_->id} = 1;
@@ -127,12 +130,8 @@ if ($filenameSave) {
         push(@saveTaxa, $taxon);
         $score{$taxon} = shift @line; # store score for this taxon
     }
-    if ($emptyLineCount >= 2) {
-        "WARNING: There are several empty lines in $filenameSave.\n";
-    }
-    if ($#saveTaxa<0) {
-        die "\nERROR: Could not store taxa that should be saved. Maybe $filenameSave is empty.\n";
-    }
+    if ($emptyLineCount >= 2) { "WARNING: There are several empty lines in $filenameSave.\n"; }
+    if ($#saveTaxa < 0) { die "\nERROR: Could not store taxa that should be saved. Maybe $filenameSave is empty.\n"; }
 
     # get nodes to the input taxa list
     my @saveNodes;
@@ -140,11 +139,9 @@ if ($filenameSave) {
         push(@saveNodes, $tree->find_node(-id => $_));
     }
 
-    # if there is only 1 node in the input list, we search directly for the farest node to add it
-    #   and to complete the initialization
-    if ($#saveNodes == 0) {
-        push(@saveNodes, mostDistantNode($tree, $saveNodes[0], \@leaves, \%score));
-    }
+    # if there is only 1 node in the input list, we search directly for the farest node to add it and to complete the 
+    #   initialization
+    if ($#saveNodes == 0) { push(@saveNodes, mostDistantNode($tree, $saveNodes[0], \@leaves, \%score)); }
 
     # search for the actual lca of all nodes we already want to have in out output at this position
     $actualLca = $tree->get_lca(-nodes => \@saveNodes);

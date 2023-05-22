@@ -92,7 +92,7 @@ class Sequence:
         assert hasattr(self, 'genome_end'), "[ERROR] >>> `genome_end` not set."
         assert hasattr(self, 'lenght'), "[ERROR] >>> `lenght` not set."
 
-        self._regenerate_id()
+        self._regenerateID()
 
         if not hasattr(self, 'sequence'):
             self.sequence = None
@@ -125,7 +125,7 @@ class Sequence:
         """ Length of the sequence. """
         return self.lenght
     
-    def _regenerate_id(self):
+    def _regenerateID(self):
         """ Regenerate the sequence ID. Does not need to be called manually. """
         self.id = f"{self.species}:{self.chromosome}:{self.genome_start:,}-{self.genome_end:,}"
     
@@ -170,14 +170,18 @@ class Sequence:
         """ Add a homology to the sequence. """
         _addHomologyToSequence(homology, self)
 
-    def get_relative_positions(self, parent, from_rc: bool = False):
+    def elementsPossible(self) -> bool:
+        """ Check if the sequence can contain genomic elements. """
+        return hasattr(self, 'genomic_elements')
+
+    def getRelativePositions(self, parent, from_rc: bool = False):
         """ Get the relative positions of the sequence within a parent sequence as a tuple (start, stop). 
             If `from_rc` is True, the positions are calculated from the reverse complement of the parent sequence. 
             For example: The parent sequence is AAAAAGGGAA and this sequence is GGG. The relative positions are (5, 8).
                          If `from_rc` is True, the relative positions are (2, 5). """
         return _getRelativePositions(self, parent, from_rc)
 
-    def get_sequence(self, rc: bool = False):
+    def getSequence(self, rc: bool = False):
         """ Get the sequence of the sequence object. Returns None if no sequence is stored. If `rc` is True, the
             reverse complement of the sequence is returned. """
         if self.sequence is None:
@@ -187,14 +191,14 @@ class Sequence:
         else:
             return self.sequence
         
-    def get_subsequence(self, genome_start, genome_end, rc: bool = False):
+    def getSubsequence(self, genome_start, genome_end, rc: bool = False):
         """ Get a subsequence of the sequence object. Returns None if no sequence is stored or if the requested 
             positions are not in the range of this sequence. If `rc` is True, the reverse complement of the sequence is
             returned. """
         if self.sequence is None:
             return None
         else:
-            seq = self.get_sequence(rc) 
+            seq = self.getSequence(rc) 
             if genome_end <= self.genome_start:
                 return None
             if genome_start >= self.genome_end:
@@ -203,6 +207,18 @@ class Sequence:
             start = max(0, genome_start - self.genome_start)
             end = min(genome_end - self.genome_start, len(self.sequence))
             return seq[start:end]
+        
+    def hasElements(self) -> bool:
+        """ Check if the sequence contains genomic elements. """
+        return self.elementsPossible() and len(self.genomic_elements) > 0
+    
+    def hasHomologies(self) -> bool:
+        """ Check if the sequence contains homologies. """
+        return self.homologiesPossible() and len(self.homology) > 0
+
+    def homologiesPossible(self) -> bool:
+        """ Check if the sequence can contain homologies. """
+        return hasattr(self, 'homology')
 
     def stripSequence(self, amount, from_start = True):
         """ Remove `amount` positions from the sequence object. Discards genomic elements that no longer overlap 
@@ -232,7 +248,7 @@ class Sequence:
 
             self.genomic_elements = new_elements
 
-        self._regenerate_id() # make sure the new range is reflected in the ID
+        self._regenerateID() # make sure the new range is reflected in the ID
 
     def toDict(self) -> dict:
         """ Return a dictionary representation of the sequence. """

@@ -6,6 +6,7 @@ This module contains classes for representing sequences and genomic elements.
 
 from Bio.Seq import Seq
 import json
+import numpy as np
 import os
 
 class Sequence:
@@ -364,3 +365,78 @@ def loadJSONlist(jsonfile: str) -> list[Sequence]:
         objlist = json.load(f)
 
     return [fromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]
+
+
+
+# Class to represent a genome, which is essentially just a list of Sequence objects
+class Genome:
+    """ Class to represent a genome, which is essentially just a list of Sequence objects. 
+        However, this class also provides some useful methods for working with genomes. It further enforces that the
+        Sequences all belong to the same species and that chromosomes are unique.
+
+        Attributes:
+            sequences (list[Sequence]): A list of Sequence objects.
+            species (str): The species of the genome.
+    """	
+
+    def __init__(self, sequences: list[Sequence] = None):
+        assert sequences is None or type(sequences) == list, "[ERROR] >>> `sequences` must be None or a list of " \
+                                                                           + f"Sequence objects, not {type(sequences)}."
+        self.sequences = []
+        self.species = None
+        if sequences is not None:
+            for sequence in sequences:
+                self.addSequence(sequence)
+
+    # https://docs.python.org/3/reference/datamodel.html#emulating-container-types
+    def __len__(self):
+        return len(self.sequences)
+    
+    def __getitem__(self, key) -> Sequence:
+        """ Return the chromosome with the given key (which is either an array ID or a chromosome name). """
+        # int or int-like
+        if type(key) == int or type(key) == np.int64:
+            return self.sequences[key]
+        elif type(key) == str:
+            for sequence in self.sequences:
+                if sequence.chromosome == key:
+                    return sequence
+            raise KeyError(f"Chromosome {key} not found in genome.")
+        else:
+            raise TypeError(f"Invalid key type {type(key)}.")
+        
+    def __iter__(self):
+        return iter(self.sequences)
+    
+    def __reversed__(self):
+        return reversed(self.sequences)
+    
+    def __contains__(self, sequence: Sequence):
+        """ Return True if the genome contains the given sequence. """
+        assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
+        return sequence in self.sequences
+        
+    def __str__(self) -> str:
+        return f"Genome from {self.species} with {len(self.sequences)} chromosomes: " \
+            + f"{', '.join([sequence.chromosome for sequence in self.sequences])}"
+    
+    def __repr__(self) -> str:
+        return str(self)
+    
+    def addSequence(self, sequence: Sequence):
+        """ Adds a Sequence to the genome and performs checks to ensure that the genome is valid. """
+        assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
+        if self.species is None:
+            self.species = sequence.species
+        else:
+            assert self.species == sequence.species, \
+                f"[ERROR] >>> All sequences in a genome must be from the same species {self.species}. " \
+                + f" You tried to add a sequence from {sequence.species}."
+        assert sequence.chromosome not in [seq.chromosome for seq in self.sequences], \
+            f"[ERROR] >>> All chromosomes in a genome must be unique, {sequence.chromosome} is already in the genome."
+        
+        self.sequences.append(sequence)
+
+    def getSequenceStrings(self) -> list[str]:
+        """ Returns a list of all sequences strings in the genome. """
+        return [sequence.sequence for sequence in self.sequences]

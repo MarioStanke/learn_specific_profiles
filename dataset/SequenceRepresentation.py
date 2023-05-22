@@ -253,6 +253,7 @@ class Sequence:
 
     def toDict(self) -> dict:
         """ Return a dictionary representation of the sequence. """
+        #print("[DEBUG] >>> called .toDict from Sequence", str(self))
         objdict = {
             'id': self.id,
             'species': self.species,
@@ -272,6 +273,7 @@ class Sequence:
         if hasattr(self, 'homology'):
             objdict['homology'] = [homology.toDict() for homology in self.homology]
 
+        #print("[DEBUG] >>> finished .toDict from Sequence", str(self))
         return objdict
 
 
@@ -440,3 +442,7 @@ class Genome:
     def getSequenceStrings(self) -> list[str]:
         """ Returns a list of all sequences strings in the genome. """
         return [sequence.sequence for sequence in self.sequences]
+    
+    def toDict(self) -> dict:
+        """ Returns a list of dictionary representations of the sequences in the genome. """
+        return [sequence.toDict() for sequence in self.sequences]

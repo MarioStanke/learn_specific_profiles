@@ -5,8 +5,11 @@
 
 # import libraries
 import numpy as np
+import sys
 
 # import own modules
+sys.path.insert(0, 'MSAgen/')
+import MSAgen
 import SequenceRepresentation as sr
 import sequtils as su
 
@@ -131,7 +134,7 @@ def getRandomGenomes(N: int, genome_sizes: list[int],
                      mutationProb = 0,
                      multiplyRepeat: range = range(2,10),
                      multipleRepeatInserts: range = range(5,10),
-                     verbose = False) -> list[sr.Sequence]:
+                     verbose = False) -> list[sr.Genome]:
     """ 
     Construct random genomes with inserted patterns and/or repeats
 
@@ -176,6 +179,57 @@ def getRandomGenomes(N: int, genome_sizes: list[int],
                                 forbiddenPositions=forbiddenPositions,
                                 verbose = verbose)
 
+    return genomes
+
+
+
+def simulateGenomes(N, seqlen, genelen,
+                    cdist = 0.05, ncdist = 0.1, tree = 'star', omega = 0.4) -> list[sr.Genome]:
+    """ Use MSAgen to generate data. 
+
+        Parameters:
+            N       number of single-sequence genomes to generate
+            seqlen  total lenght of each generated sequence
+            genelen length of the simulated ortholog gene inside the sequences, rounded up to a multiple of 3
+            cdist   height of the underlying tree for coding sequences
+            ncdist  height of the underlying tree for non-coding sequences
+            tree    type of tree, either "star" or "caterpillar"
+            omega   codon regions under negative selection
+    """
+    
+    sequences, posDict = MSAgen.generate_sequences(N, seqlen, genelen, 
+                                                    coding_dist=cdist, noncoding_dist=ncdist, tree=tree, omega=omega)
+    
+    genomes = [sr.Genome([sr.Sequence(f"genome_{i}", seq.id, "+", 0, sequence = str(seq.seq))]) \
+                   for i, seq in enumerate(sequences)]
+    for genome in genomes:
+        sequence = genome[0]
+        if posDict['5flank_start'] is not None:
+            assert posDict['5flank_len'] is not None, \
+                f"[ERROR] >>> 5flank_len must be set if 5flank_start is set! {posDict}"
+            sequence.addSubsequenceAsElement(posDict['5flank_start'], posDict['5flank_start']+posDict['5flank_len'],
+                                             "5flank", genomic_positions = True, no_elements = True)
+            
+        if posDict['start_codon'] is not None:
+            sequence.addSubsequenceAsElement(posDict['start_codon'], posDict['start_codon']+3,
+                                             "start_codon", genomic_positions = True, no_elements = True)
+        
+        if posDict['cds_start'] is not None:
+            assert posDict['cds_len'] is not None, \
+                f"[ERROR] >>> cds_len must be set if cds_start is set! {posDict}"
+            sequence.addSubsequenceAsElement(posDict['cds_start'], posDict['cds_start']+posDict['cds_len'],
+                                             "cds", genomic_positions = True, no_elements = True)
+            
+        if posDict['stop_codon'] is not None:
+            sequence.addSubsequenceAsElement(posDict['stop_codon'], posDict['stop_codon']+3,
+                                             "stop_codon", genomic_positions = True, no_elements = True)
+            
+        if posDict['3flank_start'] is not None:
+            assert posDict['3flank_len'] is not None, \
+                f"[ERROR] >>> 3flank_len must be set if 3flank_start is set! {posDict}"
+            sequence.addSubsequenceAsElement(posDict['3flank_start'], posDict['3flank_start']+posDict['3flank_len'],
+                                             "3flank", genomic_positions = True, no_elements = True)
+        
     return genomes
 
 

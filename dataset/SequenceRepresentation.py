@@ -23,14 +23,14 @@ class Sequence:
             strand (str): Strand of the sequence. Can be either '+' or '-'.
             genome_start (int): Start position of the sequence on the chromosome.
             genome_end (int): End position of the sequence on the chromosome.
-            lenght (int): Lenght of the sequence.
+            length (int): Length of the sequence.
             sequence (str): The top strand sequence itself, might be None.
             type (str): Description of sequence type, e.g. `sequence` or `exon`
             homology (list): List of homology relations to other sequences, might be None.
             genomic_elements (list): List of genomic elements, might be None.
         """
     
-    def __init__(self, species, chromosome, strand, genome_start, genome_end = None, lenght = None, sequence = None,
+    def __init__(self, species, chromosome, strand, genome_start, genome_end = None, length = None, sequence = None,
                  seqtype = 'sequence', no_homology = False, no_elements = False) -> None:
         """ Initialize a sequence object. 
             Positions are 0-based, i.e. the first position is 0. The end position is not included in the sequence.
@@ -45,7 +45,7 @@ class Sequence:
 
                 At least one of the following optional arguments must be provided:
                 genome_end (int): End position of the sequence on the chromosome.
-                lenght (int): Lenght of the sequence.
+                length (int): Length of the sequence.
                 sequence (str): The sequence itself.
 
                 seqtype (str): Description of sequence type, e.g. `sequence` (default) or `exon`
@@ -62,36 +62,36 @@ class Sequence:
         self.genome_start = genome_start
         self.type = seqtype
 
-        assert not (genome_end is None and lenght is None and sequence is None), \
-            "[ERROR] >>> At least one of the following arguments must be provided: genome_end, lenght, sequence."
+        assert not (genome_end is None and length is None and sequence is None), \
+            "[ERROR] >>> At least one of the following arguments must be provided: genome_end, length, sequence."
         if genome_end is not None:
             assert genome_end >= genome_start, "[ERROR] >>> End position must be greater than start position."
             self.genome_end = genome_end
-            self.lenght = genome_end - genome_start
-            if lenght is not None:
-                assert lenght == genome_end - genome_start, \
-                    "[ERROR] >>> Lenght must be equal to end position minus start position."
+            self.length = genome_end - genome_start
+            if length is not None:
+                assert length == genome_end - genome_start, \
+                    "[ERROR] >>> Length must be equal to end position minus start position."
             if sequence is not None:
                 self.sequence = sequence
-                assert self.lenght == len(sequence), \
-                    "[ERROR] >>> Lenght must be equal to length of the sequence."
+                assert self.length == len(sequence), \
+                    "[ERROR] >>> Length must be equal to length of the sequence."
         else:
-            if lenght is not None:
-                assert lenght > 0, "[ERROR] >>> Lenght must be a positive integer."
-                self.lenght = lenght
-                self.genome_end = genome_start + lenght
+            if length is not None:
+                assert length > 0, "[ERROR] >>> Length must be a positive integer."
+                self.length = length
+                self.genome_end = genome_start + length
                 if sequence is not None:
                     self.sequence = sequence
-                    assert self.lenght == len(sequence), \
-                        "[ERROR] >>> Lenght must be equal to length of the sequence."
+                    assert self.length == len(sequence), \
+                        "[ERROR] >>> Length must be equal to length of the sequence."
             else:
                 assert sequence is not None, "[ERROR] >>> Sequence must be a string." # should always be true
-                self.lenght = len(sequence)
+                self.length = len(sequence)
                 self.genome_end = genome_start + len(sequence)
                 self.sequence = sequence
 
         assert hasattr(self, 'genome_end'), "[ERROR] >>> `genome_end` not set."
-        assert hasattr(self, 'lenght'), "[ERROR] >>> `lenght` not set."
+        assert hasattr(self, 'length'), "[ERROR] >>> `length` not set."
 
         self._regenerateID()
 
@@ -105,9 +105,9 @@ class Sequence:
 
     def __str__(self) -> str:
         """ String representation of the sequence. """
-        rep = f"{self.id} ({self.strand}, length = {self.lenght:,}, type = {self.type})"
+        rep = f"{self.id} ({self.strand}, length = {self.length:,}, type = {self.type})"
         if self.sequence is not None:
-            if self.lenght > 23:
+            if self.length > 23:
                 rep += f"\n{self.sequence[:10]}...{self.sequence[-10:]}"
             else:
                 rep += f"\n{self.sequence}"
@@ -124,7 +124,26 @@ class Sequence:
     
     def __len__(self) -> int:
         """ Length of the sequence. """
-        return self.lenght
+        return self.length
+    
+    def __eq__(self, __value: object) -> bool:
+        """ Check if two sequences are equal. """
+        if not isinstance(__value, Sequence):
+            return False
+        eq = self.id == __value.id and self.species == __value.species and self.chromosome == __value.chromosome \
+            and self.genome_start == __value.genome_start and self.genome_end == __value.genome_end \
+            and self.length == __value.length and self.strand == __value.strand and self.type == __value.type \
+            and self.sequence == __value.sequence
+        if hasattr(self, 'homology') and hasattr(__value, 'homology'):
+            eq = eq and self.homology == __value.homology
+        elif hasattr(self, 'homology') or hasattr(__value, 'homology'):
+            eq = False
+        if hasattr(self, 'genomic_elements') and hasattr(__value, 'genomic_elements'):
+            eq = eq and self.genomic_elements == __value.genomic_elements
+        elif hasattr(self, 'genomic_elements') or hasattr(__value, 'genomic_elements'):
+            eq = False
+
+        return eq
     
     def _regenerateID(self):
         """ Regenerate the sequence ID. Does not need to be called manually. """
@@ -154,7 +173,7 @@ class Sequence:
         if genomic_positions:            
             element = Sequence(self.species, self.chromosome, strand, start, end, seqtype=seqtype, **kwargs)
         else:
-            element = Sequence(self.species, self.chromosome, strand, self.genome_start+start, self.genome_end+end, 
+            element = Sequence(self.species, self.chromosome, strand, self.genome_start+start, self.genome_start+end, 
                                seqtype=seqtype, **kwargs)
             
         assert _sequencesOverlap(self, element), "[ERROR] >>> Subsequence must overlap with sequence."
@@ -194,12 +213,12 @@ class Sequence:
         
     def getSubsequence(self, genome_start, genome_end, rc: bool = False):
         """ Get a subsequence of the sequence object. Returns None if no sequence is stored or if the requested 
-            positions are not in the range of this sequence. If `rc` is True, the reverse complement of the sequence is
-            returned. """
+            positions are not in the range of this sequence. If `rc` is True, the reverse complement of the subsequence
+            is returned. """
         if self.sequence is None:
             return None
         else:
-            seq = self.getSequence(rc) 
+            seq = self.getSequence()
             if genome_end <= self.genome_start:
                 return None
             if genome_start >= self.genome_end:
@@ -207,7 +226,11 @@ class Sequence:
             
             start = max(0, genome_start - self.genome_start)
             end = min(genome_end - self.genome_start, len(self.sequence))
-            return seq[start:end]
+            subseq = seq[start:end]
+            if rc:
+                return str(Seq(subseq).reverse_complement())
+            else:
+                return subseq
         
     def hasElements(self) -> bool:
         """ Check if the sequence contains genomic elements. """
@@ -228,16 +251,16 @@ class Sequence:
                 amount (int): Number of positions to remove.
                 from_start (bool): If True, remove positions from the start of the sequence, otherwise from the end.
             """
-        assert amount <= self.lenght, "[ERROR] >>> `amount` must be less than or equal to the length of the sequence."
+        assert amount <= self.length, "[ERROR] >>> `amount` must be less than or equal to the length of the sequence."
         if from_start:
             self.genome_start += amount
-            self.lenght -= amount
+            self.length -= amount
             if self.sequence is not None:
                 self.sequence = self.sequence[amount:]
 
         else:
             self.genome_end -= amount
-            self.lenght -= amount
+            self.length -= amount
             if self.sequence is not None:
                 self.sequence = self.sequence[:-amount]
 
@@ -261,7 +284,7 @@ class Sequence:
             'strand': self.strand,
             'genome_start': self.genome_start,
             'genome_end': self.genome_end,
-            'lenght': self.lenght
+            'length': self.length
         }
         if self.sequence is not None:
             objdict['sequence'] = self.sequence
@@ -310,8 +333,8 @@ def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = 
     end = sequence.genome_end - parent.genome_start
 
     if from_rc:
-        start_rc = parent.lenght - end
-        end = parent.lenght - start
+        start_rc = parent.length - end
+        end = parent.length - start
         start = start_rc
 
     return start, end
@@ -321,7 +344,7 @@ def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = 
 def _sequencesOverlap(seq1: Sequence, seq2: Sequence):
     """ Helper function, returns true if two sequences are from the same species and chromosome and overlap """
     return seq1.species == seq2.species and seq1.chromosome == seq2.chromosome and \
-        seq1.genome_start <= seq2.genome_end and seq1.genome_end >= seq2.genome_start
+        seq1.genome_start < seq2.genome_end and seq1.genome_end > seq2.genome_start
 
 
 
@@ -332,7 +355,7 @@ def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
     assert not (jsonfile is None and jsonstring is None), \
         "[ERROR] >>> Either `jsonfile` or `jsonstring` must be provided."
     if jsonfile is not None:
-        assert os.path.isfile(jsonfile), "[ERROR] >>> `jsonfile` must be a valid file."
+        assert os.path.isfile(jsonfile), f"[ERROR] >>> file `{jsonfile}` must be a valid file."
         with open(jsonfile, 'rt') as f:
             objdict = json.load(f)
     else:
@@ -344,9 +367,18 @@ def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
         strand = objdict['strand'],
         genome_start = objdict['genome_start'],
         genome_end = objdict['genome_end'],
-        lenght = objdict['lenght'],
-        seqtype = objdict['type']
+        length = objdict['length'],
+        seqtype = objdict['type'],
+        no_elements=not 'genomic_elements' in objdict,
+        no_homology=not 'homology' in objdict
     )
+
+    if sequence.id != objdict['id']:
+        print("[WARNING] >>> ID mismatch, setting ID to", objdict['id'])
+        print("              old ID:", sequence.id)
+        print("              You might want to call _regenerateID() on the sequence.")
+        sequence.id = objdict['id']
+
     if 'sequence' in objdict:
         sequence.sequence = objdict['sequence']
     if 'genomic_elements' in objdict:
@@ -362,7 +394,7 @@ def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
 
 def loadJSONlist(jsonfile: str) -> list[Sequence]:
     """ Load a list of Sequence objects from a JSON file. """
-    assert os.path.isfile(jsonfile), "[ERROR] >>> `jsonfile` must be a valid file."
+    assert os.path.isfile(jsonfile), f"[ERROR] >>> file `{jsonfile}` must be a valid file."
     with open(jsonfile, 'rt') as f:
         objlist = json.load(f)
 

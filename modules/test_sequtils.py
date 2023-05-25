@@ -59,7 +59,75 @@ class TestSeqUtils(unittest.TestCase):
         self.assertEqual(su.six_frame_translation(s), [f1, f2, f3, f4, f5, f6])
 
     def test_convert_six_frame_position(self):
-        pass
+        for seqlen in [42, 43, 45]:
+            f0aa, f0c = 0, 0  # keep track of aa position and codon position
+            f1aa, f1c = -1, 2
+            f2aa, f2c = -1, 1
+            f3aa, f3c = 0, 0
+            f4aa, f4c = -1, 2
+            f5aa, f5c = -1, 1
+            for fdnapos, rdnapos in enumerate(list(range(seqlen))[::-1]):
+                if f0c > 2: # reset codon position and increment aa position
+                    f0c = 0
+                    f0aa += 1
+                if f1c > 2:
+                    f1c = 0
+                    f1aa += 1
+                if f2c > 2:
+                    f2c = 0
+                    f2aa += 1
+                if f3c > 2:
+                    f3c = 0
+                    f3aa += 1
+                if f4c > 2:
+                    f4c = 0
+                    f4aa += 1
+                if f5c > 2:
+                    f5c = 0
+                    f5aa += 1
+
+                self.assertEqual(su.convert_six_frame_position(fdnapos, 0, seqlen, dna_to_aa=True), f0aa, 
+                                 f"dnapos={fdnapos}, seqlen={seqlen}, f0aa={f0aa}, f0c={f0c}")
+                self.assertEqual(su.convert_six_frame_position(fdnapos, 1, seqlen, dna_to_aa=True), f1aa,
+                                 f"dnapos={fdnapos}, seqlen={seqlen}, f1c={f1c}")
+                self.assertEqual(su.convert_six_frame_position(fdnapos, 2, seqlen, dna_to_aa=True), f2aa,
+                                 f"dnapos={fdnapos}, seqlen={seqlen}, f2c={f2c}")
+                self.assertEqual(su.convert_six_frame_position(rdnapos, 3, seqlen, dna_to_aa=True), f3aa,
+                                 f"dnapos={rdnapos}, seqlen={seqlen}, f3c={f3c}")
+                self.assertEqual(su.convert_six_frame_position(rdnapos, 4, seqlen, dna_to_aa=True), f4aa,
+                                 f"dnapos={rdnapos}, seqlen={seqlen}, f4c={f4c}")
+                self.assertEqual(su.convert_six_frame_position(rdnapos, 5, seqlen, dna_to_aa=True), f5aa,
+                                 f"dnapos={rdnapos}, seqlen={seqlen}, f5c={f5c}")
+                
+                f0c += 1 # increment codon position
+                f1c += 1
+                f2c += 1
+                f3c += 1
+                f4c += 1
+                f5c += 1
+            
+            # test aa to dna
+            f0dna = 0
+            f1dna = 1
+            f2dna = 2
+            f3dna = seqlen - 1 - 2 # first codon base w.r.t. forward strand
+            f4dna = seqlen - 2 - 2
+            f5dna = seqlen - 3 - 2
+            for aapos in range(seqlen):
+                self.assertEqual(su.convert_six_frame_position(aapos, 0, seqlen, dna_to_aa=False), f0dna)
+                self.assertEqual(su.convert_six_frame_position(aapos, 1, seqlen, dna_to_aa=False), f1dna)
+                self.assertEqual(su.convert_six_frame_position(aapos, 2, seqlen, dna_to_aa=False), f2dna)
+                self.assertEqual(su.convert_six_frame_position(aapos, 3, seqlen, dna_to_aa=False), f3dna)
+                self.assertEqual(su.convert_six_frame_position(aapos, 4, seqlen, dna_to_aa=False), f4dna)
+                self.assertEqual(su.convert_six_frame_position(aapos, 5, seqlen, dna_to_aa=False), f5dna)
+
+                f0dna += 3
+                f1dna += 3
+                f2dna += 3
+                f3dna -= 3
+                f4dna -= 3
+                f5dna -= 3
+        
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

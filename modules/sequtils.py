@@ -71,7 +71,10 @@ def convert_six_frame_position(pos: int, frame_idx: int, dna_seqlen: int, dna_to
             pos = dna_seqlen - 1 - pos
             frame_idx -= 3
             
-        return (pos-frame_idx) // 3
+        if pos < frame_idx:
+            return -1 # before start of sequence translation
+        else:
+            return (pos-frame_idx) // 3
     
     else:
         convPos = (pos*3)+frame_idx

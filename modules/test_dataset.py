@@ -3,32 +3,12 @@ from tqdm import tqdm
 import unittest
 
 import dataset as ds
-import seq as sq
 import sequtils as su
 
 class TestDataset(unittest.TestCase):
-    def test_sequence_translation(self):
-        self.assertEqual(ds.sequence_translation(""), "")
-        self.assertEqual(ds.sequence_translation("A"), "")
-        self.assertEqual(ds.sequence_translation("AC"), "")
-        self.assertEqual(ds.sequence_translation("ACG"), "T")
-        self.assertEqual(ds.sequence_translation("ACG", True), "R")
-        self.assertEqual(ds.sequence_translation("ACGT"), "T")
-        self.assertEqual(ds.sequence_translation("ACGT", True), "T")
-        self.assertEqual(ds.sequence_translation("ACGTA"), "T")
-        self.assertEqual(ds.sequence_translation("ACGTA", True), "Y")
-        self.assertEqual(ds.sequence_translation("ACGTAC"), "TY")
-        self.assertEqual(ds.sequence_translation("ACGTAC", True), "VR")
+    def test_backGroundAAFreqs(self):
+        self.skipTest("Not implemented")
 
-    def test_three_frame_translation(self):
-        sequence = ''.join([c for c in su.genetic_code.keys()])
-        self.assertEqual(ds.three_frame_translation(sequence), su.six_frame_translation(sequence)[:3])
-        self.assertEqual(ds.three_frame_translation(sequence, rc=True), su.six_frame_translation(sequence)[3:])
-        self.assertEqual(ds.three_frame_translation(sequence, offsets=range(1,4)), 
-                         su.six_frame_translation(sequence[1:])[:3])
-        self.assertEqual(ds.three_frame_translation(sequence, rc=True, offsets=range(1,4)), 
-                         su.six_frame_translation(sequence[:-1])[3:])
-        
     def test_translateSequenceTiles(self):
         self.skipTest("Not implemented")
 
@@ -113,7 +93,7 @@ class TestDataset(unittest.TestCase):
         self.assertEqual(ds.to_aa(oh, dropEmptyColumns=True), aaSeq[:-1])
 
     def test_seqlistFromGenomes(self):
-        genomes = sq.simulateGenomes(8, 6250, 100)
+        genomes = ds.simulateGenomes(8, 6250, 100)
         seqlist = ds.seqlistFromGenomes(genomes)
         self.assertEqual(len(seqlist), len(genomes))
         for i in range(len(genomes)):
@@ -157,7 +137,7 @@ class TestDataset(unittest.TestCase):
 
     def test_Generator(self):
         # copy of test functions in dataset.py
-        genomes = ds.seqlistFromGenomes(sq.simulateGenomes(8, 6250, 100))
+        genomes = ds.seqlistFromGenomes(ds.simulateGenomes(8, 6250, 100))
         tile_size = 1000 // 3
         ntiles = 7
         limit = 50000
@@ -184,8 +164,8 @@ class TestDataset(unittest.TestCase):
         for g in range(len(testgenome)):
             for i in range(len(testgenome[g])):
                 #aa_seqs = su.six_frame_translation(testgenome[g][i])
-                aa_seqs = ds.three_frame_translation(testgenome[g][i])
-                aa_seqs.extend(ds.three_frame_translation(testgenome[g][i], True))
+                aa_seqs = su.three_frame_translation(testgenome[g][i])
+                aa_seqs.extend(su.three_frame_translation(testgenome[g][i], True))
                 for f in range(len(aa_seqs)):
                     genome_aa[g][f] += aa_seqs[f].replace(' ', '')
 
@@ -252,8 +232,8 @@ class TestDataset(unittest.TestCase):
                                 # sometimes negative for rc frames or reaching over the sequence for fwd frames, skip
                                 if pos >= 0 and end <= len(testgenome[g][c]):
                                     sourceKmer = testgenome[g][c][pos:end]
-                                    sourceKmerAA = ds.sequence_translation(sourceKmer) \
-                                        if f < 3 else ds.sequence_translation(sourceKmer, True)
+                                    sourceKmerAA = su.sequence_translation(sourceKmer) \
+                                        if f < 3 else su.sequence_translation(sourceKmer, True)
                                     self.assertEqual(len(kmerAA), len(sourceKmerAA), 
                                                      "\n'"+sourceKmerAA+"' !=\n'"+kmerAA+"'\n" \
                                                         +str((g,c,t,f,p,pos,P[t,g,f,:])))
@@ -262,6 +242,41 @@ class TestDataset(unittest.TestCase):
                                                         +str((g,c,t,f,p,pos,P[t,g,f,:])))
 
         print("[INFO] >>> testGenerator - restore positions: All good")
+
+    def test_getForbiddenPositions(self):
+        self.assertEqual(ds.getForbiddenPositions([], k=3, slen=10), set([]))
+        self.assertEqual(ds.getForbiddenPositions([0], k=3, slen=10), set([0,1,2]))
+        self.assertEqual(ds.getForbiddenPositions([1], k=3, slen=10), set([0,1,2,3]))
+        self.assertEqual(ds.getForbiddenPositions([2], k=3, slen=10), set([0,1,2,3,4]))
+        self.assertEqual(ds.getForbiddenPositions([3], k=3, slen=10), set([1,2,3,4,5]))
+        self.assertEqual(ds.getForbiddenPositions([4], k=3, slen=10), set([2,3,4,5,6]))
+        self.assertEqual(ds.getForbiddenPositions([5], k=3, slen=10), set([3,4,5,6,7]))
+        self.assertEqual(ds.getForbiddenPositions([6], k=3, slen=10), set([4,5,6,7,8]))
+        self.assertEqual(ds.getForbiddenPositions([7], k=3, slen=10), set([5,6,7,8,9]))
+        self.assertEqual(ds.getForbiddenPositions([8], k=3, slen=10), set([6,7,8,9]))
+        self.assertEqual(ds.getForbiddenPositions([9], k=3, slen=10), set([7,8,9]))
+        self.assertEqual(ds.getForbiddenPositions([0,1], k=3, slen=10), set([0,1,2,3]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2], k=3, slen=10), set([0,1,2,3,4]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3], k=3, slen=10), set([0,1,2,3,4,5]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3,4], k=3, slen=10), set([0,1,2,3,4,5,6]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3,4,5], k=3, slen=10), set([0,1,2,3,4,5,6,7]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3,4,5,6], k=3, slen=10), set([0,1,2,3,4,5,6,7,8]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3,4,5,6,7], k=3, slen=10), set([0,1,2,3,4,5,6,7,8,9]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3,4,5,6,7,8], k=3, slen=10), set([0,1,2,3,4,5,6,7,8,9]))
+        self.assertEqual(ds.getForbiddenPositions([0,1,2,3,4,5,6,7,8,9], k=3, slen=10), set([0,1,2,3,4,5,6,7,8,9]))
+        self.assertEqual(ds.getForbiddenPositions([5], k=0, slen=10), set([]))
+        self.assertEqual(ds.getForbiddenPositions([5], k=1, slen=10), set([5]))
+        self.assertEqual(ds.getForbiddenPositions([5], k=2, slen=10), set([4,5,6]))
+        self.assertEqual(ds.getForbiddenPositions([5], k=10, slen=10), set([0,1,2,3,4,5,6,7,8,9]))
+        
+    def test_insertPatternsToGenomes(self):
+        self.skipTest("Not implemented")
+
+    def test_getRandomGenomes(self):
+        self.skipTest("Not implemented")
+
+    def test_simulateGenomes(self):
+        self.skipTest("Not implemented")
 
 
 

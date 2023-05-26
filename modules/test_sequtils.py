@@ -12,6 +12,28 @@ class TestSeqUtils(unittest.TestCase):
         self.assertEqual(su.aa_alphabet_size, 21)
         self.assertEqual(len(su.aa_alphabet), 22)
 
+    def test_sequence_translation(self):
+        self.assertEqual(su.sequence_translation(""), "")
+        self.assertEqual(su.sequence_translation("A"), "")
+        self.assertEqual(su.sequence_translation("AC"), "")
+        self.assertEqual(su.sequence_translation("ACG"), "T")
+        self.assertEqual(su.sequence_translation("ACG", True), "R")
+        self.assertEqual(su.sequence_translation("ACGT"), "T")
+        self.assertEqual(su.sequence_translation("ACGT", True), "T")
+        self.assertEqual(su.sequence_translation("ACGTA"), "T")
+        self.assertEqual(su.sequence_translation("ACGTA", True), "Y")
+        self.assertEqual(su.sequence_translation("ACGTAC"), "TY")
+        self.assertEqual(su.sequence_translation("ACGTAC", True), "VR")
+
+    def test_three_frame_translation(self):
+        sequence = ''.join([c for c in su.genetic_code.keys()])
+        self.assertEqual(su.three_frame_translation(sequence), su.six_frame_translation(sequence)[:3])
+        self.assertEqual(su.three_frame_translation(sequence, rc=True), su.six_frame_translation(sequence)[3:])
+        self.assertEqual(su.three_frame_translation(sequence, offsets=range(1,4)), 
+                         su.six_frame_translation(sequence[1:])[:3])
+        self.assertEqual(su.three_frame_translation(sequence, rc=True, offsets=range(1,4)), 
+                         su.six_frame_translation(sequence[:-1])[3:])
+        
     def test_six_frame_translation(self):
         # empty sequence
         self.assertEqual(su.six_frame_translation(''), ['', '', '', '', '', ''])

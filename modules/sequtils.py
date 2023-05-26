@@ -36,6 +36,43 @@ aa_alphabet =[' ', # missing value, 0 used for padding
              ]
 aa_alphabet_size = len(aa_alphabet) - 1 # do not count ' '
 
+def sequence_translation(S, rc = False):
+    """ Translate single DNA sequence to AA sequence. Set `rc` to `True` to translate the reverse complement of `S` """
+    if rc:
+        S = S[::-1].translate(rctbl)
+        
+    prot = ""
+    for i in range(0, len(S)-3+1, 3):
+        codon = S[i:i+3]
+        if codon not in genetic_code: # real sequences may contain N's or softmasking or ambiguous bases
+            prot += ' '               # use null aa in that case
+        else:
+            prot += genetic_code[codon]
+            
+    return prot
+    
+    
+    
+def three_frame_translation(S, rc = False, offsets=range(3)):
+    """ Translate single DNA sequence to three AA sequences, one per reading frame. Reading frames can be customized by
+          setting `offsets` to a list of offsets (default: [0, 1, 2]).
+        Set `rc` to `True` to translate the reverse complement of `S` """
+    T = []
+    if rc:
+        S = S[::-1].translate(rctbl)
+
+    for f in offsets: # frame
+        prot = ""
+        for i in range(f, len(S)-3+1, 3):
+            codon = S[i:i+3]
+            if codon not in genetic_code: # real sequences may contain N's or softmasking or ambiguous bases
+                prot += ' '               # use null aa in that case
+            else:
+                prot += genetic_code[codon]
+        T.append(prot)
+
+    return T
+
 def six_frame_translation(S):
     """ return all 6 conceptually translated protein sequences """
     T = []

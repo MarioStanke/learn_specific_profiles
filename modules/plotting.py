@@ -9,9 +9,7 @@ import numpy as np
 import os
 from PIL import Image, ImageDraw, ImageFont
 
-import dataset as ds
 import GeneLinkDraw.geneLinkDraw as gld
-import model
 import SequenceRepresentation
 import sequtils as su
 

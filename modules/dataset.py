@@ -1,7 +1,7 @@
 import numpy as np
-from numpy.lib.utils import source
 import tensorflow as tf
 from tqdm import tqdm
+import SequenceRepresentation as sr
 import sequtils as su
 
 # translate single DNA sequence to AA sequence
@@ -75,6 +75,16 @@ def oneHot(aa_seq):
     one_hot = one_hot[:,1:] 
     return one_hot
 
+
+
+def seqlistFromGenomes(genomes: list[sr.Genome]) -> list[list[str]]:
+    seqlist = []
+    for g, genome in enumerate(genomes):
+        seqlist.append([])
+        for contig in genome:
+            seqlist[g].append(contig.getSequence())
+
+    return seqlist
 
 
 # Use a generator to get genome batches, simplified position handling
@@ -273,6 +283,8 @@ class DatasetHelper:
 #    return p
 
 def restoreGenomePosition(aaTilePos, start, k, fwd: bool):
+    """ From a tile starting at `start`, calculate the left position of a k-mer
+        in the genome """
     p = aaTilePos*3 # to dna coord
     if fwd:
         p += start

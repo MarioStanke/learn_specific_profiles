@@ -475,6 +475,11 @@ class Genome:
         """ Returns a list of all sequences strings in the genome. """
         return [sequence.sequence for sequence in self.sequences]
     
-    def toDict(self) -> dict:
+    def toDict(self) -> list[dict]:
         """ Returns a list of dictionary representations of the sequences in the genome. """
         return [sequence.toDict() for sequence in self.sequences]
+    
+    def toJSON(self, file: str):
+        """ Write the genome to a JSON file. """
+        with open(file, 'wt') as f:
+            json.dump(self.toDict(), f, indent=4)

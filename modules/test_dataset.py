@@ -136,6 +136,7 @@ class TestDataset(unittest.TestCase):
 
 
     def test_Generator(self):
+        #self.skipTest("Takes very long")
         # copy of test functions in dataset.py
         genomes = ds.seqlistFromGenomes(ds.simulateGenomes(8, 6250, 100))
         tile_size = 1000 // 3
@@ -270,7 +271,32 @@ class TestDataset(unittest.TestCase):
         self.assertEqual(ds.getForbiddenPositions([5], k=10, slen=10), set([0,1,2,3,4,5,6,7,8,9]))
         
     def test_insertPatternsToGenomes(self):
-        self.skipTest("Not implemented")
+        # Copied tests from toy-data branch in jupyter notebook
+        
+        N = 8            # number of genomes
+        repeatsPerGenome = 10 # number of times to insert repeats into each genome
+        multiplyRepeats = 1   # multiply repeat patterns
+        genome_sizes = [[10000]] * N
+                        # in nucleotides
+        insertPatterns = ["ATGGCAAGAATTCAATCTACTGCAAATAAAGAA"] 
+        repeatPatterns = ['AGAGAACCTGAAGCTACTGCTGAACCTGAAAGA']
+        genomes = ds.getRandomGenomes(N, genome_sizes, insertPatterns, repeatPatterns,
+                                      mutationProb=0.0, 
+                                      multiplyRepeat=[multiplyRepeats],
+                                      multipleRepeatInserts=[repeatsPerGenome],
+                                      verbose=False)
+        
+        # assert patterns are all inserted
+        self.assertEqual(len(genomes), N, str(len(genomes)))
+        for g in range(len(genomes)):
+            self.assertEqual(len(genomes[g]), len(genome_sizes[g]), str(len(genomes[g]))+", "+str(g))
+            for c in genomes[g]:
+                self.assertTrue(c.hasElements(), str(c))
+                self.assertEqual(len(c.genomic_elements), 11)
+                self.assertEqual(c.genomic_elements[-1].sequence, insertPatterns[0])
+                for i in range(0,10):
+                    with self.subTest(i=i):
+                        self.assertEqual(c.genomic_elements[i].sequence, repeatPatterns[0]*multiplyRepeats)
 
     def test_getRandomGenomes(self):
         self.skipTest("Not implemented")

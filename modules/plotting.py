@@ -49,7 +49,7 @@ def plotHistory(history):
 
 
 
-def plotLogo(P, idxarray = None, pNames = None, pScores = None, pLosses = None, max_print=5, ax=None):
+def plotLogo(P: np.ndarray, idxarray = None, pNames = None, pScores = None, pLosses = None, max_print=5, ax=None):
     """
     Create logo(s) from profile(s)
 
@@ -63,7 +63,10 @@ def plotLogo(P, idxarray = None, pNames = None, pScores = None, pLosses = None, 
         max_print (int): print up to this many logos
         ax (list of matplotlib axes): optional axes from a matplotlib Figure to plot on, one axes for each plot
     """
-    dfs = su.makeDFs(P.numpy())
+    if type(P) is not np.ndarray: # catch tf.Tensor
+        P = P.numpy()
+
+    dfs = su.makeDFs(P)
     for i in range(min(P.shape[2], max_print)):
         j = idxarray[i] if idxarray is not None else i
         profile_df = dfs[j]

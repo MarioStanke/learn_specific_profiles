@@ -53,36 +53,18 @@ def indexTensor(T, N, F, P, U):
 class SpecificProfile(tf.keras.Model):
     def __init__(self, 
                  setup: ProfileFindingSetup.ProfileFindingTrainingSetup,
-                 #k, 
                  alphabet_size: int, 
-                 #units, Q, 
-                 #P_logit_init=None, alpha=1e-6, gamma=0.2, l2 = 1, 
-                 #shift=0, loss = "softmax", 
-                 #track_profiles = None,
                  rand_seed: int = None, **kwargs):
         """
         Set up model and most metaparamters
             Parameters:
-                k (int): width of trained profiles
+                setup: ProfileFindingTrainingSetup object containing all metaparameters, data and initial profiles
                 alphabet_size (int): number of possible symbols in profiles
-                units (int): number of profiles to use during training
-                Q (list(float)): background distribution
-                P_logit_init (np.ndarray(float)): optional numpy array giving initial set of profiles 
-                                                  (shape (k[+2*shift], alphabet_size, units))
-                alpha (float): learning rate
-                gamma (float): sets effect of softmax in loss
-                l2 (float): scale the L2 regularization term (currently only in experiment loss)
-                shift (int): learn or evaluate shifts of learned profiles
-                loss (str): either of 'softmax' or 'score' ('score' turns off softmax in loss function, so loss becomes
-                                                              simply the negative score)
-                track_profiles (list of int): indices of profiles to track, i.e. after each training step store the
-                                                intermediate profile and the max scores
                 rand_seed (int): optional set a seed for tensorflow's rng
         """
         super().__init__(**kwargs)
 
         self.setup = setup
-        
         assert self.setup.lossStrategy in ['softmax', 'score', 'experiment'], \
             "[ERROR] >>> loss must be either 'softmax', 'score' or 'experiment'"
         
@@ -91,24 +73,11 @@ class SpecificProfile(tf.keras.Model):
             tf.random.set_seed(rand_seed)
             
         self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
-        #np.random.seed(rand_seed)
-        
-        #self.Q = Q                         # shape: (alphabet_size)
-        #self.alpha = alpha
-        #self.gamma = gamma # a small value means a more inclusive meaning of near-best 
-                           #   ([3, 4, 1] -> [0.25, 0.7, 0.05] // [.3, .4, .1] -> [0.34, 0.38, 0.28])
-        #self.l2 = l2
-        #perfect_match_score = np.log(1/np.mean(Q))  # set epsilon to a value that mismatch score is roughly -1*perfect match score
-        #self.epsilon = np.exp(-perfect_match_score) # original value was 1e-6, which led to mismatch score of -13.8 while perfect match score is only 3
         self.epsilon = 1e-6
-        #self.k = k
-        #self.s = shift
         self.alphabet_size = alphabet_size
-        #self.units = units
         self.softmaxLoss = (self.setup.lossStrategy == 'softmax')
         self.experimentLoss = (self.setup.lossStrategy == 'experiment')
         print("[DEBUG] >>> using softmaxLoss:", self.softmaxLoss, "// using experimentLoss:", self.experimentLoss)
-        #self.track_profiles = track_profiles
         self.rand_seed = rand_seed
         
         self.history = {'loss': [],
@@ -803,37 +772,6 @@ class SpecificProfile(tf.keras.Model):
 
                 
                 
-    # old way without shift
-    def profile_cleanup_bak(self, pIdx, threshold):
-        losses = self.profile_losses(self.setup.getDataset())[pIdx,:] # shape (x) where x is batch_size * number of batches
-        # "remove" match sites from genomes
-        matches, _, _ = self.get_profile_match_sites(self.setup.getDataset(withPosTracking = True), 
-                                                     threshold, pIdx) # site: (genomeID, contigID, pos, u)
-        #print("DEBUG >>> matches:", matches)
-        genomes = self.setup.genomes()
-        for site in matches:
-            #print("DEBUG >>> site:", site)
-            g = site[0]
-            c = site[1]
-            a = site[2]
-            b = a+(self.setup.k*3)
-            if a >= 0 and b <= len(genomes[g][c]):
-                #print("DEBUG >>>  pre:", genomes[g][c][:a])
-                #print("DEBUG >>>  new:", genomes[g][c][a:b].lower())
-                #print("DEBUG >>> post:", genomes[g][c][b:])
-                genomes[g][c] = genomes[g][c][:a]+genomes[g][c][a:b].lower()+genomes[g][c][b:] # mask match
-
-        # report profile, get new seeds
-        P = self.P_logit # shape: (k, alphabet_size, U)
-        b = P[:,:,pIdx].numpy()
-        self.P_report.append(b)
-        self.P_report_thresold.append(threshold)
-        #self.P_report_loss.append(tf.reduce_mean(losses).numpy())
-        self.P_report_loss.append(tf.reduce_min(losses).numpy())
-        self.P_logit.assign(self.seed_P_genome()) # completely new set of seeds
-        
-        
-        
     # works with shifts, pattern k-mer has the lowest loss, but repeat is still found 
     #   (usually first, although k-mer has bad loss)
     # leave it for now, as sorting by k-mer loss or introducing a filter 
@@ -927,6 +865,75 @@ class SpecificProfile(tf.keras.Model):
 
         
         
+    def seed_P_genome(self):
+        if True:
+            flatg = []
+            for seqs in self.setup.genomes():
+                flatg.extend(seqs) # should be all references and thus no considerable memory overhead
+
+            lensum = sum([len(s) for s in flatg])
+            weights = [len(s)/lensum for s in flatg]
+            weights = tf.nn.softmax(weights).numpy()
+            #seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
+            seqs = self.nprng.choice(len(flatg), self.setup.U, replace=True, p=weights)
+            ks = self.setup.k + (2*self.setup.s) # trained profile width (k +- shift)
+
+            oneProfile_logit_like_Q = np.log(self.setup.data.Q)
+            P_logit_init = np.zeros((ks, self.alphabet_size, self.setup.U), dtype=np.float32)
+            #rho = 2.0
+            kdna = ks * 3
+            for j in range(self.setup.U):
+                i = seqs[j] # seq index
+                assert len(flatg[i]) > kdna, str(len(flatg[i]))
+                #pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
+                pos = self.nprng.choice(len(flatg[i])-kdna, 1)[0]
+                aa = su.sequence_translation(flatg[i][pos:pos+kdna])
+                OH = dataset.oneHot(aa)
+                assert OH.shape == (ks, self.alphabet_size), str(OH.shape)+" != "+str((ks, self.alphabet_size))
+                #seed = rho * OH + oneProfile_logit_like_Q + np.random.normal(scale=sigma, size=OH.shape)
+                seed = self.setup.rho * OH + oneProfile_logit_like_Q + self.nprng.normal(scale=self.setup.sigma, 
+                                                                                         size=OH.shape)
+                P_logit_init[:,:,j] = seed
+
+            return P_logit_init
+        else:
+            return self._getRandomProfiles()
+        
+
+        
+    # ==================================================================================================================
+
+    # old way without shift
+    def profile_cleanup_bak(self, pIdx, threshold):
+        losses = self.profile_losses(self.setup.getDataset())[pIdx,:] # shape (x) where x is batch_size * number of batches
+        # "remove" match sites from genomes
+        matches, _, _ = self.get_profile_match_sites(self.setup.getDataset(withPosTracking = True), 
+                                                     threshold, pIdx) # site: (genomeID, contigID, pos, u)
+        #print("DEBUG >>> matches:", matches)
+        genomes = self.setup.genomes()
+        for site in matches:
+            #print("DEBUG >>> site:", site)
+            g = site[0]
+            c = site[1]
+            a = site[2]
+            b = a+(self.setup.k*3)
+            if a >= 0 and b <= len(genomes[g][c]):
+                #print("DEBUG >>>  pre:", genomes[g][c][:a])
+                #print("DEBUG >>>  new:", genomes[g][c][a:b].lower())
+                #print("DEBUG >>> post:", genomes[g][c][b:])
+                genomes[g][c] = genomes[g][c][:a]+genomes[g][c][a:b].lower()+genomes[g][c][b:] # mask match
+
+        # report profile, get new seeds
+        P = self.P_logit # shape: (k, alphabet_size, U)
+        b = P[:,:,pIdx].numpy()
+        self.P_report.append(b)
+        self.P_report_thresold.append(threshold)
+        #self.P_report_loss.append(tf.reduce_mean(losses).numpy())
+        self.P_report_loss.append(tf.reduce_min(losses).numpy())
+        self.P_logit.assign(self.seed_P_genome()) # completely new set of seeds
+        
+        
+        
     def seed_P_ds_deprecated(self, ds):
         """
             Seed profiles P with profiles that represent units random positions in the input sequences.
@@ -987,36 +994,4 @@ class SpecificProfile(tf.keras.Model):
     
     
     
-    def seed_P_genome(self):
-        if True:
-            flatg = []
-            for seqs in self.setup.genomes():
-                flatg.extend(seqs) # should be all references and thus no considerable memory overhead
-
-            lensum = sum([len(s) for s in flatg])
-            weights = [len(s)/lensum for s in flatg]
-            weights = tf.nn.softmax(weights).numpy()
-            #seqs = np.random.choice(len(flatg), self.units, replace=True, p=weights)
-            seqs = self.nprng.choice(len(flatg), self.setup.U, replace=True, p=weights)
-            ks = self.setup.k + (2*self.setup.s) # trained profile width (k +- shift)
-
-            oneProfile_logit_like_Q = np.log(self.setup.data.Q)
-            P_logit_init = np.zeros((ks, self.alphabet_size, self.setup.U), dtype=np.float32)
-            #rho = 2.0
-            kdna = ks * 3
-            for j in range(self.setup.U):
-                i = seqs[j] # seq index
-                assert len(flatg[i]) > kdna, str(len(flatg[i]))
-                #pos = np.random.choice(len(flatg[i])-kdna, 1)[0]
-                pos = self.nprng.choice(len(flatg[i])-kdna, 1)[0]
-                aa = su.sequence_translation(flatg[i][pos:pos+kdna])
-                OH = dataset.oneHot(aa)
-                assert OH.shape == (ks, self.alphabet_size), str(OH.shape)+" != "+str((ks, self.alphabet_size))
-                #seed = rho * OH + oneProfile_logit_like_Q + np.random.normal(scale=sigma, size=OH.shape)
-                seed = self.setup.rho * OH + oneProfile_logit_like_Q + self.nprng.normal(scale=self.setup.sigma, 
-                                                                                         size=OH.shape)
-                P_logit_init[:,:,j] = seed
-
-            return P_logit_init
-        else:
-            return self._getRandomProfiles()
+    

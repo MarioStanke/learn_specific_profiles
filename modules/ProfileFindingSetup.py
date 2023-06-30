@@ -4,7 +4,7 @@ import numpy as np
 import os
 import random
 
-import dataset as dsg
+import dataset
 import plotting
 import SequenceRepresentation as sr
 import sequtils as su
@@ -116,12 +116,12 @@ class ProfileFindingDataSetup:
                 f"[ERROR] >>> N must be an integer >= 1, not {self.N}"
             if self.mode == 'toy':
                 assert self.toy_genomeSizes is not None, "[ERROR] >>> genomeSizes must be set"
-                self.genomes = dsg.getRandomGenomes(self.N, self.toy_genomeSizes, self.toy_insertPatterns, 
-                                                    self.toy_repeatPatterns, self.toy_mutationProb, 
-                                                    self.toy_multiplyRepeats, self.toy_repeatsPerGenome, verbose)
+                self.genomes = dataset.getRandomGenomes(self.N, self.toy_genomeSizes, self.toy_insertPatterns, 
+                                                        self.toy_repeatPatterns, self.toy_mutationProb, 
+                                                        self.toy_multiplyRepeats, self.toy_repeatsPerGenome, verbose)
             elif self.mode == 'sim':
-                self.genomes = dsg.simulateGenomes(self.N, self.sim_seqlen, self.sim_genelen, self.sim_cdist, 
-                                                   self.sim_ncdist, self.sim_tree, self.sim_omega)
+                self.genomes = dataset.simulateGenomes(self.N, self.sim_seqlen, self.sim_genelen, self.sim_cdist, 
+                                                       self.sim_ncdist, self.sim_tree, self.sim_omega)
                 
         # set Q, overwrites anything that was initialized!
         if self.Q is not None:
@@ -130,7 +130,7 @@ class ProfileFindingDataSetup:
         if self.mode == 'toy':
             self.Q = np.ones(21, dtype=np.float32)/21
         else:
-            self.Q = dsg.backGroundAAFreqs(self.extractSequences(), verbose)
+            self.Q = dataset.backGroundAAFreqs(self.extractSequences(), verbose)
             
             
             
@@ -170,6 +170,14 @@ class ProfileFindingDataSetup:
                 #seqnames[-1].append(sequence.id)
                 
         return sequences#, seqnames
+    
+
+
+    def print(self, prefix = ''):
+        """ Print all members except genomes to keep it readable """
+        for attr, value in self.__dict__.items():
+            if attr != 'genomes':
+                print(prefix+attr, '=', value)
         
         
         
@@ -190,23 +198,28 @@ class ProfileFindingDataSetup:
 class ProfileFindingTrainingSetup:
     """ Dataclass to store the parameters for training a profile finding model """
 
-    genomes: list[sr.Genome]
-    Q: np.ndarray
+    data: ProfileFindingDataSetup
     tile_size: int = 334  # tile size measured in amino acids
     batch_size: int = 1   # number of X to generate per batch
     tiles_per_X: int = 13 # number of tiles per X (-> X.shape[0])
+    prefetch: int = 3     # number of batches to prefetch
     
     U: int = 200        # number of profiles to train
     k: int = 20         # length of profiles
     midK: int = 12      # length of kmers to intialize middle part of profiles
     s: int = 0          # profile shift to both sides
+    
+    epochs: int = 350   # number of epochs to train
     alpha: float = 1e-6 # loss norm (deprecated, not used anymore)
     gamma: float = 1    # softmax scale (used in 'experiment' loss function)
     l2: float = 0.01    # L2 reg factor
     match_score_factor: float = 0.7
     learning_rate: float = 2 
+    lr_patience: int = 5    # number of epochs to wait for loss decrease before trigger learning rate reduction
+    lr_factor: float = 0.75 # factor to reduce learning rate by
     rho: float = 0      # influence of initial sampling position on profile initialization via seeds
     sigma: float = 1    # stddev of random normal values added to profile initialization via seeds (mean 0)
+    profile_plateau: int = 10        # number of epochs to wait for loss plateau to trigger profile reporting
     profile_plateau_dev: float = 150 # upper threshold for stddev of loss plateau to trigger profile reporting
 
     n_best_profiles: int = 2 # number of best profiles to report
@@ -214,15 +227,24 @@ class ProfileFindingTrainingSetup:
 
     # do not set manually, gets calculated automatically
     steps_per_epoch: int = None
-    profiles = None
+    initProfiles: np.ndarray = None
+    trackProfiles: list = None
+    initKmerPositions: dict = None
+    _genomes: list[list[str]] = None # A persistent copy of the genomes that can be mutated during training.
+                                     # Needed because repeated calls to data.extractSequences() would not work as
+                                     # expected since it creates a new data structure with strings that are not
+                                     # mutable and get replaced by new objects when altered, thus the underlying list of
+                                     # SequenceRepresentation.Sequence objects would not be altered and changes are lost
+                                     # after the next call to data.extractSequences().
 
     def __post_init__(self):
-        genome_sizes = [sum([len(s) for s in genome]) for genome in self.genomes]
+        genome_sizes = [sum([len(s) for s in genome]) for genome in self.data.genomes]
         steps_per_epoch = max(1, np.mean(genome_sizes) // (self.batch_size*self.tiles_per_X*self.tile_size*3))
         if self.steps_per_epoch is not None:
             print(f"[WARNING] >>> Overwriting steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
 
         self.steps_per_epoch = steps_per_epoch
+        self._genomes = self.data.extractSequences()
 
 
 
@@ -247,9 +269,9 @@ class ProfileFindingTrainingSetup:
 
         # count kmers
         kmerToOcc = {}
-        for g in range(len(self.genomes)):
-            for c in range(len(self.genomes[g])):
-                translated = su.six_frame_translation(self.genomes[g][c].getSequence())
+        for g in range(len(self.data.genomes)):
+            for c in range(len(self.data.genomes[g])):
+                translated = su.six_frame_translation(self.data.genomes[g][c].getSequence())
                 for f in range(len(translated)):
                     seq = translated[f]
                     for i in range(len(seq)-self.midK+1):
@@ -258,10 +280,11 @@ class ProfileFindingTrainingSetup:
                             if kmer not in kmerToOcc:
                                 kmerToOcc[kmer] = [] # store occs
 
-                            pos = su.convert_six_frame_position(i, f, len(self.genomes[g][c]), 
+                            pos = su.convert_six_frame_position(i, f, len(self.data.genomes[g][c]), 
                                                                 dna_to_aa=False)
-                            assert 0 <= pos and pos < len(self.genomes[g][c]), \
-                                f"[ERROR] >>> {pos} is not in [0,{len(self.genomes[g][c])}) ({self.genomes[g][c]})"
+                            assert 0 <= pos and pos < len(self.data.genomes[g][c]), \
+                                f"[ERROR] >>> {pos} is not in [0,{len(self.data.genomes[g][c])})" \
+                                    +f"({self.data.genomes[g][c]})"
                             kmerToOcc[kmer].append((g,c,pos))
 
         kmerCount = [(k, len(kmerToOcc[k])) for k in kmerToOcc]
@@ -275,7 +298,7 @@ class ProfileFindingTrainingSetup:
                     "Using all kmers plus random kmers.")
                 midKmers = list(kmerToOcc.keys())
                 # add randomly generated kmers
-                randKmers = [''.join(random.choices(list(su.aa_alphabet[1:]), list(Q), k=self.midK)) \
+                randKmers = [''.join(random.choices(list(su.aa_alphabet[1:]), list(self.data.Q), k=self.midK)) \
                                 for _ in range(self.U-len(kmerToOcc))]
                 midKmers.extend(randKmers)
             else:
@@ -319,7 +342,7 @@ class ProfileFindingTrainingSetup:
         if len(self.trackProfiles) == 0:
             self.trackProfiles = list(range(len(midKmers)))
 
-        self.initProfiles = getCustomMidProfiles(midKmers, self.k+(2*self.s), self.Q, mid_factor=4, bg_factor=1)
+        self.initProfiles = getCustomMidProfiles(midKmers, self.k+(2*self.s), self.data.Q, mid_factor=4, bg_factor=1)
         
         if self.n_best_profiles > self.initProfiles.shape[2]:
             print(f"[WARNING] >>> n_best_profiles ({self.n_best_profiles}) > number of profiles",
@@ -333,6 +356,60 @@ class ProfileFindingTrainingSetup:
             softmaxProfiles = softmaxProfiles / np.sum(softmaxProfiles, axis=0)
             softmaxProfiles = np.transpose(softmaxProfiles, (2,0,1))    
             plotting.plotLogo(softmaxProfiles)
+
+
+
+    def getDataset(self,
+                   repeat: bool = False,
+                   withPosTracking: bool = False, 
+                   tiles_per_X: int = None,
+                   tile_size: int = None,
+                   batch_size: int = None,
+                   prefetch: int = None):
+        """ Any 'None' argument specified here overwrites the defaults from object constuction. Uses the internal copy
+            of the genomes so changes to self.genomes() will persist there, but not in the original genomes. """
+        tilesPerX = tiles_per_X if tiles_per_X is not None else self.tiles_per_X
+        tileSize = tile_size if tile_size is not None else self.tile_size
+        batchSize = batch_size if batch_size is not None else self.batch_size
+        prefetch_ = prefetch if prefetch is not None else self.prefetch
+        ds = dataset.getDataset(self._genomes,
+                                tilesPerX,
+                                tileSize,
+                                withPosTracking)
+        
+        if repeat:
+            ds = ds.repeat()
+        
+        if batchSize is not None:
+            ds = ds.batch(batchSize)
+            
+        if prefetch_ is not None:
+            ds = ds.prefetch(prefetch_)
+            
+        return ds
+    
+
+
+    def genomes(self):
+        return self._genomes
+    
+
+
+    def genomeToAllUC(self):
+        """ Make all bases in the genome upper case (in place!, useful after training with reporting). Works on the
+            internal copy of the genomes, so the original genomes are not altered. """
+        for g in range(len(self._genomes)):
+            for c in range(len(self._genomes[g])):
+                self._genomes[g][c] = self._genomes[g][c].upper()
+
+
+    
+    def print(self):
+        """ Print all members except the _genomes and data.genomes to keep it readable. """
+        self.data.print("data.")
+        for attr, value in self.__dict__.items():
+            if attr != "_genomes" and attr != "data":
+                print(attr, "=", value)
 
 
 
@@ -364,14 +441,14 @@ def getCustomMidProfiles(midSeqs: list[str], k: int, Q: np.ndarray, mid_factor: 
     profiles = np.repeat([profiles], repeats=U, axis=0)
     #print("[DEBUG] >>> profiles.shape:", profiles.shape)
     profiles = np.transpose(profiles, (1,2,0))
-    print("[DEBUG] >>> profiles.shape:", profiles.shape)
+    #print("[DEBUG] >>> profiles.shape:", profiles.shape)
     #print("[DEBUG] >>> profiles[:,:,0]:", profiles[:,:,0])
     
     for u in range(U):
         midlen = len(midSeqs[u])
         lflank = (k-midlen)//2
         bgmid = np.repeat([Q], repeats=midlen, axis=0) * bg_factor # scaled background for middle positions
-        mid = dsg.oneHot(midSeqs[u]) * mid_factor                  # scaled kmer for middle positions
+        mid = dataset.oneHot(midSeqs[u]) * mid_factor              # scaled kmer for middle positions
         profiles[lflank:lflank+midlen,:,u] = (mid + bgmid)
                 
     return profiles

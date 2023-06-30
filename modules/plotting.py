@@ -140,7 +140,7 @@ def sitesToLinks(sites, linkThreshold = 100):
 
 
 
-def drawGeneLinks_SequenceRepresentationData(sequences: list[SequenceRepresentation.Sequence], links, imname,
+def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentation.Genome], links, imname,
                                              kmerSites = None, kmerCol = None, 
                                              maskingSites = None, maskingCol = 'darkred',
                                              font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
@@ -148,7 +148,7 @@ def drawGeneLinks_SequenceRepresentationData(sequences: list[SequenceRepresentat
     Draw an image with sequences as horizontal bars and links as connecting lines
 
     Parameters:
-        sequences (list of SequenceRepresentation.Sequence): sequences to draw
+        genomes (list of SequenceRepresentation.Genome): genomes to draw
         links (list of lists of occurrences): links between sequence positions (occurrences)
         imname (str): path to image file to write the image to, set to None for no writing
         kmerSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of initial kmer 
@@ -166,13 +166,14 @@ def drawGeneLinks_SequenceRepresentationData(sequences: list[SequenceRepresentat
     """
 
     drawGenes = []
-    for sequence in sequences:
-        dg = gld.Gene(sequence.id, sequence.species, sequence.lenght, sequence.strand)
-        for element in sequence.genomic_elements:
-            start, end = element.get_relative_positions(sequence, from_rc = (sequence.strand == '-'))
-            dg.addElement(element.type, start, end-1) # TODO: refactor gld to also use exclusive end positions!
+    for genome in genomes:
+        for sequence in genome:
+            dg = gld.Gene(sequence.id, sequence.species, sequence.length, sequence.strand)
+            for element in sequence.genomic_elements:
+                start, end = element.getRelativePositions(sequence, from_rc = (sequence.strand == '-'))
+                dg.addElement(element.type, start, end-1) # TODO: refactor gld to also use exclusive end positions!
 
-        drawGenes.append(dg)
+            drawGenes.append(dg)
 
     # for some assertions
     geneids = []
@@ -187,7 +188,7 @@ def drawGeneLinks_SequenceRepresentationData(sequences: list[SequenceRepresentat
         lgenes = []
         lpos = []
         for occ in link:
-            gid = sequences[occ[0]].id
+            gid = genomes[int(occ[0])][int(occ[1])].id
             assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {occ} not found in {geneids}"
             lgenes.append(gid)
             lpos.append(occ[2])
@@ -198,8 +199,8 @@ def drawGeneLinks_SequenceRepresentationData(sequences: list[SequenceRepresentat
     def createAdditionalSites(sites, col):
         occDict = {}
         for site in sites:
-            gid = sequences[occ[0]].id
-            assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {occ} not found in {geneids}"
+            gid = genomes[int(site[0])][int(site[1])].id
+            assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {site} not found in {geneids}"
             if gid not in occDict:
                 occDict[gid] = []
 

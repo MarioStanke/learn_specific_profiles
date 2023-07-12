@@ -285,6 +285,27 @@ class SpecificProfile(tf.keras.Model):
                     nlinks = tf.concat([nlinks, nlinks_u], axis=0)
         
         return matches, scores, nlinks
+    
+
+
+    def getMaskedSites(self, idx):
+        """ Return the sites that were masked after reporting the profile at index idx. Idx refers to the index of the
+            profile in the list of _reported_ profiles. A mapping of the initial profile index to the reported profile
+            can be found in self.tracking['masking']. 
+            
+            Returns: list of sites (g, c, a) where g is the genome index, c is the contig index, and a is the start 
+                     position of the masked site."""
+        if len(self.P_report_masked_sites) == 0:
+            return None # no reporting, so no masking
+        
+        assert idx < len(self.P_report_masked_sites), f"[ERROR] >>> {idx} >= {len(self.P_report_masked_sites)}"
+        sites = []
+        for site in self.P_report_masked_sites[idx]:
+            _, g, c, a, _ = site
+            #print(seq, g.numpy(), c.numpy(), a.numpy(), b.numpy())
+            sites.append((g.numpy(), c.numpy(), a.numpy()))
+        
+        return sites
 
 
     
@@ -357,8 +378,11 @@ class SpecificProfile(tf.keras.Model):
     
 
 
-    def getP_optimal(self, loss_threshold = 0):
+    def getP_optimal(self, loss_threshold = 0, lossStatistics = False):
         """ 
+        loss_threshold: only consider profiles with a loss below this threshold
+        lossStatistics: print some statistics about the loss distribution of all extracted profiles
+
         Return a np array with profiles of length k, shape (k, alphabet_size, U*), 
           as well as a list of scores and losses with shape (U*,) respectively.
 
@@ -368,6 +392,11 @@ class SpecificProfile(tf.keras.Model):
         
         #pScores = self.max_profile_scores(ds_score)
         pLosses = self.min_profile_losses(self.setup.getDataset())
+        if lossStatistics:
+            print("[INFO] >>> min loss:", tf.reduce_min(pLosses).numpy())
+            print("[INFO] >>> max loss:", tf.reduce_max(pLosses).numpy())
+            print("[INFO] >>> mean loss:", tf.reduce_mean(pLosses).numpy())
+
         mask = tf.less_equal(pLosses, loss_threshold)
         P = tf.boolean_mask(self.P_logit, mask, axis=2)   # (k+2s, alphabet_size, -1)
         P = tf.nn.softmax(P, axis=1)
@@ -390,13 +419,19 @@ class SpecificProfile(tf.keras.Model):
         
         bestShift = tf.math.argmax(scores, axis = 1)        # (U)
         scores = tf.gather(scores, bestShift, batch_dims=1) # (U)
-        losses = tf.gather(losses, bestShift, batch_dims=1) # (U)
+        losses = tf.gather(losses, bestShift, batch_dims=1) # (U)            
         #print("[DEBUG] >>> U:", U)
         #print("[DEBUG] >>> bestShift shape:", bestShift.shape)
         #print("[DEBUG] >>> gathered scores shape:", scores.shape)
         #print("[DEBUG] >>> gathered losses shape:", losses.shape)
-        # exclude best shifts at edges
-        shiftMask = tf.logical_not(tf.logical_or(tf.equal(bestShift, 0), tf.equal(bestShift, 2*self.setup.s))) 
+
+        if self.setup.s > 0:
+            # exclude best shifts at edges
+            shiftMask = tf.logical_not(tf.logical_or(tf.equal(bestShift, 0), tf.equal(bestShift, 2*self.setup.s))) 
+        else:
+            # nothing to exclude
+            shiftMask = tf.constant(True, shape=bestShift.shape)
+
         #print("[DEBUG] >>> shiftMask shape:", shiftMask.shape)
         bestShift = tf.boolean_mask(bestShift, shiftMask, axis=0) # (U*)
         scores = tf.boolean_mask(scores, shiftMask, axis=0)

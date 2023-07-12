@@ -365,14 +365,17 @@ class ProfileFindingTrainingSetup:
                    tiles_per_X: int = None,
                    tile_size: int = None,
                    batch_size: int = None,
-                   prefetch: int = None):
+                   prefetch: int = None,
+                   original_data: bool = False):
         """ Any 'None' argument specified here overwrites the defaults from object constuction. Uses the internal copy
-            of the genomes so changes to self.genomes() will persist there, but not in the original genomes. """
+            of the genomes so changes to self.genomes() will persist there, but not in the original genomes. 
+            original_data: if True, the original, immutable genome data is used, otherwise (default) the internal copy
+                           is used that can e.g. be softmasked during training and uppercased with genomeToAllUC(). """
         tilesPerX = tiles_per_X if tiles_per_X is not None else self.tiles_per_X
         tileSize = tile_size if tile_size is not None else self.tile_size
         batchSize = batch_size if batch_size is not None else self.batch_size
         prefetch_ = prefetch if prefetch is not None else self.prefetch
-        ds = dataset.getDataset(self._genomes,
+        ds = dataset.getDataset(self._genomes if not original_data else self.data.extractSequences(),
                                 tilesPerX,
                                 tileSize,
                                 withPosTracking)

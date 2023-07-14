@@ -158,6 +158,13 @@ class SpecificProfile(tf.keras.Model):
                 calculateLinks (int): flag, if True the number of possible links is computed and returned for each 
                                         profile
                 otherP (profile tensor): optional profile tensor if not the model's profiles should be used
+
+            Returns:
+                matches (tensor): tensors of shape (X, 5) where X is the number of found sites and the second dimension
+                                  contains tuples with (genomeID, contigID, pos, u, f)
+                scores (tensor): tensor of shape (X, 1) containing the scores of the found sites
+                links (tensor): tensor of shape (X, 1) containing the number of possible links for each profile or
+                                    None if calculateLinks is False
         """
         #print("[DEBUG] >>> score_threshold:", score_threshold)
         #print("[DEBUG] >>> pIdx:", pIdx)

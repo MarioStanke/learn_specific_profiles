@@ -193,15 +193,21 @@ class Sequence:
     def elementsPossible(self) -> bool:
         """ Check if the sequence can contain genomic elements. """
         return hasattr(self, 'genomic_elements')
+    
+    def getElement(self, index):
+        """ Get a genomic element of the sequence. """
+        assert self.hasElements(), "[ERROR] >>> Sequence does not contain genomic elements."
+        assert index < len(self.genomic_elements), "[ERROR] >>> Index out of range."
+        return self.genomic_elements[index]
 
-    def getRelativePositions(self, parent, from_rc: bool = False):
+    def getRelativePositions(self, parent, from_rc: bool = False) -> tuple[int, int]:
         """ Get the relative positions of the sequence within a parent sequence as a tuple (start, stop). 
             If `from_rc` is True, the positions are calculated from the reverse complement of the parent sequence. 
             For example: The parent sequence is AAAAAGGGAA and this sequence is GGG. The relative positions are (5, 8).
                          If `from_rc` is True, the relative positions are (2, 5). """
         return _getRelativePositions(self, parent, from_rc)
 
-    def getSequence(self, rc: bool = False):
+    def getSequence(self, rc: bool = False) -> str:
         """ Get the sequence of the sequence object. Returns None if no sequence is stored. If `rc` is True, the
             reverse complement of the sequence is returned. """
         if self.sequence is None:
@@ -211,7 +217,7 @@ class Sequence:
         else:
             return self.sequence
         
-    def getSubsequence(self, genome_start, genome_end, rc: bool = False):
+    def getSubsequence(self, genome_start, genome_end, rc: bool = False) -> str:
         """ Get a subsequence of the sequence object. Returns None if no sequence is stored or if the requested 
             positions are not in the range of this sequence. If `rc` is True, the reverse complement of the subsequence
             is returned. """
@@ -304,8 +310,8 @@ class Sequence:
 # helper functions for adding genomic elements and homology to a sequence
 def _addElementToSequence(element: Sequence, sequence: Sequence):
     """ Helper function for adding genomic elements to a sequence, do not use directly """
-    assert type(element) == Sequence, "[ERROR] >>> `element` must be of type Sequence."
-    assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
+    #assert type(element) == Sequence, f"[ERROR] >>> `element` must be of type Sequence, not {type(element)}."
+    #assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
     assert hasattr(sequence, 'genomic_elements'), "[ERROR] >>> `sequence` must have attribute `genomic_elements`."
     #assert element.genome_start >= sequence.genome_start, "[ERROR] >>> `element` must start after `sequence`."
     #assert element.genome_end <= sequence.genome_end, "[ERROR] >>> `element` must end before `sequence`."
@@ -316,17 +322,17 @@ def _addElementToSequence(element: Sequence, sequence: Sequence):
 
 def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
     """ Helper function for adding a homology to a sequence, do not use directly """
-    assert type(homology) == Sequence, "[ERROR] >>> `homology` must be of type Sequence."
-    assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
+    #assert type(homology) == Sequence, f"[ERROR] >>> `homology` must be of type Sequence, not {type(homology)}."
+    #assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
     assert hasattr(sequence, 'homology'), "[ERROR] >>> `sequence` must have attribute `homology`."
     sequence.homology.append(homology)
 
 
 
-def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = False):
+def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = False) -> tuple[int, int]:
     """ Helper function, returns the relative positions of a sequence within a parent sequence """
-    assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
-    assert type(parent) == Sequence, "[ERROR] >>> `parent` must be of type Sequence."
+    #assert isinstance(sequence, Sequence), f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
+    #assert isinstance(parent, Sequence), f"[ERROR] >>> `parent` must be of type Sequence, not {type(parent)}."
     assert _sequencesOverlap(sequence, parent), "[ERROR] >>> `sequence` must overlap with `parent`."
 
     start = sequence.genome_start - parent.genome_start
@@ -341,15 +347,16 @@ def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = 
 
 
 
-def _sequencesOverlap(seq1: Sequence, seq2: Sequence):
+def _sequencesOverlap(seq1: Sequence, seq2: Sequence) -> bool:
     """ Helper function, returns true if two sequences are from the same species and chromosome and overlap """
+    #print("[DEBUG] >>> ", repr(seq1), "\n", repr(seq2))
     return seq1.species == seq2.species and seq1.chromosome == seq2.chromosome and \
         seq1.genome_start < seq2.genome_end and seq1.genome_end > seq2.genome_start
 
 
 
 # create a Sequence object from a JSON file or string
-def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
+def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
     """ Create a Sequence object from a JSON file or a JSON string. 
         If both arguments are provided, the file will be used. """
     assert not (jsonfile is None and jsonstring is None), \
@@ -383,22 +390,22 @@ def fromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
         sequence.sequence = objdict['sequence']
     if 'genomic_elements' in objdict:
         for element in objdict['genomic_elements']:
-            sequence.addElement(fromJSON(jsonstring = json.dumps(element)))
+            sequence.addElement(sequenceFromJSON(jsonstring = json.dumps(element)))
     if 'homology' in objdict:
         for homology in objdict['homology']:
-            sequence.addHomology(fromJSON(jsonstring = json.dumps(homology)))
+            sequence.addHomology(sequenceFromJSON(jsonstring = json.dumps(homology)))
 
     return sequence
 
 
 
-def loadJSONlist(jsonfile: str) -> list[Sequence]:
+def loadJSONSequenceList(jsonfile: str) -> list[Sequence]:
     """ Load a list of Sequence objects from a JSON file. """
     assert os.path.isfile(jsonfile), f"[ERROR] >>> file `{jsonfile}` must be a valid file."
     with open(jsonfile, 'rt') as f:
         objlist = json.load(f)
 
-    return [fromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]
+    return [sequenceFromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]
 
 
 
@@ -423,13 +430,19 @@ class Genome:
                 self.addSequence(sequence)
 
     # https://docs.python.org/3/reference/datamodel.html#emulating-container-types
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.sequences)
     
     def __getitem__(self, key) -> Sequence:
         """ Return the chromosome with the given key (which is either an array ID or a chromosome name). """
+        def tryCastToInt(key):
+            try:
+                return int(key)
+            except ValueError:
+                return key
+            
         # int or int-like
-        if type(key) == int or type(key) == np.int64:
+        if type(key) == int or type(tryCastToInt(key)) == int:
             return self.sequences[key]
         elif type(key) == str:
             for sequence in self.sequences:
@@ -442,10 +455,10 @@ class Genome:
     def __iter__(self):
         return iter(self.sequences)
     
-    def __reversed__(self):
+    def __reversed__(self) -> list[Sequence]:
         return reversed(self.sequences)
     
-    def __contains__(self, sequence: Sequence):
+    def __contains__(self, sequence: Sequence) -> bool:
         """ Return True if the genome contains the given sequence. """
         assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
         return sequence in self.sequences
@@ -483,3 +496,29 @@ class Genome:
         """ Write the genome to a JSON file. """
         with open(file, 'wt') as f:
             json.dump(self.toDict(), f, indent=4)
+
+
+
+def genomeFromJSON(jsonfile: str = None, jsonstring: str = None) -> Genome:
+    """ Create a Genome object from a JSON file or a JSON string.
+        If both arguments are provided, the file will be used. """
+    assert not (jsonfile is None and jsonstring is None), \
+        "[ERROR] >>> Either `jsonfile` or `jsonstring` must be provided."
+    if jsonfile is not None:
+        assert os.path.isfile(jsonfile), f"[ERROR] >>> file `{jsonfile}` must be a valid file."
+        with open(jsonfile, 'rt') as f:
+            dictlist = json.load(f)
+    else:
+        dictlist = json.loads(jsonstring)
+
+    return Genome(sequences = [sequenceFromJSON(jsonstring = json.dumps(objdict)) for objdict in dictlist])
+    
+
+
+def loadJSONGenomeList(jsonfile: str) -> list[Genome]:
+    """ Load a list of Genome objects from a JSON file. """
+    assert os.path.isfile(jsonfile), f"[ERROR] >>> file `{jsonfile}` must be a valid file."
+    with open(jsonfile, 'rt') as f:
+        objlist = json.load(f)
+
+    return [genomeFromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]

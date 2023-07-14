@@ -10,6 +10,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 import GeneLinkDraw.geneLinkDraw as gld
+import Links
 import SequenceRepresentation
 import sequtils as su
 
@@ -111,13 +112,13 @@ def sitesToLinks(sites, linkThreshold = 100):
             
         profileToOcc[u][g].append([g,c,p])
         
-    for p in profileToOcc:
-        if (len(profileToOcc[p].keys()) == 1): # or (0 not in profileToOcc[p]):
+    for u in profileToOcc:
+        if (len(profileToOcc[u].keys()) == 1): # or (0 not in profileToOcc[p]):
             continue
             
         occs = []
-        for g in profileToOcc[p]:
-            occs.append(profileToOcc[p][g])
+        for g in profileToOcc[u]:
+            occs.append(profileToOcc[u][g])
             
         # nlinks = np.prod([len(og) for og in occs]) # does not handle overflow!
         nlinks = 1
@@ -127,20 +128,21 @@ def sitesToLinks(sites, linkThreshold = 100):
                 break
 
         if nlinks > linkThreshold:
-            print("[DEBUG] >>> Profile", p, "would produce at least", nlinks, "links, skipping")
-            skipped.append((p, nlinks))
+            print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
+            skipped.append((u, nlinks))
         else:
             l = list(itertools.product(*occs))
             #print("[DEBUG] >>> len(l):", len(l))
             #print("[DEBUG] >>>      l:", l)
             links.extend(l)
-            linkProfiles.add((p, nlinks, str(occs)))
+            linkProfiles.add((u, nlinks, str(occs)))
 
     return links, linkProfiles, skipped
 
 
 
-def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentation.Genome], links, imname,
+def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentation.Genome], 
+                                             links: list[Links.Link], imname,
                                              kmerSites = None, kmerCol = None, 
                                              maskingSites = None, maskingCol = 'darkred',
                                              font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
@@ -149,7 +151,7 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
 
     Parameters:
         genomes (list of SequenceRepresentation.Genome): genomes to draw
-        links (list of lists of occurrences): links between sequence positions (occurrences)
+        links (list of Links.Link): links between sequence positions (occurrences)
         imname (str): path to image file to write the image to, set to None for no writing
         kmerSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of initial kmer 
                                     positions. If given, these occurrences are drawn as small dots on the genes
@@ -170,7 +172,7 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
         for sequence in genome:
             dg = gld.Gene(sequence.id, sequence.species, sequence.length, sequence.strand)
             for element in sequence.genomic_elements:
-                start, end = element.getRelativePositions(sequence, from_rc = (sequence.strand == '-'))
+                start, end = element.getRelativePositions(sequence, from_rc = False) # Always drawing forward strand
                 dg.addElement(element.type, start, end-1) # TODO: refactor gld to also use exclusive end positions!
 
             drawGenes.append(dg)
@@ -188,10 +190,10 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
         lgenes = []
         lpos = []
         for occ in link:
-            gid = genomes[int(occ[0])][int(occ[1])].id
+            gid = genomes[int(occ.genomeIdx)][int(occ.sequenceIdx)].id
             assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {occ} not found in {geneids}"
             lgenes.append(gid)
-            lpos.append(occ[2])
+            lpos.append(occ.position)
             
         drawLinks.append(gld.Link(lgenes, lpos))
 

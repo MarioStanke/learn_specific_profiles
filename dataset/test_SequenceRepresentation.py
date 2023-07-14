@@ -292,7 +292,7 @@ class TestSequenceRepresentation(unittest.TestCase):
         self.assertEqual(self.sequence.toDict(), self.seqdict)
 
     def test_fromJSON(self):
-        seq = sr.fromJSON(jsonstring = json.dumps(self.seqdict))
+        seq = sr.sequenceFromJSON(jsonstring = json.dumps(self.seqdict))
         self.sequence.addElement(self.elem_overlap_both)
         self.sequence.addHomology(self.elem_other_species)
         self.assertEqual(seq, self.sequence)
@@ -304,7 +304,7 @@ class TestSequenceRepresentation(unittest.TestCase):
             with open(self.testfile, "w") as f:
                 json.dump(self.sequence.toDict(), f)
 
-            seq = sr.fromJSON(jsonfile = self.testfile)
+            seq = sr.sequenceFromJSON(jsonfile = self.testfile)
             self.assertEqual(seq, self.sequence)
         else:
             self.skipTest("Testfile could not be created")
@@ -316,7 +316,7 @@ class TestSequenceRepresentation(unittest.TestCase):
             with open(self.testfile, "w") as f:
                 json.dump(dictlist, f)
 
-            loadedlist = sr.loadJSONlist(self.testfile)
+            loadedlist = sr.loadJSONSequenceList(self.testfile)
             self.assertEqual(loadedlist, seqlist)
         else:
             self.skipTest("Testfile could not be created")

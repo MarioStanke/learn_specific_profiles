@@ -158,7 +158,9 @@ class ProfileFindingDataSetup:
         
     def extractSequences(self):
         """ Returns the DNA sequences in a list of lists, outer list for the genomes, 
-              inner lists for the sequences in the genomes. """
+              inner lists for the sequences in the genomes. 
+            Always returns the sequences on the positive strand, since six-frame-translation is performed in dataset
+              creation anyway. """
         assert self.genomes is not None, "[ERROR] >>> Add genomes first"
         sequences = []
         #seqnames = []
@@ -166,7 +168,7 @@ class ProfileFindingDataSetup:
             sequences.append([])
             #seqnames.append([])
             for sequence in genome:
-                sequences[-1].append(sequence.getSequence(sequence.strand == '-'))
+                sequences[-1].append(sequence.getSequence(rc = False))
                 #seqnames[-1].append(sequence.id)
                 
         return sequences#, seqnames

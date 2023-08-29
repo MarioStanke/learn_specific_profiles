@@ -306,7 +306,16 @@ def filter_and_choose_exon_neighbours(all_internal_exons: dict[tuple, list[BedRo
     start = time.perf_counter()
     print("[INFO] >>> started filter_and_choose_exon_neighbours()")
     filtered_internal_exons = []
-    for key in all_internal_exons.keys():
+
+    # shuffle the keys to avoid only using Chr1 exons
+    keys = list(all_internal_exons.keys())
+    print("[DEBUG] >>> unshuffled keys:", keys[:10])
+    rng = np.random.default_rng(42) # use seed to always get the same behaviour
+    rng.shuffle(keys)
+    print("[DEBUG] >>> shuffled keys:", keys[:10])
+
+    #for key in all_internal_exons.keys():
+    for key in keys:
         chromosome, exon_start_in_genome, exon_stop_in_genome = key
         if args.n and len(filtered_internal_exons) >= args.n:
             break

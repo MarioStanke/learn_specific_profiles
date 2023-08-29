@@ -250,11 +250,12 @@ class ProfileFindingTrainingSetup:
 
 
 
-    def initializeProfiles(self, enforceU = True, minU = 10, minOcc = 8, plot = False):
+    def initializeProfiles(self, enforceU = True, minU = 10, minOcc = 8, overlapTilesize = 6, plot = False):
         """ Initializes the profiles with most frequent kmers in the genomes. If not enough kmers are found, additional
             random kmers are added. If enforceU is True, exactly U profiles are initialized. If enforceU is False, at
             least minU profiles are initialized, starting with the most frequent kmers that occur at least minOcc times.
             All kmers that are equally frequent are included, except when U would be exceeded.
+            Ignores kmers that overlap with already seen kmers by at most overlapTilesize.
             Sets self.initProfiles. Sets self.trackProfiles, either to all profiles from kmers that exceed minOcc if not
             enforceU and there are any, or to all profiles in all other cases.
         
@@ -264,11 +265,13 @@ class ProfileFindingTrainingSetup:
                                   most frequent kmers. Defaults to 10. At most U profiles are initialized.
             minOcc (int, optional): Only if enforceU is False. Minimum number of occurences of a kmer to be considered.
                                     Defaults to 8. Is ignored if minU would not be reached otherwise.
+            overlapTilesize (int, optional): Maximum overlap of kmers to be ignored.
             plot (bool, optional): If True, plots the initialized profiles. Defaults to False.
         """
 
         assert minU <= self.U, f"[ERROR] >>> minU ({minU}) must be <= U ({self.U})"
 
+        seenTiles = set() # store position hashes of tiles that have been seen
         # count kmers
         kmerToOcc = {}
         for g in range(len(self.data.genomes)):
@@ -279,15 +282,22 @@ class ProfileFindingTrainingSetup:
                     for i in range(len(seq)-self.midK+1):
                         kmer = seq[i:i+self.midK]
                         if (' ' not in kmer): # skip unknown AAs (i.e. unknown codons)
-                            if kmer not in kmerToOcc:
-                                kmerToOcc[kmer] = [] # store occs
-
                             pos = su.convert_six_frame_position(i, f, len(self.data.genomes[g][c]), 
                                                                 dna_to_aa=False)
                             assert 0 <= pos and pos < len(self.data.genomes[g][c]), \
                                 f"[ERROR] >>> {pos} is not in [0,{len(self.data.genomes[g][c])})" \
                                     +f"({self.data.genomes[g][c]})"
+                            
+                            tile = (g, c, pos//overlapTilesize)
+                            #tile = (g, c, f, i//overlapTilesize)# pos//overlapTilesize)
+                            #print(f"[DEBUG] >>> overlapTilesize={overlapTilesize}, i={i}, i//overlapTilesize={i//overlapTilesize}, f={f}, pos={pos}, kmer={kmer}")
+                            if (kmer not in kmerToOcc) and (tile in seenTiles):
+                                continue # ignore new kmers that overlap with already seen kmers
+                            if kmer not in kmerToOcc:
+                                kmerToOcc[kmer] = [] # store occs
+
                             kmerToOcc[kmer].append((g,c,pos))
+                            seenTiles.add(tile)
 
         kmerCount = [(k, len(kmerToOcc[k])) for k in kmerToOcc]
         kmerCount.sort(key=lambda x: x[1], reverse=True)

@@ -46,7 +46,7 @@ class Link:
         assert self.span > 0, "[ERROR] >>> Span must be positive: " + str(self.span)
         self.occs = sorted(self.occs)
         genoccs = [o.genomeIdx for o in self.occs]
-        assert genoccs == list(set(genoccs)), "[ERROR] >>> Genomes are not unique: " + str(genoccs)
+        assert genoccs == sorted(set(genoccs)), "[ERROR] >>> Genomes are not unique: " + str(genoccs)
         for occ in self.occs:
             assert occ.genomeIdx < len(self.genomes), "[ERROR] >>> Genome index out of range: " + str(occ.genomeIdx)
             assert occ.sequenceIdx < len(self.genomes[occ.genomeIdx]), \

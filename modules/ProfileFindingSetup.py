@@ -180,6 +180,20 @@ class ProfileFindingDataSetup:
         for attr, value in self.__dict__.items():
             if attr != 'genomes':
                 print(prefix+attr, '=', value)
+
+
+    
+    def stats(self):
+        """ Print some 'statistics' about the genomes """
+        print("Number of genomes:", len(self.genomes))
+        nseqs = sum([len(g) for g in self.genomes])
+        print("Number of sequences:", nseqs)
+        print("Average number of sequences per genome:", f"{nseqs/len(self.genomes):.2f}")
+        seqlens = [sum([len(s) for s in g]) for g in self.genomes]
+        print("Total sequence length:", sum(seqlens))
+        print("Average sequence length:", f"{np.mean(seqlens):.2f}")
+        print("Average sequence length per genome:", f"{np.mean(seqlens)/len(self.genomes):.2f}")
+        print("Average sequence length per sequence:", f"{np.mean(seqlens)/nseqs:.2f}")
         
         
         

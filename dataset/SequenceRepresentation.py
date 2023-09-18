@@ -6,8 +6,8 @@ This module contains classes for representing sequences and genomic elements.
 
 from Bio.Seq import Seq
 import json
-import numpy as np
 import os
+from typing import Union
 
 class Sequence:
     """ Basic sequence class. Sequence is viewed as a subsequence of a larger sequence, i.e. a chromosome. 
@@ -56,6 +56,7 @@ class Sequence:
 
         assert strand in ['+', '-'], "[ERROR] >>> Strand must be either '+' or '-'."
         assert genome_start >= 0, "[ERROR] >>> Start position must be a positive integer."
+        assert type(chromosome) == str, "[ERROR] >>> Chromosome must be a string to avoid undesired behaviour."
         self.species = species
         self.chromosome = chromosome
         self.strand = strand
@@ -411,9 +412,9 @@ def loadJSONSequenceList(jsonfile: str) -> list[Sequence]:
 
 # Class to represent a genome, which is essentially just a list of Sequence objects
 class Genome:
-    """ Class to represent a genome, which is essentially just a list of Sequence objects. 
-        However, this class also provides some useful methods for working with genomes. It further enforces that the
-        Sequences all belong to the same species and that chromosomes are unique.
+    """ Class to represent a genome, which is essentially a blown-up list of Sequence objects. 
+        However, this class also provides some useful methods for working with genomes, like querying all sequences
+        from the same chromosome (scaffold, ...). It further enforces that the Sequences all belong to the same species.
 
         Attributes:
             sequences (list[Sequence]): A list of Sequence objects.
@@ -425,6 +426,7 @@ class Genome:
                                                                            + f"Sequence objects, not {type(sequences)}."
         self.sequences = []
         self.species = None
+        self._chromap = {} # chromosome map, maps chromosome names to indices in self.sequences
         if sequences is not None:
             for sequence in sequences:
                 self.addSequence(sequence)
@@ -433,22 +435,27 @@ class Genome:
     def __len__(self) -> int:
         return len(self.sequences)
     
-    def __getitem__(self, key) -> Sequence:
-        """ Return the chromosome with the given key (which is either an array ID or a chromosome name). """
+    def __getitem__(self, key) -> Union[list[Sequence], Sequence]:
+        """ Return the chromosome (i.e. list of Sequence objects) with the given key (if key is a chromosome name)
+            or the respective Sequence object if key is an array ID."""
         def tryCastToInt(key):
             try:
                 return int(key)
             except ValueError:
                 return key
             
-        # int or int-like
-        if type(key) == int or type(tryCastToInt(key)) == int:
+        # if key is a string, return the respective chromosome (i.e. a list of Sequences)
+        if type(key) == str:
+            if key in self._chromap:
+                # [DEPRECATED] for sequence in self.sequences:
+                #    if sequence.chromosome == key:
+                #        return sequence
+                return [self.sequences[i] for i in self._chromap[key]]
+            else:
+                raise KeyError(f"Chromosome {key} not found in genome.")
+        # int or int-like key -> return the respective Sequence object at the given index
+        elif type(key) == int or type(tryCastToInt(key)) == int:
             return self.sequences[key]
-        elif type(key) == str:
-            for sequence in self.sequences:
-                if sequence.chromosome == key:
-                    return sequence
-            raise KeyError(f"Chromosome {key} not found in genome.")
         else:
             raise TypeError(f"Invalid key type {type(key)}.")
         
@@ -458,14 +465,18 @@ class Genome:
     def __reversed__(self) -> list[Sequence]:
         return reversed(self.sequences)
     
-    def __contains__(self, sequence: Sequence) -> bool:
-        """ Return True if the genome contains the given sequence. """
-        assert type(sequence) == Sequence, "[ERROR] >>> `sequence` must be of type Sequence."
-        return sequence in self.sequences
+    def __contains__(self, seq_or_chr: Union[Sequence, str]) -> bool:
+        """ Return True if the genome contains the given sequence or chromosome name. """
+        if type(seq_or_chr) == Sequence:
+            return seq_or_chr in self.sequences
+        elif type(seq_or_chr) == str:
+            return seq_or_chr in self._chromap
+        else:
+            raise KeyError("[ERROR] >>> `sequence` must be of type Sequence or str (chromosome name).")
         
     def __str__(self) -> str:
-        return f"Genome from {self.species} with {len(self.sequences)} chromosomes: " \
-            + f"{', '.join([sequence.chromosome for sequence in self.sequences])}"
+        return f"Genome from {self.species} with {len(self._chromap)} chromosomes: " \
+            + f"{', '.join([f'{chrom} ({len(self[chrom])} sequence[s])' for chrom in self._chromap])}"
     
     def __repr__(self) -> str:
         return str(self)
@@ -479,9 +490,13 @@ class Genome:
             assert self.species == sequence.species, \
                 f"[ERROR] >>> All sequences in a genome must be from the same species {self.species}. " \
                 + f" You tried to add a sequence from {sequence.species}."
-        assert sequence.chromosome not in [seq.chromosome for seq in self.sequences], \
-            f"[ERROR] >>> All chromosomes in a genome must be unique, {sequence.chromosome} is already in the genome."
+        # [DEPRECATED] assert sequence.chromosome not in [seq.chromosome for seq in self.sequences], \
+        #    f"[ERROR] >>> All chromosomes in a genome must be unique, {sequence.chromosome} is already in the genome."
         
+        if sequence.chromosome not in self._chromap:
+            self._chromap[sequence.chromosome] = []
+
+        self._chromap[sequence.chromosome].append(len(self.sequences))
         self.sequences.append(sequence)
 
     def getSequenceStrings(self) -> list[str]:

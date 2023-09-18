@@ -1,11 +1,12 @@
 import numpy as np
 import tensorflow as tf
+from typing import Union
 
 import MSAgen.MSAgen as MSAgen
 import SequenceRepresentation as sr
 import sequtils as su
 
-def backGroundAAFreqs(genomes, verbose:bool = False):
+def backGroundAAFreqs(genomes: list[list[str]], verbose: bool = False):
     """
     Commpute vector of background frequencies of conceptually 
     translated amino acids, this is not the amino acid frequency
@@ -122,20 +123,39 @@ def seqlistFromGenomes(genomes: list[sr.Genome]) -> list[list[str]]:
 
 
 # Use a generator to get genome batches, simplified position handling
-def createBatch(ntiles: int, aa_tile_size: int, genomes: list[list[str]], withPosTracking: bool = False):
+#def createBatch(ntiles: int, aa_tile_size: int, genomes: list[list[str]], withPosTracking: bool = False):
+def createBatch(ntiles: Union[int, np.int32, tf.Tensor], aa_tile_size: Union[int, np.int32, tf.Tensor], 
+                genomes: Union[list[list[str]], np.ndarray, tf.Tensor], 
+                withPosTracking: Union[bool, np.bool_, tf.Tensor] = tf.constant(False)):
     """ Generator function to create batches of tiles from a list of genomes. 
         Returns a tuple of (X, Y) where X is a numpy array of shape (ntiles, N, 6, aa_tile_size, 21) that contains
           the one-hot encoded tiles and Y is a numpy array of shape (ntiles, N, 6, 4) if `withPosTracking` was true
           (otherwise an empty list) that contains the position information of the tiles in the genome. Y[a,b,c,:] is a
           list of [genomeID, contigID, tile_start, tile_length] for the tile `a` in genome `b` at fram `c` in X.
           Set `withPosTracking` to true to be able to restore the position of a k-mer in the genome from the tile. """
-    
+    #print("[DEBUG] >>> createBatch called", flush=True)
+    #print("[DEBUG] >>> ntiles type:", type(ntiles), flush=True)
+    #print("[DEBUG] >>> aa_tile_size type:", type(aa_tile_size), flush=True)
+    #print("[DEBUG] >>> genomes type:", type(genomes), flush=True)
+    #print("[DEBUG] >>> withPosTracking type:", type(withPosTracking), flush=True)
+
     assert aa_tile_size >= 1, "aa_tile_size must be positive, non-zero (is: "+str(aa_tile_size)+")"
     tile_size = aa_tile_size * 3 # tile_size % 3 always 0
-    N = len(genomes)
+    N = genomes.shape[0] if hasattr(genomes, 'shape') else len(genomes) # assume np.ndarray or tensor, else try len()
     state = [{'idx': 0, 'fwd_a': 0, 'rc_b': None, 'exhausted': (len(seqs) == 0)} for seqs in genomes]
 
+    # set next sequence index for genome g, reset fwd_a and rc_b and set exhausted flag if necessary
+    def nextSequenceState(state, g):
+        if not state[g]['exhausted']:
+            state[g]['idx'] += 1
+            state[g]['fwd_a'] = 0
+            state[g]['rc_b'] = None
+            
+        if state[g]['idx'] >= len(genomes[g]):
+            state[g]['exhausted'] = True
+
     while not all(s['exhausted'] for s in state):
+        #print("[DEBUG] >>> createBatch while", flush=True)
         X = np.zeros([ntiles, N, 6, aa_tile_size, su.aa_alphabet_size], dtype=np.float32)   # (tilesPerX, N, 6, T, 21)
         I = np.eye(su.aa_alphabet_size + 1) # for numpy-style one-hot encoding
         if withPosTracking:
@@ -153,7 +173,17 @@ def createBatch(ntiles: int, aa_tile_size: int, genomes: list[list[str]], withPo
                     continue
                     
                 sidx = state[g]['idx']
-                slen = len(genomes[g][sidx])
+                sequence = genomes[g][sidx]
+                #print("[DEBUG] >>> sequence:", sequence, flush=True)
+                #print("[DEBUG] >>> hasattr(sequence, 'numpy'):", hasattr(sequence, 'numpy'), flush=True)
+                # assume tensor, otherwise try len() (other way around does not work since Tensors have __len__ method 
+                #                                     but it might fail)
+                slen = len(sequence.numpy()) if hasattr(sequence, 'numpy') else len(sequence)
+                # catch empty sequence padding, otherwise translateSequenceTiles will fail
+                if slen == 0:
+                    nextSequenceState(state, g)
+                    continue
+
                 if state[g]['rc_b'] is None:
                     state[g]['rc_b'] = slen
 
@@ -174,10 +204,11 @@ def createBatch(ntiles: int, aa_tile_size: int, genomes: list[list[str]], withPo
                 assert sidx < len(genomes[g]), str(sidx)+" >= "+str(len(genomes[g]))+" for genome "+str(g)
                 
                 # translate and add tiles
-                sequence = genomes[g][sidx]
                 if type(sequence) is not str:
                     # with tf, input are byte-strings and need to be converted back
-                    sequence = tf.compat.as_str(sequence) 
+                    #sequence = tf.compat.as_str(sequence.numpy()) 
+                    sequence = tf.compat.as_str(sequence.numpy()) if hasattr(sequence, 'numpy') \
+                                   else tf.compat.as_str(sequence)
                 
                 aa_seqs, seqExhausted = translateSequenceTiles(sequence, fwd_a, rc_b, tile_size)
                 for frame in range(6):
@@ -199,13 +230,15 @@ def createBatch(ntiles: int, aa_tile_size: int, genomes: list[list[str]], withPo
                 state[g]['fwd_a'] = fwd_b
                 state[g]['rc_b'] = rc_a
                 if seqExhausted:
-                    state[g]['idx'] += 1
-                    state[g]['fwd_a'] = 0
-                    state[g]['rc_b'] = None
+                    nextSequenceState(state, g)
+                #     state[g]['idx'] += 1
+                #     state[g]['fwd_a'] = 0
+                #     state[g]['rc_b'] = None
                     
-                if state[g]['idx'] == len(genomes[g]):
-                    state[g]['exhausted'] = True
+                # if state[g]['idx'] == len(genomes[g]):
+                #     state[g]['exhausted'] = True
         
+        #print("[DEBUG] >>> createBatch: success", flush=True)
         if withPosTracking:
             yield X, posTrack
         else:
@@ -248,12 +281,40 @@ def getDataset(genomes: list[list[str]], tiles_per_X: int, tile_size: int, withP
                                  tf.TensorShape(0))
             )
         else:
+            #print("DEBUG >>> genomes size", flush=True)
+            #print("[", ',\n  '.join([str(len(g)) for g in genomes]), "]", flush=True)
+            #print("DEBUG >>> genomes type:", type(genomes), flush=True)
+            #print("DEBUG >>> tiles_per_X type:", type(tiles_per_X), flush=True)
+            #print("DEBUG >>> tile_size type:", type(tile_size), flush=True)
+            #print("DEBUG >>> withPosTracking type:", type(withPosTracking), flush=True)
+            #print("DEBUG >>> convert tiles_per_X", flush=True)
+            #d1 = tf.constant(tiles_per_X)
+            #print("DEBUG >>> tiles_per_X", d1, flush=True)
+            #print("DEBUG >>> convert tile_size", flush=True)
+            #d2 = tf.constant(tile_size)
+            #print("DEBUG >>> tile_size", d2, flush=True)
+            #print("DEBUG >>> convert genomes", flush=True)
+            #d3 = tf.constant(genomes, dtype=tf.string)
+            #d3_1 = d3[0][0]
+            #print("DEBUG >>>", d3_1, flush=True)
+            #print("DEBUG >>> genomes", tf.compat.as_str(d3_1.numpy())[:10], flush=True)
+            #print("DEBUG >>> convert False", flush=True)
+            #d4 = tf.constant(False)
+            #print("DEBUG >>> False", d4, flush=True)
+            #print("DEBUG >>> create batch", flush=True)
+            #d5 = createBatch(d1, d2, d3, d4)
+            #print("DEBUG >>> dataset", d5, flush=True)
+            #for x in d5:
+            #    print("DEBUG >>> dataset element type", type(x), flush=True)
+            #    break
+
+            #N = d3.shape[0]
             ds = tf.data.Dataset.from_generator(
                 createBatch,
                 args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
                         tf.constant(False)),
                 output_signature = (tf.TensorSpec(shape = (tiles_per_X, len(genomes), 6, tile_size, 
-                                                            su.aa_alphabet_size),
+                                                           su.aa_alphabet_size),
                                                   dtype = tf.float32),
                                     tf.TensorSpec(shape = (0),
                                                   dtype = tf.float32))

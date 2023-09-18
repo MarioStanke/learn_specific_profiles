@@ -156,11 +156,14 @@ class ProfileFindingDataSetup:
         
         
         
-    def extractSequences(self):
+    def extractSequences(self, nonePadding=False):
         """ Returns the DNA sequences in a list of lists, outer list for the genomes, 
               inner lists for the sequences in the genomes. 
             Always returns the sequences on the positive strand, since six-frame-translation is performed in dataset
-              creation anyway. """
+              creation anyway. 
+              
+            If nonePadding is True, the inner lists are padded with None to the length of the longest inner list in the
+              genomes list."""
         assert self.genomes is not None, "[ERROR] >>> Add genomes first"
         sequences = []
         #seqnames = []
@@ -170,6 +173,15 @@ class ProfileFindingDataSetup:
             for sequence in genome:
                 sequences[-1].append(sequence.getSequence(rc = False))
                 #seqnames[-1].append(sequence.id)
+
+        # For dataset creation, uneven genomes list of contigs is not supported as tf apparently fails to handle ragged
+        # tensors there. Thus, do a "None-padding" of the genomes list
+        if nonePadding:
+            maxLen = max([len(g) for g in sequences])
+            for g in range(len(sequences)):
+                while len(sequences[g]) < maxLen:
+                    sequences[g].append("")
+                    #seqnames[g].append(None)
                 
         return sequences#, seqnames
     
@@ -260,7 +272,7 @@ class ProfileFindingTrainingSetup:
             print(f"[WARNING] >>> Overwriting steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
 
         self.steps_per_epoch = steps_per_epoch
-        self._genomes = self.data.extractSequences()
+        self._genomes = self.data.extractSequences(nonePadding=True)
 
 
 
@@ -401,7 +413,7 @@ class ProfileFindingTrainingSetup:
         tileSize = tile_size if tile_size is not None else self.tile_size
         batchSize = batch_size if batch_size is not None else self.batch_size
         prefetch_ = prefetch if prefetch is not None else self.prefetch
-        ds = dataset.getDataset(self._genomes if not original_data else self.data.extractSequences(),
+        ds = dataset.getDataset(self._genomes if not original_data else self.data.extractSequences(nonePadding=True),
                                 tilesPerX,
                                 tileSize,
                                 withPosTracking)

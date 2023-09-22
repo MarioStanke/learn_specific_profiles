@@ -26,12 +26,13 @@ class Sequence:
             length (int): Length of the sequence.
             sequence (str): The top strand sequence itself, might be None.
             type (str): Description of sequence type, e.g. `sequence` or `exon`
+            source (any): Optional reference to where the sequence comes from, useful for genomic elements
             homology (list): List of homology relations to other sequences, might be None.
             genomic_elements (list): List of genomic elements, might be None.
         """
     
     def __init__(self, species, chromosome, strand, genome_start, genome_end = None, length = None, sequence = None,
-                 seqtype = 'sequence', no_homology = False, no_elements = False) -> None:
+                 seqtype = 'sequence', source = None, no_homology = False, no_elements = False) -> None:
         """ Initialize a sequence object. 
             Positions are 0-based, i.e. the first position is 0. The end position is not included in the sequence.
             Example: We have a "chromosome" `AAATTTAAA` and want to store the sequence `TTT`. Then we have to set
@@ -49,6 +50,8 @@ class Sequence:
                 sequence (str): The sequence itself.
 
                 seqtype (str): Description of sequence type, e.g. `sequence` (default) or `exon`
+                source (any): Optional reference to where the sequence comes from, useful for genomic elements. MUST be
+                                serializable to JSON via `json.dump()`, a string is probably a good idea.
                 no_homology (bool): If True, no homology relation is stored. Use this for genomic elements of the 
                                       reference genome.
                 no_elements (bool): If True, no genomic elements are stored. Use this for genomic elements.
@@ -62,6 +65,13 @@ class Sequence:
         self.strand = strand
         self.genome_start = genome_start
         self.type = seqtype
+        self.source = source
+
+        try:
+            json.dumps(source)
+        except TypeError:
+            print("[WARNING] >>> `source` is not serializable to JSON. This might cause problems when saving the " \
+                  + "sequence to a JSON file.")
 
         assert not (genome_end is None and length is None and sequence is None), \
             "[ERROR] >>> At least one of the following arguments must be provided: genome_end, length, sequence."
@@ -154,7 +164,7 @@ class Sequence:
         """ Add a genomic element to the sequence. """
         _addElementToSequence(element, self)
 
-    def addSubsequenceAsElement(self, start: int, end: int, seqtype: str, strand: str = None, 
+    def addSubsequenceAsElement(self, start: int, end: int, seqtype: str, strand: str = None, source = None,
                                 genomic_positions: bool = False, **kwargs):
         """ Define a subsequence of the sequence and add it as a genomic element. 
             Args:
@@ -163,6 +173,8 @@ class Sequence:
                 seqtype (str): Description of element type, e.g. `exon`
                 strand (str): Strand of the subsequence. Can be either '+' or '-'. If None, the strand of the sequence
                                 is used.
+                source (any): Optional reference to where the sequence comes from, useful for genomic elements. MUST be
+                                serializable to JSON via `json.dump()`, a string is probably a good idea.
                 genomic_positions (bool): If True, the positions are interpreted as genomic positions, otherwise as
                                             positions within the sequence.
                 **kwargs: Additional arguments for the element, i.e. `no_homology` and `no_elements`
@@ -172,10 +184,11 @@ class Sequence:
                 strand = self.strand
 
         if genomic_positions:            
-            element = Sequence(self.species, self.chromosome, strand, start, end, seqtype=seqtype, **kwargs)
+            element = Sequence(self.species, self.chromosome, strand, start, end, seqtype=seqtype, source=source,
+                               **kwargs)
         else:
             element = Sequence(self.species, self.chromosome, strand, self.genome_start+start, self.genome_start+end, 
-                               seqtype=seqtype, **kwargs)
+                               seqtype=seqtype, source=source, **kwargs)
             
         assert _sequencesOverlap(self, element), "[ERROR] >>> Subsequence must overlap with sequence."
 
@@ -297,6 +310,8 @@ class Sequence:
             objdict['sequence'] = self.sequence
 
         objdict['type'] = self.type
+        if self.source is not None:
+            objdict['source'] = self.source
 
         if hasattr(self, 'genomic_elements'):
             objdict['genomic_elements'] = [element.toDict() for element in self.genomic_elements]
@@ -305,7 +320,25 @@ class Sequence:
 
         #print("[DEBUG] >>> finished .toDict from Sequence", str(self))
         return objdict
+    
+    def toTuple(self) -> tuple:
+        """ Return a hashable tuple representation of the sequence. The element order is: (id, species, chromosome,
+              strand, genome_start, genome_end, length, sequence, type, source, genomic_elements, homologies). Sequence
+              is None if no sequence is present, genomic_elements and homologies are None if they are not allowed and
+              empty tuples if they are not present. Source is None if no source is present and a json-representation
+              from `json.dumps()` if it is present.
+        """
+        ge = () if self.elementsPossible() else None
+        hom = () if self.homologiesPossible else None
+        if hasattr(self, 'genomic_elements'):
+            ge = tuple([element.toTuple() for element in self.genomic_elements])
+        if hasattr(self, 'homology'):
+            hom = tuple([homology.toTuple() for homology in self.homology])
+        source = None if self.source is None else json.dumps(self.source)
 
+        return (self.id, self.species, self.chromosome, self.strand, self.genome_start, self.genome_end, self.length, 
+                self.sequence, self.type, source, ge, hom)
+        
 
 
 # helper functions for adding genomic elements and homology to a sequence
@@ -389,6 +422,8 @@ def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
 
     if 'sequence' in objdict:
         sequence.sequence = objdict['sequence']
+    if 'source' in objdict:
+        sequence.source = objdict['source']
     if 'genomic_elements' in objdict:
         for element in objdict['genomic_elements']:
             sequence.addElement(sequenceFromJSON(jsonstring = json.dumps(element)))

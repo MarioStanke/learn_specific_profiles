@@ -118,7 +118,8 @@ def parse_bed(bedfile):
 
 ########################################################################################################################
 def parseGTF(gtf_file, seqname = None, range_start = None, range_end = None, 
-             feature = None, strand = None, min_score = None, max_score = None, frame = None) -> pd.DataFrame:
+             source = None, feature = None, strand = None, min_score = None, max_score = None, 
+             frame = None) -> pd.DataFrame:
     """ Load a GTF file into a Pandas DataFrame and return it. The returned DataFrame does _not_ follow the GTF position
         logic, i.e. positions are 0-based and range_end is exclusive. The returned DataFrame has the following columns:
             seqname: the seqname
@@ -140,6 +141,7 @@ def parseGTF(gtf_file, seqname = None, range_start = None, range_end = None,
             seqname: only return entries that match the seqname
             range_start: only return entries that _end_ after range_start (partial overlap is allowed)
             range_end: only return entries that _start_ before range_end (partial overlap is allowed)
+            source: only return entries that match the source
             feature: only return entries that match the feature
             strand: only return entries that match the strand
             min_score: only return entries that have a score >= min_score
@@ -165,6 +167,9 @@ def parseGTF(gtf_file, seqname = None, range_start = None, range_end = None,
     # filter by seqname
     if seqname is not None:
         gtf = gtf[gtf["seqname"] == seqname]
+    # filter by source
+    if source is not None:
+        gtf = gtf[gtf["source"] == source]
     # filter by feature
     if feature is not None:
         gtf = gtf[gtf["feature"] == feature]
@@ -201,9 +206,16 @@ def gtf_to_sequence_elements(sequence: SequenceRepresentation.Sequence, gtf: pd.
         assert sequence.chromosome == row.seqname, f"[ERROR] >>> sequence.chromosome ({sequence.chromosome}) != " \
                                                                                         + f"row.seqname ({row.seqname})"
         
+        # handle the source attribute: if possible, use a dict, otherwise the string representation of the row
+        try:
+            source = row._asdict()
+            json.dumps(source) # check if source can be converted to json
+        except:
+            source = str(row)
+
         # create a new element
-        sequence.addSubsequenceAsElement(row.start, row.end, row.feature, row.strand, genomic_positions=True,
-                                         no_elements=True)
+        sequence.addSubsequenceAsElement(row.start, row.end, row.feature, row.strand, source=source,
+                                         genomic_positions=True, no_elements=True)
 
 
 
@@ -257,6 +269,9 @@ def get_all_internal_exons(hg38_refseq_bed: pd.DataFrame):
     start = time.perf_counter()
     print("[INFO] >>> started get_all_internal_exons()")
     internal_exons = {} # keys: (chromosome, exon start, exon stop), values: list of rows that mapped to this exon range
+
+    dbg_internal_exons_NM = {} # [DEBUG] >>> same as internal_exons but only for NM_ genes
+
     # row fields are ["chrom", "chromStart", "chromEnd", "name", "score", "strand", "thickStart", "thickEnd", 
     #                 "itemRgb", "blockCount", "blockSizes", "blockStarts"]
     for row in hg38_refseq_bed.itertuples():
@@ -284,6 +299,33 @@ def get_all_internal_exons(hg38_refseq_bed: pd.DataFrame):
 
             internal_exons[key].append(row)
 
+            # [DEBUG] >>> only add exons from NM_ genes
+            if row.name.startswith("NM_"):
+                if key not in dbg_internal_exons_NM:
+                    dbg_internal_exons_NM[key] = []
+
+                dbg_internal_exons_NM[key].append(row)
+
+    # [DEBUG] >>> compare internal_exons and dbg_internal_exons_NM
+    print(f"[DEBUG] >>> len(internal_exons) = {len(internal_exons)}, len(dbg_internal_exons_NM) = {len(dbg_internal_exons_NM)}")
+    print(f"[DEBUG] >>> average number of rows per exon in internal_exons = {sum([len(v) for v in internal_exons.values()])/len(internal_exons)}")
+    print(f"[DEBUG] >>> average number of rows per exon in dbg_internal_exons_NM = {sum([len(v) for v in dbg_internal_exons_NM.values()])/len(dbg_internal_exons_NM)}")
+
+    # [DEBUG] >>> print rows that mapped to the same exon
+    #i = 0
+    #for key in dbg_internal_exons_NM.keys():
+    #    if len(dbg_internal_exons_NM[key]) > 1:
+    #        print("[DEBUG] >>> key is exon = ", key)
+    #        print("  value is list of df_rows:")
+    #        for df_row in dbg_internal_exons_NM[key]:
+    #            print("   ", df_row)
+    #
+    #        print()
+    #
+    #    i += 1
+    #    if i >= 2:
+    #        break
+
     if args.v:
         print("[INFO|V] >>> Since the same exon occurs in multiple genes, which may just be spliced differently") # wat?
         for key in sorted(internal_exons.keys()):
@@ -295,7 +337,8 @@ def get_all_internal_exons(hg38_refseq_bed: pd.DataFrame):
                 break
 
     print("[INFO] >>> finished get_all_internal_exons(). It took:", time.perf_counter() - start)
-    return internal_exons
+    #return internal_exons
+    return dbg_internal_exons_NM # [DEBUG] >>> only return NM_ genes
 
 
 
@@ -313,6 +356,23 @@ def filter_and_choose_exon_neighbours(all_internal_exons: dict[tuple, list[BedRo
     rng = np.random.default_rng(42) # use seed to always get the same behaviour
     rng.shuffle(keys)
     print("[DEBUG] >>> shuffled keys:", keys[:10])
+
+    # [DEBUG] >>> use the same 10 keys but with only NM_ genes
+    keys = [
+        ('chr13', 100273195, 100273346),
+        ('chr17', 45923714, 45924478),
+        ('chr17', 8228724, 8228892),
+        ('chr2', 137572405, 137572556),
+        ('chr6', 57018420, 57018557),
+        ('chr13', 110172719, 110172770),
+        ('chr17', 4639429, 4639631),
+        ('chr20', 50191267, 50191422),
+        ('chr3', 132719704, 132719830),
+        ('chr9', 35722118, 35722223)
+    ]
+    keys = [key for key in keys if key in all_internal_exons]
+    print("[DEBUG] >>> keys:", keys)
+    #assert all([key in all_internal_exons for key in keys]), "[DEBUG ERROR] >>> not all keys in all_internal_exons"
 
     #for key in all_internal_exons.keys():
     for key in keys:
@@ -798,7 +858,10 @@ def create_sequence_representation_object(fa_path: str, species: str, liftover_s
     print("[DEBUG] >>> adding annotation to sequence representation object for species", species)
     annotfile = os.path.join("/home/ebelm/genomegraph/data/241_species/annot" , f"{species}.gtf")
     if os.path.exists(annotfile):
-        annot = parseGTF(annotfile, liftSeq.chromosome, liftSeq.genome_start, liftSeq.genome_end, "CDS")
+        # ADDITIONAL FILTERING OF HUMAN ANNOTATION
+        source = "BestRefSeq" if species == 'Homo_sapiens' else None # only use high-quality annotation for human
+        annot = parseGTF(annotfile, seqname=liftSeq.chromosome, range_start=liftSeq.genome_start, 
+                         range_end=liftSeq.genome_end, feature="CDS", source=source)
         gtf_to_sequence_elements(liftSeq, annot)
     print("[DEBUG] >>> done adding annotation to sequence representation object for species", species)
     #print("[DEBUG] >>> sequence representation object for species", species, ":", liftSeq.toDict())
@@ -1252,6 +1315,11 @@ if __name__ == "__main__":
                     print("your answer must be either y or n")
 
         hg38_refseq_bed = parse_bed(args.hg38) # load_hg38_refseq_bed()
+
+        # ADDITIONAL FILTERING: only use NM_... transcripts (and only those with at least 3 exons)
+        hg38_refseq_bed = hg38_refseq_bed[hg38_refseq_bed['name'].map(lambda x: x.startswith("NM_")) \
+                                          & hg38_refseq_bed['blockCount'].map(lambda x: x >= 3)]
+
         filtered_internal_exons = get_to_be_lifted_exons(hg38_refseq_bed, json_path, overwrite)
         create_exon_data_sets(filtered_internal_exons, output_dir)
         make_stats_table()

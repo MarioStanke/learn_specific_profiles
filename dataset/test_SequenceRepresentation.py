@@ -9,20 +9,24 @@ class TestSequenceRepresentation(unittest.TestCase):
         self.maxDiff = None
         self.sequence = sr.Sequence(species='testspecies', chromosome='testchromosome', strand='-', genome_start=42, 
                                     genome_end=66, length=24, sequence='ATCGATCGATCGATCGATCGATCG', 
-                                    seqtype='testseqtype', no_homology=False, no_elements=False)
+                                    seqtype='testseqtype', source={'db': 'myseqdb', 'score': -1}, no_homology=False, 
+                                    no_elements=False)
         # infer length from end position
         self.sequence_end = sr.Sequence(species='testspecies', chromosome='testchromosome', strand='-', genome_start=42,
-                                        genome_end=66, seqtype='testseqtype', no_homology=False, no_elements=False)
+                                        genome_end=66, seqtype='testseqtype', source={'db': 'myseqdb', 'score': -1}, 
+                                        no_homology=False, no_elements=False)
         # infer end position from length
         self.sequence_len = sr.Sequence(species='testspecies', chromosome='testchromosome', strand='-', genome_start=42,
-                                        length=24, seqtype='testseqtype', no_homology=False, no_elements=False)
+                                        length=24, seqtype='testseqtype', source={'db': 'myseqdb', 'score': -1}, 
+                                        no_homology=False, no_elements=False)
         # infer length and end from sequence
         self.sequence_seq = sr.Sequence(species='testspecies', chromosome='testchromosome', strand='-', genome_start=42,
-                                        sequence='ATCGATCGATCGATCGATCGATCG', seqtype='testseqtype', no_homology=False,
-                                        no_elements=False)
+                                        sequence='ATCGATCGATCGATCGATCGATCG', seqtype='testseqtype', 
+                                        source={'db': 'myseqdb', 'score': -1}, no_homology=False, no_elements=False)
         
         # setup elements
-        self.elem_other_species = sr.Sequence('otherspecies', 'testchromosome', '+', 42, 66, no_homology=True)
+        self.elem_other_species = sr.Sequence('otherspecies', 'testchromosome', '+', 42, 66, source="somewhere",
+                                              no_homology=True)
         self.elem_before = sr.Sequence('testspecies', 'testchromosome', '+', 0, 42)
         self.elem_overlap_left = sr.Sequence('testspecies', 'testchromosome', '-', 0, 43, seqtype='overlap_left')
         self.elem_inside = sr.Sequence('testspecies', 'testchromosome', '+', 43, 65, seqtype='inside')
@@ -42,6 +46,7 @@ class TestSequenceRepresentation(unittest.TestCase):
             "length": 24,
             "sequence": "ATCGATCGATCGATCGATCGATCG",
             "type": "testseqtype",
+            "source": {'db': 'myseqdb', 'score': -1}, 
             "genomic_elements": [
                 {
                     "id": "testspecies:testchromosome:41-67",
@@ -65,6 +70,7 @@ class TestSequenceRepresentation(unittest.TestCase):
                     "genome_end": 66,
                     "length": 24,
                     "type": "sequence",
+                    "source": "somewhere",
                     "genomic_elements": []
                 }
             ]
@@ -95,6 +101,7 @@ class TestSequenceRepresentation(unittest.TestCase):
                 self.assertTrue(hasattr(sequence, 'length'))
                 self.assertTrue(hasattr(sequence, 'sequence'))
                 self.assertTrue(hasattr(sequence, 'type'))
+                self.assertTrue(hasattr(sequence, 'source'))
                 self.assertTrue(hasattr(sequence, 'homology'))
                 self.assertTrue(hasattr(sequence, 'genomic_elements'))
 
@@ -113,19 +120,23 @@ class TestSequenceRepresentation(unittest.TestCase):
                     self.assertIsNone(sequence.sequence)
 
                 self.assertEqual(sequence.type, 'testseqtype')
+                self.assertEqual(sequence.source, {'db': 'myseqdb', 'score': -1})
                 self.assertEqual(sequence.homology, [])
                 self.assertEqual(sequence.genomic_elements, [])
 
     def test_equal(self):
         sequence2 = sr.Sequence(species='testspecies', chromosome='testchromosome', strand='-', genome_start=42, 
                                 genome_end=66, length=24, sequence='ATCGATCGATCGATCGATCGATCG', 
-                                seqtype='testseqtype', no_homology=False, no_elements=False) # same as self.sequence
+                                seqtype='testseqtype', source={'db': 'myseqdb', 'score': -1}, no_homology=False, 
+                                no_elements=False) # same as self.sequence
         self.assertEqual(self.sequence, sequence2)
         sequence2.addElement(self.elem_overlap_left) # alter sequence2
         self.assertNotEqual(self.sequence, sequence2)
 
     def test_addElementAndHomology(self):
-        self.assertRaises(AssertionError, self.sequence.addElement, 'testelement')
+        # no "type checking" anymore (unpythonic)
+        #self.assertRaises(AssertionError, self.sequence.addElement, 'testelement')
+        self.assertRaises(AttributeError, self.sequence.addElement, 'testelement')
         
         self.assertRaises(AssertionError, self.sequence.addElement, self.elem_before)
         self.assertRaises(AssertionError, self.sequence.addElement, self.elem_after)

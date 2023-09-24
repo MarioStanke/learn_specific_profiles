@@ -71,7 +71,7 @@ class SpecificProfile(tf.keras.Model):
         if rand_seed is not None:
             print("[DEBUG] >>> setting tf global seed to", rand_seed)
             tf.random.set_seed(rand_seed)
-            
+
         self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
         self.epsilon = 1e-6
         self.alphabet_size = alphabet_size
@@ -128,6 +128,17 @@ class SpecificProfile(tf.keras.Model):
             self.tracking['P'].append(Pt)
             self.tracking['max_score'].append(tf.constant(np.zeros(Pt.shape[2]), dtype=tf.float32))
 
+        if self.setup.phylo_t > 0.0:
+            if self.setup.k != 20:
+                print("[WARNING] >>> phylo_t > 0 requires amino acid alphabet and k=20")
+            else:
+                Q = phylo_t * tf.eye(20) # placeholder
+                # above unit matrix should be replaced with the PAM1 rate matrix
+                # read from a file, make sure the amino acid order is corrected for
+                # tip: use the code from Felix at
+                # https://github.com/Gaius-Augustus/learnMSA/blob/e0c283eb749f6307100ccb73dd371a3d2660baf9/learnMSA/msa_hmm/AncProbsLayer.py#L291
+                # but check that the result is consistent with the literature
+                self.A = tf.linalg.expm(Q)
     
 
     def setP_logit(self, P_logit_init):
@@ -355,8 +366,22 @@ class SpecificProfile(tf.keras.Model):
 
 
     def getP(self):
-        P = tf.nn.softmax(self.P_logit, axis=1, name="P")
-        return P                                 # shape: (k, alphabet_size, U)
+        P1 = tf.nn.softmax(self.P_logit, axis=1, name="P")
+
+        if self.setup.phylo_t == 0.0:
+            # TODO: test phylo_t=0.0 does not change the results if the else clause is executed
+            P2 = P1 # shortcut only for running time sake
+        else:
+            if self.setup.k != 20:
+                print("[WARNING] >>> phylo_t > 0 requires amino acid alphabet and k=20")
+                P2 = P1
+            else:
+                # assume that at each site a a 2 step random experiment is done
+                # 1. an amino acid is drawn from distribution P1[a,:,u]
+                # 2. it evolves for time phylo_t according to the Q matrix
+                # The resulting distribution is P2[a,:,u]
+                P2 = tf.einsum('abu,bc->acu', P1, self.A)
+        return P2     # shape: (k, alphabet_size, U)
 
 
 

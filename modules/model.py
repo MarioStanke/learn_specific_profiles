@@ -756,7 +756,7 @@ class SpecificProfile(tf.keras.Model):
 
             if max_epochs is not None and profileHist['c'] > max_epochs:
                 print("[WARNING] >>> Could not find a good profile in time, force report of profile", p.numpy())
-                edgeCase = self.profile_cleanup(p, self.setup.match_score_factor)
+                edgeCase = self.profile_cleanup(p)
                 if edgeCase:
                     edgeCaseCounter += 1
                 else:

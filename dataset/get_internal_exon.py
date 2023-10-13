@@ -357,23 +357,6 @@ def filter_and_choose_exon_neighbours(all_internal_exons: dict[tuple, list[BedRo
     rng.shuffle(keys)
     print("[DEBUG] >>> shuffled keys:", keys[:10])
 
-    # [DEBUG] >>> use the same 10 keys but with only NM_ genes
-    keys = [
-        ('chr13', 100273195, 100273346),
-        ('chr17', 45923714, 45924478),
-        ('chr17', 8228724, 8228892),
-        ('chr2', 137572405, 137572556),
-        ('chr6', 57018420, 57018557),
-        ('chr13', 110172719, 110172770),
-        ('chr17', 4639429, 4639631),
-        ('chr20', 50191267, 50191422),
-        ('chr3', 132719704, 132719830),
-        ('chr9', 35722118, 35722223)
-    ]
-    keys = [key for key in keys if key in all_internal_exons]
-    print("[DEBUG] >>> keys:", keys)
-    #assert all([key in all_internal_exons for key in keys]), "[DEBUG ERROR] >>> not all keys in all_internal_exons"
-
     #for key in all_internal_exons.keys():
     for key in keys:
         chromosome, exon_start_in_genome, exon_stop_in_genome = key

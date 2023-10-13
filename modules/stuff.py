@@ -1,6 +1,7 @@
 # All sorts of helper functions that don't fit elsewhere
 
 import itertools
+import logging
 import numpy as np
 
 import plotting
@@ -42,7 +43,8 @@ def sitesToLinks(sites, linkThreshold = 100, kmer=""):
     nlinks = np.prod([len(og) for og in sites])
     if nlinks > linkThreshold:
         prodstr = ' * '.join([str(len(og)) for og in sites])
-        print("[DEBUG] >>> "+kmer+" would produce", nlinks, "links ("+prodstr+"), skipping")
+        #print("[DEBUG] >>> "+kmer+" would produce", nlinks, "links ("+prodstr+"), skipping")
+        logging.debug(f"[stuff.sitesToLinks] >>> {kmer} would produce {nlinks} links ({prodstr}), skipping")
         return None
         
     l = list(itertools.product(*sites))
@@ -114,7 +116,8 @@ def checkKmers(genomes, posDict, kmers, draw=False, history=None, verbose=True):
     """
     
     if len(kmers) == 0:
-        print("[WARNING] >>> no kmers given")
+        #print("[WARNING] >>> no kmers given")
+        logging.warning("[stuff.checkKmers] >>> no kmers given")
         return None, None
 
     # store kmer occurrences

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 import itertools
 import numpy as np
 
@@ -144,7 +145,8 @@ def linksFromSites(sites: np.ndarray, span: int, genomes: list[SequenceRepresent
                 break
 
         if nlinks > linkThreshold:
-            print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
+            #print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
+            logging.debug(f"[Links.linksFromSites] >>> Profile {u} would produce at least {nlinks} links, skipping")
             skipped.append((u, nlinks))
         else:
             rawlinks = list(itertools.product(*occs))

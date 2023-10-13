@@ -1,3 +1,4 @@
+import logging
 import matplotlib.pyplot as plt
 import os
 import plotly.express as px
@@ -51,11 +52,14 @@ def trainAndEvaluate(trainsetup: setup.ProfileFindingTrainingSetup,
             specProModel.train_classic(trainsetup.getDataset(repeat=True))
     except Exception as e:
         end = time()
-        print(f"Training failed after {end-start:.2f}.")
-        print("Exception:\n", e)
+        #print(f"Training failed after {end-start:.2f}.")
+        #print("Exception:\n", e)
+        logging.error(f"[training.trainAndEvaluate] >>> Training failed after {end-start:.2f}.")
+        logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
         
     end = time()
-    print(f"Training time: {end-start:.2f}")
+    #print(f"Training time: {end-start:.2f}")
+    logging.info(f"[training.trainAndEvaluate] >>> Training time: {end-start:.2f}")
 
     # evaluate model (if possible)
     try:
@@ -98,10 +102,13 @@ def trainAndEvaluate(trainsetup: setup.ProfileFindingTrainingSetup,
             sites, siteScores, _ = specProModel.get_profile_match_sites(specProModel.setup.getDataset(withPosTracking = True, original_data=True), 
                                                                         thresh[onlyPid], otherP = P[:,:,onlyPid:onlyPid+1])
             
-        print("[DEBUG] >>> sites:", sites.numpy()[:20,]) # (sites, (genomeID, contigID, pos, u, f))
+        #print("[DEBUG] >>> sites:", sites.numpy()[:20,]) # (sites, (genomeID, contigID, pos, u, f))
+        logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
         links, linkProfiles, skipped = Links.linksFromSites(sites, specProModel.setup.k*3, specProModel.setup.data.genomes, 1000)
-        print(f"[DEBUG] >>> links[:{min(len(links), 2)}]", links[:min(len(links), 2)])
-        print("[DEBUG] >>> len(links)", len(links))
+        #print(f"[DEBUG] >>> links[:{min(len(links), 2)}]", links[:min(len(links), 2)])
+        #print("[DEBUG] >>> len(links)", len(links))
+        logging.debug(f"[training.trainAndEvaluate] >>> links[:{min(len(links), 2)}] {links[:min(len(links), 2)]}")
+        logging.debug(f"[training.trainAndEvaluate] >>> len(links) {len(links)}")
 
         kmerSites = []
         for kmer in trainsetup.initKmerPositions:
@@ -142,11 +149,17 @@ def trainAndEvaluate(trainsetup: setup.ProfileFindingTrainingSetup,
                     if exonHit:
                         nexonsHit += 1
                         
-            print(f"Sensitivity: {nexonsHit} / {nhumanExons} = {nexonsHit/nhumanExons}")
-            print(f"Specificity: {nlinksThatHit} / {nlinks} = {nlinksThatHit/nlinks}")
+            #print(f"Sensitivity: {nexonsHit} / {nhumanExons} = {nexonsHit/nhumanExons}")
+            #print(f"Specificity: {nlinksThatHit} / {nlinks} = {nlinksThatHit/nlinks}")
+            logging.info("[training.trainAndEvaluate] >>> " + \
+                         f"Sensitivity: {nexonsHit} / {nhumanExons} = {nexonsHit/nhumanExons}")
+            logging.info("[training.trainAndEvaluate] >>> " + \
+                         f"Specificity: {nlinksThatHit} / {nlinks} = {nlinksThatHit/nlinks}")
                         
         accuracy(links)
 
     except Exception as e:
-        print("Evaluation failed.")
-        print("Exception:\n", e)
+        #print("Evaluation failed.")
+        #print("Exception:\n", e)
+        logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")
+        logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")

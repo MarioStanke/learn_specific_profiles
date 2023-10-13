@@ -6,6 +6,7 @@ This module contains classes for representing sequences and genomic elements.
 
 from Bio.Seq import Seq
 import json
+import logging
 import os
 from typing import Union
 
@@ -70,8 +71,10 @@ class Sequence:
         try:
             json.dumps(source)
         except TypeError:
-            print("[WARNING] >>> `source` is not serializable to JSON. This might cause problems when saving the " \
-                  + "sequence to a JSON file.")
+            #print("[WARNING] >>> `source` is not serializable to JSON. This might cause problems when saving the " \
+            #      + "sequence to a JSON file.")
+            logging.warning("[SequenceRepresentation.Sequence.__init__] >>> `source` is not serializable to JSON. " + \
+                            "This might cause problems when saving the sequence to a JSON file.")
 
         assert not (genome_end is None and length is None and sequence is None), \
             "[ERROR] >>> At least one of the following arguments must be provided: genome_end, length, sequence."
@@ -415,9 +418,13 @@ def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
     )
 
     if sequence.id != objdict['id']:
-        print("[WARNING] >>> ID mismatch, setting ID to", objdict['id'])
-        print("              old ID:", sequence.id)
-        print("              You might want to call _regenerateID() on the sequence.")
+        #print("[WARNING] >>> ID mismatch, setting ID to", objdict['id'])
+        #print("              old ID:", sequence.id)
+        #print("              You might want to call _regenerateID() on the sequence.")
+        logging.warning(f"[SequenceRepresentation.sequenceFromJSON] >>> ID mismatch, setting ID to {objdict['id']}")
+        logging.warning(f"                                              old ID: {sequence.id}")
+        logging.warning( "                                              You might want to call _regenerateID() on " + \
+                        "the sequence.")
         sequence.id = objdict['id']
 
     if 'sequence' in objdict:

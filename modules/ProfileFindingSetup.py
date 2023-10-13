@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import json
+import logging
 import numpy as np
 import os
 import random
@@ -8,6 +9,10 @@ import dataset
 import plotting
 import SequenceRepresentation as sr
 import sequtils as su
+
+# set logging level for logomaker to avoid debug message clutter
+logging.getLogger('plotting.logomaker').setLevel(logging.WARNING)
+
 
 @dataclass
 class ProfileFindingDataSetup:
@@ -125,7 +130,9 @@ class ProfileFindingDataSetup:
                 
         # set Q, overwrites anything that was initialized!
         if self.Q is not None:
-            print("[WARNING] >>> Overwriting previous Q:", self.Q)
+            #print("[WARNING] >>> Overwriting previous Q:", self.Q)
+            logging.warning("[ProfileFindingSetup.ProfileFindingDataSetup.addGenomes] >>> Overwriting previous Q: " + \
+                            str(self.Q))
             
         if self.mode == 'toy':
             self.Q = np.ones(21, dtype=np.float32)/21
@@ -151,7 +158,9 @@ class ProfileFindingDataSetup:
 
             return desiredPatternAA, repeatPatternAA
         else:
-            print(f"[WARNING] >>> expectedPatterns() only valid in `toy` mode, not in `{self.mode}` mode.")
+            #print(f"[WARNING] >>> expectedPatterns() only valid in `toy` mode, not in `{self.mode}` mode.")
+            logging.warning("[ProfileFindingSetup.ProfileFindingDataSetup.expectedPatterns] >>> expectedPatterns() " + \
+                            f"only valid in `toy` mode, not in `{self.mode}` mode.")
             return None, None
         
         
@@ -212,7 +221,8 @@ class ProfileFindingDataSetup:
     def storeGenomes(self, filename: str, overwrite = False):
         if os.path.isfile(filename):
             if overwrite:
-                print(f"[INFO] >>> Overwriting {filename}")
+                #print(f"[INFO] >>> Overwriting {filename}")
+                logging.info(f"[ProfileFindingSetup.ProfileFindingDataSetup.storeGenomes] >>> Overwriting {filename}")
             else:
                 assert not os.path.isfile(filename), f"[ERROR] >>> Overwriting {filename} not allowed"
                 
@@ -277,7 +287,9 @@ class ProfileFindingTrainingSetup:
         genome_sizes = [sum([len(s) for s in genome]) for genome in self.data.genomes]
         steps_per_epoch = max(1, np.mean(genome_sizes) // (self.batch_size*self.tiles_per_X*self.tile_size*3))
         if self.steps_per_epoch is not None:
-            print(f"[WARNING] >>> Overwriting steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
+            #print(f"[WARNING] >>> Overwriting steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
+            logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.__post_init__] >>> Overwriting " + \
+                            f"steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
 
         self.steps_per_epoch = steps_per_epoch
         self._genomes = self.data.extractSequences(nonePadding=True)
@@ -340,8 +352,11 @@ class ProfileFindingTrainingSetup:
         # initialize all profiles with most frequent kmers
         if enforceU:
             if len(kmerToOcc) < self.U:
-                print(f"[WARNING] >>> Only {len(kmerToOcc)} different kmers found, but {self.U} profiles requested.", 
-                    "Using all kmers plus random kmers.")
+                #print(f"[WARNING] >>> Only {len(kmerToOcc)} different kmers found, but {self.U} profiles requested.", 
+                #    "Using all kmers plus random kmers.")
+                logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Only " + \
+                                f"{len(kmerToOcc)} different kmers found, but {self.U} profiles requested. " + \
+                                "Using all kmers plus random kmers.")
                 midKmers = list(kmerToOcc.keys())
                 # add randomly generated kmers
                 randKmers = [''.join(random.choices(list(su.aa_alphabet[1:]), list(self.data.Q), k=self.midK)) \
@@ -354,8 +369,11 @@ class ProfileFindingTrainingSetup:
 
         else:
             if len(kmerToOcc) < minU:
-                print(f"[WARNING] >>> Only {len(kmerToOcc)} different kmers found, but min. {minU} profiles requested.",
-                      f"Violating minU and only initializing {len(kmerToOcc)} profiles.")
+                #print(f"[WARNING] >>> Only {len(kmerToOcc)} different kmers found, but min. {minU} profiles requested.",
+                #      f"Violating minU and only initializing {len(kmerToOcc)} profiles.")
+                logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Only " + \
+                                f"{len(kmerToOcc)} different kmers found, but min. {minU} profiles requested. " + \
+                                f"Violating minU and only initializing {len(kmerToOcc)} profiles.")
                 midKmers = list(kmerToOcc.keys())
             else:
                 midKmers = [t[0] for t in kmerCount if t[1] >= minOcc] # first kmers with at least minOcc occs
@@ -378,10 +396,15 @@ class ProfileFindingTrainingSetup:
         for kmer in midKmers:
             self.initKmerPositions[kmer] = kmerToOcc[kmer]
             
-        print("[INFO] >>> Number of profiles:", len(midKmers))
+        #print("[INFO] >>> Number of profiles:", len(midKmers))
+        logging.info("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: " + \
+                     str(len(midKmers)))
         if len(midKmers) != self.U:
-            print(f"[WARNING] >>> {len(midKmers)} profiles initialized, but {self.U} requested.", 
-                  f"Resetting U to {len(midKmers)}")
+            #print(f"[WARNING] >>> {len(midKmers)} profiles initialized, but {self.U} requested.", 
+            #      f"Resetting U to {len(midKmers)}")
+            logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> " + \
+                            f"{len(midKmers)} profiles initialized, but {self.U} requested. " + \
+                            f"Resetting U to {len(midKmers)}")
             self.U = len(midKmers)
 
 
@@ -391,8 +414,11 @@ class ProfileFindingTrainingSetup:
         self.initProfiles = getCustomMidProfiles(midKmers, self.k+(2*self.s), self.data.Q, mid_factor=4, bg_factor=1)
         
         if self.n_best_profiles > self.initProfiles.shape[2]:
-            print(f"[WARNING] >>> n_best_profiles ({self.n_best_profiles}) > number of profiles",
-                  f"({self.initProfiles.shape[2]}), setting to {self.initProfiles.shape[2]}")
+            #print(f"[WARNING] >>> n_best_profiles ({self.n_best_profiles}) > number of profiles",
+            #      f"({self.initProfiles.shape[2]}), setting to {self.initProfiles.shape[2]}")
+            logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> " + \
+                            f"n_best_profiles ({self.n_best_profiles}) > number of profiles " + \
+                            f"({self.initProfiles.shape[2]}), setting to {self.initProfiles.shape[2]}")
             self.n_best_profiles = self.initProfiles.shape[2]
 
         if plot:

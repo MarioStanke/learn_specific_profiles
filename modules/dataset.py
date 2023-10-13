@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import tensorflow as tf
 from typing import Union
@@ -30,9 +31,11 @@ def backGroundAAFreqs(genomes: list[list[str]], verbose: bool = False):
     if sum > 0:
         Q /= Q.sum()
     if verbose:
-        print ("background freqs: ", sum, "*")
+        #print ("background freqs: ", sum, "*")
+        logging.info(f"[dataset.backGroundAAFreqs] >>> background freqs: {sum} *")
         for c in range(su.aa_alphabet_size):
-            print (f"{su.aa_alphabet[c+1]} {Q[c]:.4f}")
+            #print (f"{su.aa_alphabet[c+1]} {Q[c]:.4f}")
+            logging.info(f"[dataset.backGroundAAFreqs] >>> {su.aa_alphabet[c+1]} {Q[c]:.4f}")
     return Q
 
 
@@ -432,7 +435,9 @@ def insertPatternsToGenomes(patterns: list[str],
     dna_alphabet_size = len(dna_alphabet)
     for pattern in patterns:
         if verbose: # print translated peptide
-            print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
+            #print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
+            logging.info(f"[dataset.insertPatternsToGenomes] >>> Pattern {pattern} translates to " + \
+                         str(su.six_frame_translation(pattern)))
             
         # if multiple, insert multiple copies of pattern
         pattern = pattern*np.random.choice(multiplyPattern) if multiplyPattern is not None else pattern
@@ -488,7 +493,9 @@ def insertPatternsToGenomes(patterns: list[str],
                 inserttype = "repeat" if isRepeat else "pattern"
                 contig.addSubsequenceAsElement(pos, pos+plen, inserttype, genomic_positions = True, no_elements = True)
                 if verbose:
-                    print (f"  mutated to {mutatedPattern} and inserted in contig {contig} at position {pos}")
+                    #print (f"  mutated to {mutatedPattern} and inserted in contig {contig} at position {pos}")
+                    logging.info(f"[dataset.insertPatternsToGenomes] >>>   mutated to {mutatedPattern} and inserted " +\
+                                 f"in contig {contig} at position {pos}")
 
     return forbiddenPositions
 

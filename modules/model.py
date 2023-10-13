@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import logging
 import numpy as np
 import tensorflow as tf
 from time import time
@@ -69,7 +69,8 @@ class SpecificProfile(tf.keras.Model):
             "[ERROR] >>> loss must be either 'softmax', 'score' or 'experiment'"
         
         if rand_seed is not None:
-            print("[DEBUG] >>> setting tf global seed to", rand_seed)
+            #print("[DEBUG] >>> setting tf global seed to", rand_seed)
+            logging.debug(f"[model.__init__] >>> setting tf global seed to {rand_seed}")
             tf.random.set_seed(rand_seed)
 
         self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
@@ -77,7 +78,9 @@ class SpecificProfile(tf.keras.Model):
         self.alphabet_size = alphabet_size
         self.softmaxLoss = (self.setup.lossStrategy == 'softmax')
         self.experimentLoss = (self.setup.lossStrategy == 'experiment')
-        print("[DEBUG] >>> using softmaxLoss:", self.softmaxLoss, "// using experimentLoss:", self.experimentLoss)
+        #print("[DEBUG] >>> using softmaxLoss:", self.softmaxLoss, "// using experimentLoss:", self.experimentLoss)
+        logging.debug(f"[model.__init__] >>> using softmaxLoss: {self.softmaxLoss} // " + \
+                      "using experimentLoss: {self.experimentLoss}")
         self.rand_seed = rand_seed
         
         self.history = {'loss': [],
@@ -91,7 +94,8 @@ class SpecificProfile(tf.keras.Model):
             self.setP_logit(self._getRandomProfiles())
             self.P_logit_init = None
         else:
-            print("[DEBUG] >>> Using initProfiles from training setup instead of random")
+            #print("[DEBUG] >>> Using initProfiles from training setup instead of random")
+            logging.debug("[model.__init__] >>> Using initProfiles from training setup instead of random")
             self.P_logit_init = self.setup.initProfiles # shape: (k, alphabet_size, U)
             self.setP_logit(self.P_logit_init)
 
@@ -130,9 +134,11 @@ class SpecificProfile(tf.keras.Model):
 
         if self.setup.phylo_t > 0.0:
             if self.setup.k != 20:
-                print("[WARNING] >>> phylo_t > 0 requires amino acid alphabet and k=20")
+                #print("[WARNING] >>> phylo_t > 0 requires amino acid alphabet and k=20")
+                logging.warning("[model.__init__] >>> phylo_t > 0 requires amino acid alphabet and k=20, " + \
+                                f"not {self.setup.k}")
             else:
-                Q = phylo_t * tf.eye(20) # placeholder
+                Q = self.setup.phylo_t * tf.eye(20) # placeholder
                 # above unit matrix should be replaced with the PAM1 rate matrix
                 # read from a file, make sure the amino acid order is corrected for
                 # tip: use the code from Felix at
@@ -347,9 +353,11 @@ class SpecificProfile(tf.keras.Model):
                 Ls.append(tf.multiply(loss_by_unit, W).numpy()) # store weighted losses
 
                 if tf.reduce_any( tf.math.is_nan(Z) ):
-                    print("[DEBUG] >>> nan in Z")
+                    #print("[DEBUG] >>> nan in Z")
+                    logging.debug("[model.get_best_profile] >>> nan in Z")
                     #print("[DEBUG] >>> M:", M)
-                    print("[DEBUG] >>> W:", W)
+                    #print("[DEBUG] >>> W:", W)
+                    logging.debug(f"[model.get_best_profile] >>> W: {W}")
                     #print("[DEBUG] >>> W1:", W1)
                     #print("[DEBUG] >>> Ms:", Ms)
                     
@@ -373,7 +381,9 @@ class SpecificProfile(tf.keras.Model):
             P2 = P1 # shortcut only for running time sake
         else:
             if self.setup.k != 20:
-                print("[WARNING] >>> phylo_t > 0 requires amino acid alphabet and k=20")
+                #print("[WARNING] >>> phylo_t > 0 requires amino acid alphabet and k=20")
+                logging.warning("[model.getP] >>> phylo_t > 0 requires amino acid alphabet and k=20, " + \
+                                f"not {self.setup.k}")
                 P2 = P1
             else:
                 # assume that at each site a a 2 step random experiment is done
@@ -425,9 +435,12 @@ class SpecificProfile(tf.keras.Model):
         #pScores = self.max_profile_scores(ds_score)
         pLosses = self.min_profile_losses(self.setup.getDataset())
         if lossStatistics:
-            print("[INFO] >>> min loss:", tf.reduce_min(pLosses).numpy())
-            print("[INFO] >>> max loss:", tf.reduce_max(pLosses).numpy())
-            print("[INFO] >>> mean loss:", tf.reduce_mean(pLosses).numpy())
+            # print("[INFO] >>> min loss:", tf.reduce_min(pLosses).numpy())
+            # print("[INFO] >>> max loss:", tf.reduce_max(pLosses).numpy())
+            # print("[INFO] >>> mean loss:", tf.reduce_mean(pLosses).numpy())
+            logging.info(f"[model.getP_optimal] >>> min loss: {tf.reduce_min(pLosses).numpy()}")
+            logging.info(f"[model.getP_optimal] >>> max loss: {tf.reduce_max(pLosses).numpy()}")
+            logging.info(f"[model.getP_optimal] >>> mean loss: {tf.reduce_mean(pLosses).numpy()}")
 
         mask = tf.less_equal(pLosses, loss_threshold)
         P = tf.boolean_mask(self.P_logit, mask, axis=2)   # (k+2s, alphabet_size, -1)
@@ -504,9 +517,12 @@ class SpecificProfile(tf.keras.Model):
         ratio = tf.maximum(P/Q2, self.epsilon)
         R = tf.math.log(ratio)
         if tf.reduce_any(tf.math.is_nan(P)):
-            print("[DEBUG] >>> nan in P:", tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), 
-                  tf.boolean_mask(P, tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), axis=2))
-            print("[DEBUG] >>> Q:", self.setup.data.Q)
+            # print("[DEBUG] >>> nan in P:", tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), 
+            #       tf.boolean_mask(P, tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), axis=2))
+            # print("[DEBUG] >>> Q:", self.setup.data.Q)
+            logging.debug(f"[model.getR] >>> nan in P: {tf.reduce_any(tf.math.is_nan(P), axis=[0,1])} " + \
+                          f"{tf.boolean_mask(P, tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), axis=2)}")
+            logging.debug(f"[model.getR] >>> Q: {self.setup.data.Q}")
             
         return R # shape: (k, alphabet_size, U)
     
@@ -527,11 +543,14 @@ class SpecificProfile(tf.keras.Model):
         Z = tf.squeeze(Z1, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, U)
         
         if tf.reduce_any(tf.math.is_nan(R)):
-            print("[DEBUG] >>> nan in R")
+            #print("[DEBUG] >>> nan in R")
+            logging.debug("[model.getZ] >>> nan in R")
         if tf.reduce_any(tf.math.is_nan(X)):
-            print("[DEBUG] >>> nan in X")
+            #print("[DEBUG] >>> nan in X")
+            logging.debug("[model.getZ] >>> nan in X")
         if tf.reduce_any(tf.math.is_nan(Z)):
-            print("[DEBUG] >>> nan in Z")
+            #print("[DEBUG] >>> nan in Z")
+            logging.debug("[model.getZ] >>> nan in Z")
         
         return Z, R
         
@@ -679,9 +698,12 @@ class SpecificProfile(tf.keras.Model):
             if verbose and (i%(25) == 0 or i==self.setup.epochs-1):
                 S, R, Z = self(X)
                 score, _ = self.loss(Z)
-                print(f"epoch {i:>5} score={score.numpy():.4f}" +
-                      " max R: {:.3f}".format(tf.reduce_max(R).numpy()) +
-                      " min R: {:.3f}".format((tf.reduce_min(R).numpy())))
+                # print(f"epoch {i:>5} score={score.numpy():.4f}" +
+                #       " max R: {:.3f}".format(tf.reduce_max(R).numpy()) +
+                #       " min R: {:.3f}".format((tf.reduce_min(R).numpy())))
+                logging.info(f"[model.train_classic] >>> epoch {i:>5} score={score.numpy():.4f}" + \
+                             " max R: {:.3f}".format(tf.reduce_max(R).numpy()) + \
+                             " min R: {:.3f}".format((tf.reduce_min(R).numpy())))
                 
             
     
@@ -710,16 +732,20 @@ class SpecificProfile(tf.keras.Model):
                 'c': 0}
         
         def setLR(learning_rate):
-            print("[DEBUG] >>> Setting learning rate to", learning_rate)
+            #print("[DEBUG] >>> Setting learning rate to", learning_rate)
+            logging.debug(f"[model.train_reporting.setLR] >>> Setting learning rate to {learning_rate}")
             self.opt.learning_rate.assign(learning_rate)
             
         def reduceLR(learning_rate):
             if len(self.history['loss']) > self.setup.lr_patience:
                 lastmin = self.history['loss'][-(self.setup.lr_patience+1)]
                 if not any([l < lastmin for l in self.history['loss'][-self.setup.lr_patience:]]):
-                    print("[INFO] >>> Loss did not decrease for", self.setup.lr_patience, 
-                          "epochs, reducing learning rate from", learning_rate, "to", 
-                          self.setup.lr_factor*learning_rate)
+                    # print("[INFO] >>> Loss did not decrease for", self.setup.lr_patience, 
+                    #       "epochs, reducing learning rate from", learning_rate, "to", 
+                    #       self.setup.lr_factor*learning_rate)
+                    logging.info("[model.train_reporting.reduceLR] >>> Loss did not decrease for " + \
+                                 f"{self.setup.lr_patience} epochs, reducing learning rate from {learning_rate} to " + \
+                                 f"{self.setup.lr_factor*learning_rate}")
                     learning_rate *= self.setup.lr_factor
                     setLR(learning_rate)
                     
@@ -780,7 +806,9 @@ class SpecificProfile(tf.keras.Model):
             self.history['learning rate'].append(learning_rate)
 
             if max_epochs is not None and profileHist['c'] > max_epochs:
-                print("[WARNING] >>> Could not find a good profile in time, force report of profile", p.numpy())
+                #print("[WARNING] >>> Could not find a good profile in time, force report of profile", p.numpy())
+                logging.warning("[model.train_reporting] >>> Could not find a good profile in time, " + \
+                                f"force report of profile {p.numpy()}")
                 edgeCase = self.profile_cleanup(p)
                 if edgeCase:
                     edgeCaseCounter += 1
@@ -788,7 +816,8 @@ class SpecificProfile(tf.keras.Model):
                     edgeCaseCounter = 0
                     
                 # reset training
-                print("[DEBUG] >>> Resetting training")
+                #print("[DEBUG] >>> Resetting training")
+                logging.debug("[model.train_reporting] >>> Resetting training")
                 profileHist = profileHistInit()
                 setLR(learning_rate_init)
                 learning_rate = learning_rate_init
@@ -797,8 +826,11 @@ class SpecificProfile(tf.keras.Model):
                 if profileHist['c'] >= self.setup.profile_plateau and all(profileHist['idx'] == p):
                     sd = np.std(profileHist['score'])
                     if sd <= self.setup.profile_plateau_dev:
-                        print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
-                        print("cleaning up profile", p.numpy())
+                        # print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
+                        # print("cleaning up profile", p.numpy())
+                        logging.info(f"[model.train_reporting] >>> epoch {i} best profile {p.numpy()} with mean loss" +\
+                                     f"{s.numpy()}")
+                        logging.info(f"[model.train_reporting] >>> cleaning up profile {p.numpy()}")
                         
                         edgeCase = self.profile_cleanup(p)
                         if edgeCase:
@@ -811,7 +843,8 @@ class SpecificProfile(tf.keras.Model):
                             self.tracking['masking'][-1]['after_epoch'] = i
                             
                         # reset training
-                        print("[DEBUG] >>> Resetting training")
+                        #print("[DEBUG] >>> Resetting training")
+                        logging.debug("[model.train_reporting] >>> Resetting training")
                         profileHist = profileHistInit()
                         setLR(learning_rate_init)
                         learning_rate = learning_rate_init
@@ -820,17 +853,25 @@ class SpecificProfile(tf.keras.Model):
                 _, R, Z = self(X)
                 _, loss_by_unit = self.loss(Z)
                 tnow = time()
-                print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
-                print(f"epoch {i:>5} profile loss sum = {tf.reduce_sum(loss_by_unit).numpy():.4f}" +
-                      " max R: {:.3f}".format(tf.reduce_max(R).numpy()) +
-                      " min R: {:.3f}".format((tf.reduce_min(R).numpy())) +
-                      " time: {:.2f}".format(tnow-tstart)) 
+                # print("epoch", i, "best profile", p.numpy(), "with mean loss", s.numpy())
+                # print(f"epoch {i:>5} profile loss sum = {tf.reduce_sum(loss_by_unit).numpy():.4f}" +
+                #       " max R: {:.3f}".format(tf.reduce_max(R).numpy()) +
+                #       " min R: {:.3f}".format((tf.reduce_min(R).numpy())) +
+                #       " time: {:.2f}".format(tnow-tstart)) 
+                logging.info(f"[model.train_reporting] >>> epoch {i} best profile {p.numpy()} with mean loss " + \
+                             f"{s.numpy()}")
+                logging.info(f"[model.train_reporting] >>> epoch {i:>5} profile loss sum " + \
+                             f"= {tf.reduce_sum(loss_by_unit).numpy():.4f}" + \
+                             " max R: {:.3f}".format(tf.reduce_max(R).numpy()) + \
+                             " min R: {:.3f}".format((tf.reduce_min(R).numpy())) + \
+                             " time: {:.2f}".format(tnow-tstart)) 
 
             i += 1
             if self.setup.n_best_profiles is not None:
                 run = (len(self.P_report) < self.setup.n_best_profiles)
                 if edgeCaseCounter > 10:
-                    print("[WARNING] >>> Training seems to be stuck in edge cases, aborting")
+                    #print("[WARNING] >>> Training seems to be stuck in edge cases, aborting")
+                    logging.warning("[model.train_reporting] >>> Training seems to be stuck in edge cases, aborting")
                     run = False
             else:
                 run = (i < self.setup.epochs)
@@ -914,7 +955,8 @@ class SpecificProfile(tf.keras.Model):
                                              'after_epoch': None})
             
         else:
-            print("Profile is an edge case, starting over")
+            #print("Profile is an edge case, starting over")
+            logging.info("[model.profile_cleanup] >>> Profile is an edge case, starting over")
             returnEdgeCase = True
             self.P_report_discarded.append(Pk_logit[:,:,bestIdx])
             if self.P_logit_init is not None:
@@ -1042,7 +1084,8 @@ class SpecificProfile(tf.keras.Model):
     
     
     def seed_P_triplets_deprecated(self):
-        print("[WARNING] >>> Resetting setup.U to alphabet_size^3!")
+        #print("[WARNING] >>> Resetting setup.U to alphabet_size^3!")
+        logging.warning("[model.seed_P_triplets_deprecated] >>> Resetting setup.U to alphabet_size^3!")
         self.setup.U = self.alphabet_size ** 3
         P_logit = np.zeros((self.setup.k+(2*self.setup.s), self.alphabet_size, self.setup.U), dtype=np.float32)
         p = 0

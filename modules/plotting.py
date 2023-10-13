@@ -3,6 +3,7 @@
 import cv2
 import itertools
 import json
+import logging
 import logomaker
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +15,8 @@ import Links
 import SequenceRepresentation
 import sequtils as su
 
+# set logging level for logomaker to avoid debug message clutter
+logging.getLogger('logomaker').setLevel(logging.WARNING)
 
 
 def plotHistory(history):
@@ -128,7 +131,8 @@ def sitesToLinks(sites, linkThreshold = 100):
                 break
 
         if nlinks > linkThreshold:
-            print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
+            #print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
+            logging.warning(f"[plotting.sitesToLings] >>> Profile {u} would produce at least {nlinks} links, skipping")
             skipped.append((u, nlinks))
         else:
             l = list(itertools.product(*occs))
@@ -219,7 +223,9 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
         else:
-            print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
+            #print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
+            logging.warning("[plotting.drawGeneLinks_SequenceRepresentationData.createAdditionalSites] >>> Could not "+\
+                            "create kmer sites or masking sites because less than 2 genes are involved")
 
     if kmerSites is not None:
         createAdditionalSites(kmerSites, kmerCol)
@@ -358,7 +364,9 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
         else:
-            print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
+            #print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
+            logging.warning("[plotting.drawGeneLinks_simData.createAdditionalSites] >>> Could not create kmer sites " +\
+                            "or masking sites because less than 2 genes are involved")
 
     if kmerSites is not None:
         createAdditionalSites(kmerSites, kmerCol)
@@ -639,7 +647,8 @@ def combinePlots(plots: list,
 
         if not os.path.isfile(fontpath):
             addLabels = False
-            print("[WARNING] >>> Ignoring labels, default fontpath not found: "+fontpath)
+            #print("[WARNING] >>> Ignoring labels, default fontpath not found: "+fontpath)
+            logging.warning(f"[plotting.combinePlots] >>> Ignoring labels, default fontpath not found: {fontpath}")
         else:
             addLabels = True
             font = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSerif.ttf', fontsize)

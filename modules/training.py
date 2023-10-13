@@ -15,7 +15,7 @@ import sequtils as su
 def trainAndEvaluate(trainsetup: setup.ProfileFindingTrainingSetup, 
                      outdir: str, outprefix: str = "",
                      trainingWithReporting: bool = True,
-                     rand_seed: int = None):
+                     rand_seed: int = None) -> tuple[float, float]:
     """ 
     Train profiles on a given training setup and evaluate them. 
     Parameters:
@@ -28,7 +28,10 @@ def trainAndEvaluate(trainsetup: setup.ProfileFindingTrainingSetup,
         trainingWithReporting: bool
             If True, training is done with reporting, otherwise with classic training.
         rand_seed: int
-            Random seed for reproducibility.    
+            Random seed for reproducibility.
+
+    Returns:
+        tuple[float, float]: (sensitivity, specificity) or None if something went wrong.
     """
 
     # build and randomly initialize profile model
@@ -149,14 +152,17 @@ def trainAndEvaluate(trainsetup: setup.ProfileFindingTrainingSetup,
                     if exonHit:
                         nexonsHit += 1
                         
+            sensitivity = nexonsHit/nhumanExons
+            specificity = nlinksThatHit/nlinks
             #print(f"Sensitivity: {nexonsHit} / {nhumanExons} = {nexonsHit/nhumanExons}")
             #print(f"Specificity: {nlinksThatHit} / {nlinks} = {nlinksThatHit/nlinks}")
             logging.info("[training.trainAndEvaluate] >>> " + \
-                         f"Sensitivity: {nexonsHit} / {nhumanExons} = {nexonsHit/nhumanExons}")
+                         f"Sensitivity: {nexonsHit} / {nhumanExons} = {sensitivity}")
             logging.info("[training.trainAndEvaluate] >>> " + \
-                         f"Specificity: {nlinksThatHit} / {nlinks} = {nlinksThatHit/nlinks}")
+                         f"Specificity: {nlinksThatHit} / {nlinks} = {specificity}")
+            return (sensitivity, specificity)
                         
-        accuracy(links)
+        return accuracy(links)
 
     except Exception as e:
         #print("Evaluation failed.")

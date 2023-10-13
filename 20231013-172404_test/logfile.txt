@@ -1,0 +1,375 @@
+2023-10-13 17:24:04,628 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 172676.0 *
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> C 0.0271
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> K 0.0289
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> E 0.0471
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> W 0.0215
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> T 0.0439
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> G 0.1101
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0072
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> A 0.0857
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> I 0.0175
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> N 0.0151
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> V 0.0439
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> H 0.0249
+2023-10-13 17:24:04,629 INFO: [dataset.backGroundAAFreqs] >>> S 0.0987
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> D 0.0224
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> F 0.0293
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> M 0.0082
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> R 0.1087
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> L 0.0920
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> P 0.1101
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0360
+2023-10-13 17:24:04,630 INFO: [dataset.backGroundAAFreqs] >>> * 0.0216
+2023-10-13 17:24:04,977 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 22
+2023-10-13 17:24:04,978 WARNING: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> 22 profiles initialized, but 200 requested. Resetting U to 22
+2023-10-13 17:24:05,123 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:24:05,125 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:24:05,125 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:24:06,933 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(22,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:24:07,449 DEBUG: [model.getR] >>> Q: [0.02714332 0.02892701 0.04708819 0.02154903 0.04389145 0.11014849
+ 0.00720424 0.08566912 0.01749519 0.01509764 0.04388566 0.02491371
+ 0.09872247 0.02237138 0.02932081 0.00820612 0.1086949  0.09198152
+ 0.11011374 0.03600964 0.0215664 ]
+2023-10-13 17:24:07,478 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:24:07,495 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:24:07,511 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:24:07,767 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(22,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:24:07,776 DEBUG: [model.getR] >>> Q: [0.02714332 0.02892701 0.04708819 0.02154903 0.04389145 0.11014849
+ 0.00720424 0.08566912 0.01749519 0.01509764 0.04388566 0.02491371
+ 0.09872247 0.02237138 0.02932081 0.00820612 0.1086949  0.09198152
+ 0.11011374 0.03600964 0.0215664 ]
+2023-10-13 17:24:07,801 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:24:07,817 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:24:07,830 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:24:08,326 INFO: [model.train_reporting] >>> epoch 0 best profile 8 with mean loss -1968776.375
+2023-10-13 17:24:08,327 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = -49258.7812 max R: 4.926 min R: -5.879 time: 2.04
+2023-10-13 17:24:11,350 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:24:11,350 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:24:12,671 INFO: [model.train_reporting] >>> epoch 10 best profile 8 with mean loss -2091104.875
+2023-10-13 17:24:12,673 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -52644.6719 max R: 4.933 min R: -13.816 time: 6.39
+2023-10-13 17:24:17,085 INFO: [model.train_reporting] >>> epoch 20 best profile 8 with mean loss -2098700.5
+2023-10-13 17:24:17,087 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -53225.6172 max R: 4.933 min R: -13.816 time: 10.80
+2023-10-13 17:24:21,454 INFO: [model.train_reporting] >>> epoch 30 best profile 8 with mean loss -2101829.75
+2023-10-13 17:24:21,456 INFO: [model.train_reporting] >>> epoch    30 profile loss sum = -53396.6562 max R: 4.933 min R: -13.816 time: 15.17
+2023-10-13 17:24:25,952 INFO: [model.train_reporting] >>> epoch 40 best profile 8 with mean loss -2105088.0
+2023-10-13 17:24:25,954 INFO: [model.train_reporting] >>> epoch    40 profile loss sum = -53527.8125 max R: 4.933 min R: -13.816 time: 19.67
+2023-10-13 17:24:30,324 INFO: [model.train_reporting] >>> epoch 50 best profile 8 with mean loss -2107644.25
+2023-10-13 17:24:30,325 INFO: [model.train_reporting] >>> epoch    50 profile loss sum = -53615.5547 max R: 4.933 min R: -13.816 time: 24.04
+2023-10-13 17:24:34,728 INFO: [model.train_reporting] >>> epoch 60 best profile 8 with mean loss -2109734.0
+2023-10-13 17:24:34,730 INFO: [model.train_reporting] >>> epoch    60 profile loss sum = -53676.2656 max R: 4.933 min R: -13.816 time: 28.44
+2023-10-13 17:24:39,147 INFO: [model.train_reporting] >>> epoch 70 best profile 8 with mean loss -2111342.75
+2023-10-13 17:24:39,148 INFO: [model.train_reporting] >>> epoch    70 profile loss sum = -53723.7109 max R: 4.933 min R: -13.816 time: 32.86
+2023-10-13 17:24:43,556 INFO: [model.train_reporting] >>> epoch 80 best profile 8 with mean loss -2112628.75
+2023-10-13 17:24:43,558 INFO: [model.train_reporting] >>> epoch    80 profile loss sum = -53760.5234 max R: 4.933 min R: -13.816 time: 37.27
+2023-10-13 17:24:47,956 INFO: [model.train_reporting] >>> epoch 90 best profile 8 with mean loss -2113630.75
+2023-10-13 17:24:47,958 INFO: [model.train_reporting] >>> epoch    90 profile loss sum = -53788.2031 max R: 4.933 min R: -13.816 time: 41.67
+2023-10-13 17:24:52,384 INFO: [model.train_reporting] >>> epoch 100 best profile 8 with mean loss -2114425.0
+2023-10-13 17:24:52,385 INFO: [model.train_reporting] >>> epoch   100 profile loss sum = -53809.9102 max R: 4.933 min R: -13.816 time: 46.10
+2023-10-13 17:24:56,675 INFO: [model.train_reporting] >>> epoch 110 best profile 8 with mean loss -2115077.75
+2023-10-13 17:24:56,677 INFO: [model.train_reporting] >>> epoch   110 profile loss sum = -53827.5547 max R: 4.933 min R: -13.816 time: 50.39
+2023-10-13 17:25:01,015 INFO: [model.train_reporting] >>> epoch 120 best profile 8 with mean loss -2115625.75
+2023-10-13 17:25:01,017 INFO: [model.train_reporting] >>> epoch   120 profile loss sum = -53842.3203 max R: 4.933 min R: -13.816 time: 54.73
+2023-10-13 17:25:02,327 INFO: [model.train_reporting] >>> epoch 123 best profile 8 with mean loss-2115774.0
+2023-10-13 17:25:02,329 INFO: [model.train_reporting] >>> cleaning up profile 8
+2023-10-13 17:25:03,102 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:25:03,105 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:25:03,108 INFO: [training.trainAndEvaluate] >>> Training time: 57.98
+2023-10-13 17:25:03,143 DEBUG: findfont: Matching sans\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=12.0.
+2023-10-13 17:25:03,145 DEBUG: findfont: score(<Font 'DejaVu Sans Display' (DejaVuSansDisplay.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,146 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneralItalic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,147 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Bold.ttf) normal normal 700 normal>) = 0.33499999999999996
+2023-10-13 17:25:03,148 DEBUG: findfont: score(<Font 'STIXSizeThreeSym' (STIXSizThreeSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,148 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUni.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,149 DEBUG: findfont: score(<Font 'STIXSizeFiveSym' (STIXSizFiveSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,151 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Oblique.ttf) oblique normal 400 normal>) = 1.05
+2023-10-13 17:25:03,152 DEBUG: findfont: score(<Font 'cmss10' (cmss10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,152 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,153 DEBUG: findfont: score(<Font 'STIXSizeOneSym' (STIXSizOneSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,154 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,155 DEBUG: findfont: score(<Font 'cmb10' (cmb10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,156 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUniIta.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,156 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUniBolIta.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,157 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUniBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,158 DEBUG: findfont: score(<Font 'STIXSizeFourSym' (STIXSizFourSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,158 DEBUG: findfont: score(<Font 'cmsy10' (cmsy10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,159 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,160 DEBUG: findfont: score(<Font 'STIXSizeThreeSym' (STIXSizThreeSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,160 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Oblique.ttf) oblique normal 400 normal>) = 11.05
+2023-10-13 17:25:03,161 DEBUG: findfont: score(<Font 'STIXSizeOneSym' (STIXSizOneSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,162 DEBUG: findfont: score(<Font 'cmex10' (cmex10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,162 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans.ttf) normal normal 400 normal>) = 0.05
+2023-10-13 17:25:03,163 DEBUG: findfont: score(<Font 'STIXSizeTwoSym' (STIXSizTwoSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,164 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneralBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,165 DEBUG: findfont: score(<Font 'cmmi10' (cmmi10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,166 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-BoldOblique.ttf) oblique normal 700 normal>) = 11.335
+2023-10-13 17:25:03,166 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,167 DEBUG: findfont: score(<Font 'cmr10' (cmr10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,168 DEBUG: findfont: score(<Font 'STIXSizeFourSym' (STIXSizFourSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,169 DEBUG: findfont: score(<Font 'DejaVu Serif Display' (DejaVuSerifDisplay.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,170 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-BoldOblique.ttf) oblique normal 700 normal>) = 1.335
+2023-10-13 17:25:03,170 DEBUG: findfont: score(<Font 'cmtt10' (cmtt10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,171 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,172 DEBUG: findfont: score(<Font 'STIXSizeTwoSym' (STIXSizTwoSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,175 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,177 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneralBolIta.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,178 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneral.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,179 DEBUG: findfont: score(<Font 'P052' (P052-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,180 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-DemiOblique.otf) oblique normal 600 normal>) = 11.24
+2023-10-13 17:25:03,181 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-BoldOblique.ttf) oblique normal 700 normal>) = 1.335
+2023-10-13 17:25:03,182 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-Italic.ttf) italic normal 400 condensed>) = 11.25
+2023-10-13 17:25:03,182 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed.ttf) normal normal 400 condensed>) = 0.25
+2023-10-13 17:25:03,183 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,184 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,184 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans.ttf) normal normal 400 normal>) = 0.05
+2023-10-13 17:25:03,185 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Bold.ttf) normal normal 700 normal>) = 0.33499999999999996
+2023-10-13 17:25:03,185 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-DemiItalic.otf) italic normal 600 normal>) = 11.24
+2023-10-13 17:25:03,186 DEBUG: findfont: score(<Font 'Standard Symbols PS' (StandardSymbolsPS.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,187 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-Oblique.otf) oblique normal 400 condensed>) = 11.25
+2023-10-13 17:25:03,187 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,188 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-BoldOblique.otf) oblique normal 700 condensed>) = 11.535
+2023-10-13 17:25:03,189 DEBUG: findfont: score(<Font 'C059' (C059-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,189 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,190 DEBUG: findfont: score(<Font 'C059' (C059-Roman.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,191 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed-Bold.ttf) normal normal 700 condensed>) = 0.5349999999999999
+2023-10-13 17:25:03,191 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-Regular.ttf) normal normal 400 condensed>) = 10.25
+2023-10-13 17:25:03,192 DEBUG: findfont: score(<Font 'P052' (P052-Roman.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,193 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-BoldOblique.ttf) oblique normal 700 normal>) = 11.335
+2023-10-13 17:25:03,193 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-LightItalic.otf) italic normal 300 normal>) = 11.145
+2023-10-13 17:25:03,194 DEBUG: findfont: score(<Font 'P052' (P052-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,195 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed-BoldItalic.ttf) italic normal 700 condensed>) = 11.535
+2023-10-13 17:25:03,195 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,196 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Oblique.ttf) oblique normal 400 normal>) = 1.05
+2023-10-13 17:25:03,197 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,198 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-Book.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,198 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,199 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,200 DEBUG: findfont: score(<Font 'Z003' (Z003-MediumItalic.otf) italic normal 500 normal>) = 11.145
+2023-10-13 17:25:03,201 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Oblique.ttf) oblique normal 400 normal>) = 11.05
+2023-10-13 17:25:03,204 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,205 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-Regular.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,205 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,206 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,207 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-Demi.otf) normal normal 600 normal>) = 10.24
+2023-10-13 17:25:03,207 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-Bold.ttf) normal normal 700 condensed>) = 10.535
+2023-10-13 17:25:03,208 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-BoldItalic.ttf) italic normal 700 condensed>) = 11.535
+2023-10-13 17:25:03,209 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-Bold.otf) normal normal 700 condensed>) = 10.535
+2023-10-13 17:25:03,210 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,210 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,211 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed-Bold.ttf) normal normal 700 condensed>) = 10.535
+2023-10-13 17:25:03,212 DEBUG: findfont: score(<Font 'DejaVu Math TeX Gyre' (DejaVuMathTeXGyre.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,212 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-ExtraLight.ttf) normal normal 200 normal>) = 0.24
+2023-10-13 17:25:03,213 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-Regular.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,214 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,214 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,215 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-Regular.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,216 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-Regular.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,216 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-Regular.otf) normal normal 400 condensed>) = 10.25
+2023-10-13 17:25:03,217 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,218 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,218 DEBUG: findfont: score(<Font 'D050000L' (D050000L.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,219 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed-Oblique.ttf) oblique normal 400 condensed>) = 1.25
+2023-10-13 17:25:03,219 DEBUG: findfont: score(<Font 'C059' (C059-BdIta.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,222 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-Demi.otf) normal normal 600 normal>) = 10.24
+2023-10-13 17:25:03,223 DEBUG: findfont: score(<Font 'C059' (C059-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,223 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed-BoldOblique.ttf) oblique normal 700 condensed>) = 1.535
+2023-10-13 17:25:03,224 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-Light.otf) normal normal 300 normal>) = 10.145
+2023-10-13 17:25:03,225 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,226 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,226 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-BookOblique.otf) oblique normal 400 normal>) = 11.05
+2023-10-13 17:25:03,228 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-Regular.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,229 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,229 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,230 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,231 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-Regular.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,232 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed.ttf) normal normal 400 condensed>) = 10.25
+2023-10-13 17:25:03,232 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,233 DEBUG: findfont: score(<Font 'P052' (P052-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,234 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,234 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed-Italic.ttf) italic normal 400 condensed>) = 11.25
+2023-10-13 17:25:03,235 DEBUG: findfont: Matching sans\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=12.0 to DejaVu Sans ('/opt/conda/lib/python3.9/site-packages/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf') with score of 0.050000.
+2023-10-13 17:25:03,246 DEBUG: findfont: Matching sans\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=10.0.
+2023-10-13 17:25:03,248 DEBUG: findfont: score(<Font 'DejaVu Sans Display' (DejaVuSansDisplay.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,248 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneralItalic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,249 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Bold.ttf) normal normal 700 normal>) = 0.33499999999999996
+2023-10-13 17:25:03,249 DEBUG: findfont: score(<Font 'STIXSizeThreeSym' (STIXSizThreeSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,250 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUni.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,251 DEBUG: findfont: score(<Font 'STIXSizeFiveSym' (STIXSizFiveSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,251 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Oblique.ttf) oblique normal 400 normal>) = 1.05
+2023-10-13 17:25:03,252 DEBUG: findfont: score(<Font 'cmss10' (cmss10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,253 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,253 DEBUG: findfont: score(<Font 'STIXSizeOneSym' (STIXSizOneSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,254 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,254 DEBUG: findfont: score(<Font 'cmb10' (cmb10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,255 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUniIta.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,256 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUniBolIta.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,257 DEBUG: findfont: score(<Font 'STIXNonUnicode' (STIXNonUniBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,257 DEBUG: findfont: score(<Font 'STIXSizeFourSym' (STIXSizFourSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,258 DEBUG: findfont: score(<Font 'cmsy10' (cmsy10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,259 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,259 DEBUG: findfont: score(<Font 'STIXSizeThreeSym' (STIXSizThreeSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,261 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Oblique.ttf) oblique normal 400 normal>) = 11.05
+2023-10-13 17:25:03,262 DEBUG: findfont: score(<Font 'STIXSizeOneSym' (STIXSizOneSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,263 DEBUG: findfont: score(<Font 'cmex10' (cmex10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,263 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans.ttf) normal normal 400 normal>) = 0.05
+2023-10-13 17:25:03,264 DEBUG: findfont: score(<Font 'STIXSizeTwoSym' (STIXSizTwoSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,264 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneralBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,265 DEBUG: findfont: score(<Font 'cmmi10' (cmmi10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,266 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-BoldOblique.ttf) oblique normal 700 normal>) = 11.335
+2023-10-13 17:25:03,267 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,267 DEBUG: findfont: score(<Font 'cmr10' (cmr10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,268 DEBUG: findfont: score(<Font 'STIXSizeFourSym' (STIXSizFourSymBol.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,269 DEBUG: findfont: score(<Font 'DejaVu Serif Display' (DejaVuSerifDisplay.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,269 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-BoldOblique.ttf) oblique normal 700 normal>) = 1.335
+2023-10-13 17:25:03,270 DEBUG: findfont: score(<Font 'cmtt10' (cmtt10.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,271 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,271 DEBUG: findfont: score(<Font 'STIXSizeTwoSym' (STIXSizTwoSymReg.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,272 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,273 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneralBolIta.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,274 DEBUG: findfont: score(<Font 'STIXGeneral' (STIXGeneral.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,275 DEBUG: findfont: score(<Font 'P052' (P052-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,275 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-DemiOblique.otf) oblique normal 600 normal>) = 11.24
+2023-10-13 17:25:03,276 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-BoldOblique.ttf) oblique normal 700 normal>) = 1.335
+2023-10-13 17:25:03,277 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-Italic.ttf) italic normal 400 condensed>) = 11.25
+2023-10-13 17:25:03,278 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed.ttf) normal normal 400 condensed>) = 0.25
+2023-10-13 17:25:03,279 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,279 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,280 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans.ttf) normal normal 400 normal>) = 0.05
+2023-10-13 17:25:03,281 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Bold.ttf) normal normal 700 normal>) = 0.33499999999999996
+2023-10-13 17:25:03,282 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-DemiItalic.otf) italic normal 600 normal>) = 11.24
+2023-10-13 17:25:03,282 DEBUG: findfont: score(<Font 'Standard Symbols PS' (StandardSymbolsPS.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,283 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-Oblique.otf) oblique normal 400 condensed>) = 11.25
+2023-10-13 17:25:03,284 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,285 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-BoldOblique.otf) oblique normal 700 condensed>) = 11.535
+2023-10-13 17:25:03,286 DEBUG: findfont: score(<Font 'C059' (C059-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,287 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,288 DEBUG: findfont: score(<Font 'C059' (C059-Roman.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,288 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed-Bold.ttf) normal normal 700 condensed>) = 0.5349999999999999
+2023-10-13 17:25:03,289 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-Regular.ttf) normal normal 400 condensed>) = 10.25
+2023-10-13 17:25:03,290 DEBUG: findfont: score(<Font 'P052' (P052-Roman.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,291 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-BoldOblique.ttf) oblique normal 700 normal>) = 11.335
+2023-10-13 17:25:03,292 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-LightItalic.otf) italic normal 300 normal>) = 11.145
+2023-10-13 17:25:03,292 DEBUG: findfont: score(<Font 'P052' (P052-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,293 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed-BoldItalic.ttf) italic normal 700 condensed>) = 11.535
+2023-10-13 17:25:03,294 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,294 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-Oblique.ttf) oblique normal 400 normal>) = 1.05
+2023-10-13 17:25:03,295 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,296 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-Book.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,297 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,298 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,298 DEBUG: findfont: score(<Font 'Z003' (Z003-MediumItalic.otf) italic normal 500 normal>) = 11.145
+2023-10-13 17:25:03,299 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Oblique.ttf) oblique normal 400 normal>) = 11.05
+2023-10-13 17:25:03,300 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,300 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-Regular.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,301 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,302 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,303 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-Demi.otf) normal normal 600 normal>) = 10.24
+2023-10-13 17:25:03,303 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-Bold.ttf) normal normal 700 condensed>) = 10.535
+2023-10-13 17:25:03,304 DEBUG: findfont: score(<Font 'Liberation Sans Narrow' (LiberationSansNarrow-BoldItalic.ttf) italic normal 700 condensed>) = 11.535
+2023-10-13 17:25:03,305 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-Bold.otf) normal normal 700 condensed>) = 10.535
+2023-10-13 17:25:03,307 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,307 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,308 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed-Bold.ttf) normal normal 700 condensed>) = 10.535
+2023-10-13 17:25:03,309 DEBUG: findfont: score(<Font 'DejaVu Math TeX Gyre' (DejaVuMathTeXGyre.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,310 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSans-ExtraLight.ttf) normal normal 200 normal>) = 0.24
+2023-10-13 17:25:03,311 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-Regular.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,312 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,313 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,313 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-Regular.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,314 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-Regular.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,315 DEBUG: findfont: score(<Font 'Nimbus Sans Narrow' (NimbusSansNarrow-Regular.otf) normal normal 400 condensed>) = 10.25
+2023-10-13 17:25:03,315 DEBUG: findfont: score(<Font 'Nimbus Sans' (NimbusSans-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,316 DEBUG: findfont: score(<Font 'DejaVu Sans Mono' (DejaVuSansMono-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,317 DEBUG: findfont: score(<Font 'D050000L' (D050000L.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,318 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed-Oblique.ttf) oblique normal 400 condensed>) = 1.25
+2023-10-13 17:25:03,319 DEBUG: findfont: score(<Font 'C059' (C059-BdIta.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,319 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-Demi.otf) normal normal 600 normal>) = 10.24
+2023-10-13 17:25:03,320 DEBUG: findfont: score(<Font 'C059' (C059-Bold.otf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,321 DEBUG: findfont: score(<Font 'DejaVu Sans' (DejaVuSansCondensed-BoldOblique.ttf) oblique normal 700 condensed>) = 1.535
+2023-10-13 17:25:03,321 DEBUG: findfont: score(<Font 'URW Bookman' (URWBookman-Light.otf) normal normal 300 normal>) = 10.145
+2023-10-13 17:25:03,322 DEBUG: findfont: score(<Font 'Liberation Mono' (LiberationMono-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,323 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerif-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,323 DEBUG: findfont: score(<Font 'URW Gothic' (URWGothic-BookOblique.otf) oblique normal 400 normal>) = 11.05
+2023-10-13 17:25:03,324 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-Regular.ttf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,325 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-Bold.ttf) normal normal 700 normal>) = 10.335
+2023-10-13 17:25:03,326 DEBUG: findfont: score(<Font 'Nimbus Roman' (NimbusRoman-Italic.otf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,326 DEBUG: findfont: score(<Font 'Liberation Serif' (LiberationSerif-Italic.ttf) italic normal 400 normal>) = 11.05
+2023-10-13 17:25:03,327 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-Regular.otf) normal normal 400 normal>) = 10.05
+2023-10-13 17:25:03,328 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed.ttf) normal normal 400 condensed>) = 10.25
+2023-10-13 17:25:03,328 DEBUG: findfont: score(<Font 'Nimbus Mono PS' (NimbusMonoPS-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,329 DEBUG: findfont: score(<Font 'P052' (P052-BoldItalic.otf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,330 DEBUG: findfont: score(<Font 'Liberation Sans' (LiberationSans-BoldItalic.ttf) italic normal 700 normal>) = 11.335
+2023-10-13 17:25:03,331 DEBUG: findfont: score(<Font 'DejaVu Serif' (DejaVuSerifCondensed-Italic.ttf) italic normal 400 condensed>) = 11.25
+2023-10-13 17:25:03,332 DEBUG: findfont: Matching sans\-serif:style=normal:variant=normal:weight=normal:stretch=normal:size=10.0 to DejaVu Sans ('/opt/conda/lib/python3.9/site-packages/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf') with score of 0.050000.
+2023-10-13 17:25:03,606 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f599dd8fcd0>
+2023-10-13 17:25:03,608 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f599dd8fcd0> on colorbar
+2023-10-13 17:25:03,608 DEBUG: Setting pcolormesh
+2023-10-13 17:25:05,708 DEBUG: [training.trainAndEvaluate] >>> sites: [[   1    0 1262    0    2]
+ [   2    0 1441    0    1]
+ [   3    0 1826    0    2]
+ [   6    0 1476    0    0]
+ [   7    0 1575    0    0]
+ [  12    0 1498    0    1]
+ [  14    0 1568    0    2]
+ [  17    0 1490    0    2]
+ [  18    0 1622    0    2]
+ [  20    0 1658    0    2]
+ [  21    0 1327    0    1]
+ [  23    0 1296    0    0]
+ [  27    0 1618    0    1]
+ [  28    0 1583    0    2]
+ [  29    0 1315    0    1]
+ [  30    0 1911    0    0]
+ [  31    0 1691    0    2]
+ [  32    0 1638    0    0]
+ [  34    0 1617    0    0]
+ [  35    0 1406    0    2]]
+2023-10-13 17:25:05,711 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 366, f: 3, u: 0), (g: 1, c: 0, p: 1262, f: 2, u: 0), (g: 2, c: 0, p: 1441, f: 1, u: 0), (g: 3, c: 0, p: 1826, f: 2, u: 0), (g: 4, c: 0, p: 346, f: 4, u: 0), (g: 5, c: 0, p: 366, f: 3, u: 0), (g: 6, c: 0, p: 1476, f: 0, u: 0), (g: 7, c: 0, p: 1575, f: 0, u: 0), (g: 8, c: 0, p: 194, f: 4, u: 0), (g: 9, c: 0, p: 295, f: 5, u: 0), (g: 10, c: 0, p: 368, f: 5, u: 0), (g: 11, c: 0, p: 325, f: 5, u: 0), (g: 12, c: 0, p: 1498, f: 1, u: 0), (g: 13, c: 0, p: 381, f: 3, u: 0), (g: 14, c: 0, p: 1568, f: 2, u: 0), (g: 15, c: 0, p: 350, f: 4, u: 0), (g: 16, c: 0, p: 348, f: 4, u: 0), (g: 17, c: 0, p: 1490, f: 2, u: 0), (g: 18, c: 0, p: 1622, f: 2, u: 0), (g: 19, c: 0, p: 348, f: 5, u: 0), (g: 20, c: 0, p: 1658, f: 2, u: 0), (g: 21, c: 0, p: 1327, f: 1, u: 0), (g: 22, c: 0, p: 357, f: 5, u: 0), (g: 23, c: 0, p: 1296, f: 0, u: 0), (g: 24, c: 0, p: 2880, f: 0, u: 0), (g: 25, c: 0, p: 363, f: 4, u: 0), (g: 26, c: 0, p: 316, f: 5, u: 0), (g: 27, c: 0, p: 1618, f: 1, u: 0), (g: 28, c: 0, p: 1583, f: 2, u: 0), (g: 29, c: 0, p: 1315, f: 1, u: 0), (g: 30, c: 0, p: 1911, f: 0, u: 0), (g: 31, c: 0, p: 1691, f: 2, u: 0), (g: 32, c: 0, p: 1638, f: 0, u: 0), (g: 33, c: 0, p: 374, f: 5, u: 0), (g: 34, c: 0, p: 1617, f: 0, u: 0), (g: 35, c: 0, p: 1406, f: 2, u: 0), (g: 36, c: 0, p: 344, f: 3, u: 0), (g: 37, c: 0, p: 366, f: 5, u: 0), (g: 38, c: 0, p: 1504, f: 1, u: 0), (g: 39, c: 0, p: 1671, f: 0, u: 0), (g: 40, c: 0, p: 1612, f: 1, u: 0), (g: 41, c: 0, p: 1569, f: 0, u: 0), (g: 42, c: 0, p: 1587, f: 0, u: 0), (g: 43, c: 0, p: 353, f: 4, u: 0), (g: 44, c: 0, p: 1457, f: 2, u: 0), (g: 45, c: 0, p: 347, f: 4, u: 0), (g: 47, c: 0, p: 372, f: 5, u: 0), (g: 48, c: 0, p: 1426, f: 1, u: 0), (g: 49, c: 0, p: 352, f: 3, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr17 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr5 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000195.6 (1 sequence[s]), Genome from Sus_scrofa with 1 chromosomes: CM000823.4 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578332.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009279.2 (1 sequence[s]), Genome from Crocidura_indochinensis with 1 chromosomes: CroInd_scaffold_223520 (1 sequence[s]), Genome from Erinaceus_europaeus with 1 chromosomes: JH835297.1 (1 sequence[s]), Genome from Condylura_cristata with 1 chromosomes: JH655894.1 (1 sequence[s]), Genome from Tamandua_tetradactyla with 1 chromosomes: TamTet_scaffold_141823 (1 sequence[s]), Genome from Artibeus_jamaicensis with 1 chromosomes: ArtJam_scaffold_65138 (1 sequence[s]), Genome from Solenodon_paradoxus with 1 chromosomes: SolPar_flattened_line_7283 (1 sequence[s]), Genome from Craseonycteris_thonglongyai with 1 chromosomes: CraTho_scaffold_11656 (1 sequence[s]), Genome from Sorex_araneus with 1 chromosomes: JH798159.1 (1 sequence[s]), Genome from Lasiurus_borealis with 1 chromosomes: LasBor_scaffold_5926 (1 sequence[s]), Genome from Uropsilus_gracilis with 1 chromosomes: UroGra_scaffold_26043 (1 sequence[s]), Genome from Rousettus_aegyptiacus with 1 chromosomes: RouAeg_scaffold_23538 (1 sequence[s]), Genome from Galeopterus_variegatus with 1 chromosomes: GalVar_scaffold_26862 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN270019.1 (1 sequence[s]), Genome from Noctilio_leporinus with 1 chromosomes: NocLep_scaffold_9870 (1 sequence[s]), Genome from Equus_caballus with 1 chromosomes: CM000387.2 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH418054.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_32220 (1 sequence[s]), Genome from Suricata_suricatta with 1 chromosomes: SurSur_flattened_line_22098 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000208.1 (1 sequence[s]), Genome from Tadarida_brasiliensis with 1 chromosomes: TadBra_scaffold_52395 (1 sequence[s]), Genome from Choloepus_hoffmanni with 1 chromosomes: KN184916.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_9682 (1 sequence[s]), Genome from Hippopotamus_amphibius with 1 chromosomes: HipAmp_scaffold_914 (1 sequence[s]), Genome from Spilogale_gracilis with 1 chromosomes: SpiGra_flattened_line_36868 (1 sequence[s]), Genome from Scalopus_aquaticus with 1 chromosomes: ScaAqu_scaffold_29484 (1 sequence[s]), Genome from Tapirus_terrestris with 1 chromosomes: TapTer_scaffold_5516 (1 sequence[s]), Genome from Micronycteris_hirsuta with 1 chromosomes: MicHir_scaffold_56525 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000642.1 (1 sequence[s]), Genome from Catagonus_wagneri with 1 chromosomes: CatWag_scaffold_34402 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000407.1 (1 sequence[s]), Genome from Kogia_breviceps with 1 chromosomes: KogBre_flattened_line_69783 (1 sequence[s]), Genome from Tonatia_saurophila with 1 chromosomes: TonSau_scaffold_22111 (1 sequence[s]), Genome from Hyaena_hyaena with 1 chromosomes: HyaHya_flattened_line_62853 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010001542.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672382.1 (1 sequence[s]), Genome from Macroglossus_sobrinus with 1 chromosomes: MacSob_scaffold_16280 (1 sequence[s]), Genome from Anoura_caudifer with 1 chromosomes: AnoCau_scaffold_20251 (1 sequence[s]), Genome from Zalophus_californianus with 1 chromosomes: ZalCal_flattened_line_41347 (1 sequence[s]), Genome from Antilocapra_americana with 1 chromosomes: AntAmePen_scaffold_3779 (1 sequence[s]), Genome from Odocoileus_virginianus with 1 chromosomes: KZ102657.1 (1 sequence[s]), Genome from Eidolon_helvum with 1 chromosomes: KE763832.1 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB110675.1 (1 sequence[s]), Genome from Moschus_moschiferus with 1 chromosomes: MosMos_scaffold_21214 (1 sequence[s]), Genome from Okapia_johnstoni with 1 chromosomes: LVCL01S0011160.1 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:25:05,712 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:25:05,716 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:25:06,060 DEBUG: Error closing: fp
+2023-10-13 17:25:06,062 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 1 = 1.0
+2023-10-13 17:25:06,063 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0
+2023-10-13 17:25:07,449 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 2224910.0 *
+2023-10-13 17:25:07,450 INFO: [dataset.backGroundAAFreqs] >>> C 0.0349
+2023-10-13 17:25:07,451 INFO: [dataset.backGroundAAFreqs] >>> K 0.0598
+2023-10-13 17:25:07,452 INFO: [dataset.backGroundAAFreqs] >>> E 0.0350
+2023-10-13 17:25:07,453 INFO: [dataset.backGroundAAFreqs] >>> W 0.0145
+2023-10-13 17:25:07,454 INFO: [dataset.backGroundAAFreqs] >>> T 0.0515
+2023-10-13 17:25:07,455 INFO: [dataset.backGroundAAFreqs] >>> G 0.0377
+2023-10-13 17:25:07,457 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0415
+2023-10-13 17:25:07,458 INFO: [dataset.backGroundAAFreqs] >>> A 0.0327
+2023-10-13 17:25:07,459 INFO: [dataset.backGroundAAFreqs] >>> I 0.0731
+2023-10-13 17:25:07,460 INFO: [dataset.backGroundAAFreqs] >>> N 0.0465
+2023-10-13 17:25:07,460 INFO: [dataset.backGroundAAFreqs] >>> V 0.0516
+2023-10-13 17:25:07,461 INFO: [dataset.backGroundAAFreqs] >>> H 0.0342
+2023-10-13 17:25:07,462 INFO: [dataset.backGroundAAFreqs] >>> S 0.0887
+2023-10-13 17:25:07,463 INFO: [dataset.backGroundAAFreqs] >>> D 0.0239
+2023-10-13 17:25:07,464 INFO: [dataset.backGroundAAFreqs] >>> F 0.0597
+2023-10-13 17:25:07,464 INFO: [dataset.backGroundAAFreqs] >>> M 0.0214
+2023-10-13 17:25:07,465 INFO: [dataset.backGroundAAFreqs] >>> R 0.0423
+2023-10-13 17:25:07,466 INFO: [dataset.backGroundAAFreqs] >>> L 0.1136
+2023-10-13 17:25:07,467 INFO: [dataset.backGroundAAFreqs] >>> P 0.0377
+2023-10-13 17:25:07,468 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0367
+2023-10-13 17:25:07,469 INFO: [dataset.backGroundAAFreqs] >>> * 0.0632
+2023-10-13 17:25:11,275 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 200
+2023-10-13 17:25:11,313 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:25:11,315 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:25:11,316 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:25:13,456 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(200,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:25:13,468 DEBUG: [model.getR] >>> Q: [0.03485849 0.05982849 0.03498883 0.014508   0.05149601 0.03765366
+ 0.04145606 0.0326993  0.07306543 0.04648817 0.05155714 0.03423419
+ 0.08869617 0.02387602 0.0597359  0.02143188 0.04227991 0.11358797
+ 0.03767074 0.03667204 0.06321559]
+2023-10-13 17:25:13,500 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:25:13,519 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:25:13,537 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:25:13,728 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(200,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:25:13,741 DEBUG: [model.getR] >>> Q: [0.03485849 0.05982849 0.03498883 0.014508   0.05149601 0.03765366
+ 0.04145606 0.0326993  0.07306543 0.04648817 0.05155714 0.03423419
+ 0.08869617 0.02387602 0.0597359  0.02143188 0.04227991 0.11358797
+ 0.03767074 0.03667204 0.06321559]
+2023-10-13 17:25:13,774 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:25:13,794 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:25:13,814 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:25:19,389 INFO: [model.train_reporting] >>> epoch 0 best profile 41 with mean loss -312914.0
+2023-10-13 17:25:19,410 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = 109.3919 max R: 4.233 min R: -13.816 time: 6.21

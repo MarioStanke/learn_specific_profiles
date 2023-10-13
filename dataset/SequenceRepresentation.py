@@ -525,7 +525,7 @@ class Genome:
     
     def addSequence(self, sequence: Sequence):
         """ Adds a Sequence to the genome and performs checks to ensure that the genome is valid. """
-        assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
+        #assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
         if self.species is None:
             self.species = sequence.species
         else:

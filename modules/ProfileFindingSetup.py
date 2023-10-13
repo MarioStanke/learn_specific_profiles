@@ -253,6 +253,14 @@ class ProfileFindingTrainingSetup:
     n_best_profiles: int = 2 # number of best profiles to report
     lossStrategy: str = 'experiment' #'score' #'experiment' #'softmax'
 
+    # use prior knowledge on amino acid similarity
+    phylo_t = 0.0 # values in [0, 250] are reasonable (0.0 means no prior knowledge)
+    # time a CTMC evolves from the parameter profile P to the profile
+    # that is used for scoring/searching
+    # if t==0.0 this prior knowledge is not used
+    # requires amino acid alphabet, in particular k=20
+
+
     # do not set manually, gets calculated automatically
     steps_per_epoch: int = None
     initProfiles: np.ndarray = None

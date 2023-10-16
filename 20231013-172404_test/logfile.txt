@@ -373,3 +373,535 @@
 2023-10-13 17:25:13,814 DEBUG: [model.getZ] >>> nan in Z
 2023-10-13 17:25:19,389 INFO: [model.train_reporting] >>> epoch 0 best profile 41 with mean loss -312914.0
 2023-10-13 17:25:19,410 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = 109.3919 max R: 4.233 min R: -13.816 time: 6.21
+2023-10-13 17:26:16,042 INFO: [model.train_reporting] >>> epoch 10 best profile 156 with mean loss -317171.9375
+2023-10-13 17:26:16,063 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -1747.8816 max R: 4.233 min R: -13.816 time: 62.87
+2023-10-13 17:27:12,444 INFO: [model.train_reporting] >>> epoch 20 best profile 156 with mean loss -332657.25
+2023-10-13 17:27:12,466 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -2178.8057 max R: 4.233 min R: -13.816 time: 119.27
+2023-10-13 17:27:46,443 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:27:46,443 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:28:09,368 INFO: [model.train_reporting] >>> epoch 30 best profile 156 with mean loss -339667.0
+2023-10-13 17:28:09,387 INFO: [model.train_reporting] >>> epoch    30 profile loss sum = -2313.5505 max R: 4.233 min R: -13.816 time: 176.19
+2023-10-13 17:29:06,867 INFO: [model.train_reporting] >>> epoch 40 best profile 156 with mean loss -340046.78125
+2023-10-13 17:29:06,890 INFO: [model.train_reporting] >>> epoch    40 profile loss sum = -2474.6963 max R: 4.233 min R: -13.816 time: 233.69
+2023-10-13 17:29:41,184 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 1.5 to 1.125
+2023-10-13 17:29:41,184 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.125
+2023-10-13 17:30:03,680 INFO: [model.train_reporting] >>> epoch 50 best profile 156 with mean loss -351642.6875
+2023-10-13 17:30:03,702 INFO: [model.train_reporting] >>> epoch    50 profile loss sum = -2569.2268 max R: 4.233 min R: -13.816 time: 290.50
+2023-10-13 17:31:01,389 INFO: [model.train_reporting] >>> epoch 60 best profile 156 with mean loss -352797.625
+2023-10-13 17:31:01,411 INFO: [model.train_reporting] >>> epoch    60 profile loss sum = -2790.1047 max R: 4.233 min R: -13.816 time: 348.21
+2023-10-13 17:31:59,160 INFO: [model.train_reporting] >>> epoch 70 best profile 156 with mean loss -354196.0625
+2023-10-13 17:31:59,184 INFO: [model.train_reporting] >>> epoch    70 profile loss sum = -2711.5723 max R: 4.233 min R: -13.816 time: 405.98
+2023-10-13 17:32:57,139 INFO: [model.train_reporting] >>> epoch 80 best profile 156 with mean loss -356519.03125
+2023-10-13 17:32:57,161 INFO: [model.train_reporting] >>> epoch    80 profile loss sum = -2990.4722 max R: 4.233 min R: -13.816 time: 463.96
+2023-10-13 17:33:53,264 INFO: [model.train_reporting] >>> epoch 90 best profile 156 with mean loss -354589.53125
+2023-10-13 17:33:53,286 INFO: [model.train_reporting] >>> epoch    90 profile loss sum = -3133.6384 max R: 4.233 min R: -13.816 time: 520.09
+2023-10-13 17:34:49,157 INFO: [model.train_reporting] >>> epoch 100 best profile 156 with mean loss -351695.375
+2023-10-13 17:34:49,181 INFO: [model.train_reporting] >>> epoch   100 profile loss sum = -3106.2913 max R: 4.233 min R: -13.816 time: 575.98
+2023-10-13 17:35:44,794 INFO: [model.train_reporting] >>> epoch 110 best profile 156 with mean loss -352598.4375
+2023-10-13 17:35:44,814 INFO: [model.train_reporting] >>> epoch   110 profile loss sum = -3214.9426 max R: 4.233 min R: -13.816 time: 631.62
+2023-10-13 17:36:42,647 INFO: [model.train_reporting] >>> epoch 120 best profile 156 with mean loss -354110.96875
+2023-10-13 17:36:42,667 INFO: [model.train_reporting] >>> epoch   120 profile loss sum = -3356.0061 max R: 4.233 min R: -13.816 time: 689.47
+2023-10-13 17:36:42,667 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 1.125 to 0.84375
+2023-10-13 17:36:42,667 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 0.84375
+2023-10-13 17:37:40,427 INFO: [model.train_reporting] >>> epoch 130 best profile 156 with mean loss -363482.78125
+2023-10-13 17:37:40,449 INFO: [model.train_reporting] >>> epoch   130 profile loss sum = -3611.3623 max R: 4.233 min R: -13.816 time: 747.25
+2023-10-13 17:38:37,352 INFO: [model.train_reporting] >>> epoch 140 best profile 156 with mean loss -365150.34375
+2023-10-13 17:38:37,376 INFO: [model.train_reporting] >>> epoch   140 profile loss sum = -3849.4170 max R: 4.233 min R: -13.816 time: 804.18
+2023-10-13 17:39:33,054 INFO: [model.train_reporting] >>> epoch 150 best profile 156 with mean loss -364049.03125
+2023-10-13 17:39:33,074 INFO: [model.train_reporting] >>> epoch   150 profile loss sum = -3984.8206 max R: 4.233 min R: -13.816 time: 859.88
+2023-10-13 17:40:30,215 INFO: [model.train_reporting] >>> epoch 160 best profile 156 with mean loss -364646.9375
+2023-10-13 17:40:30,237 INFO: [model.train_reporting] >>> epoch   160 profile loss sum = -4062.1763 max R: 4.233 min R: -13.816 time: 917.04
+2023-10-13 17:41:26,042 INFO: [model.train_reporting] >>> epoch 170 best profile 156 with mean loss -363526.875
+2023-10-13 17:41:26,063 INFO: [model.train_reporting] >>> epoch   170 profile loss sum = -4070.8645 max R: 4.233 min R: -13.816 time: 972.86
+2023-10-13 17:42:22,322 INFO: [model.train_reporting] >>> epoch 180 best profile 156 with mean loss -363355.09375
+2023-10-13 17:42:22,340 INFO: [model.train_reporting] >>> epoch   180 profile loss sum = -4142.2744 max R: 4.233 min R: -13.816 time: 1029.15
+2023-10-13 17:42:50,781 INFO: [model.train_reporting] >>> epoch 185 best profile 156 with mean loss-363639.09375
+2023-10-13 17:42:50,781 INFO: [model.train_reporting] >>> cleaning up profile 156
+2023-10-13 17:43:02,665 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:43:02,666 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:43:02,667 INFO: [training.trainAndEvaluate] >>> Training time: 1071.35
+2023-10-13 17:43:02,990 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598a0d9070>
+2023-10-13 17:43:02,990 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598a0d9070> on colorbar
+2023-10-13 17:43:02,990 DEBUG: Setting pcolormesh
+2023-10-13 17:43:06,976 DEBUG: [training.trainAndEvaluate] >>> sites: [[    9     0  3194     0     2]
+ [   26     0  4104     0     0]
+ [   10     0  5473     0     1]
+ [   21     0  5838     0     0]
+ [   19     0  6126     0     0]
+ [   29     0  6454     0     1]
+ [   30     0  6262     0     1]
+ [   39     0  6748     0     1]
+ [   44     0  6493     0     1]
+ [   36     0 49646     0     3]
+ [   12     0 56580     0     4]
+ [   16     0 40789     0     3]
+ [   18     0 40554     0     4]
+ [    6     0 61798     0     5]
+ [   31     0 64669     0     4]
+ [    2     0 74525     0     4]
+ [    7     0 41280     0     5]
+ [   11     0 39197     0     3]
+ [   27     0 59173     0     3]
+ [   47     0  5122     0     5]]
+2023-10-13 17:43:06,977 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 9135, f: 0, u: 0), (g: 1, c: 0, p: 7168, f: 1, u: 0), (g: 2, c: 0, p: 74525, f: 4, u: 0), (g: 4, c: 0, p: 9191, f: 2, u: 0), (g: 5, c: 0, p: 9098, f: 2, u: 0), (g: 6, c: 0, p: 61798, f: 5, u: 0), (g: 7, c: 0, p: 41280, f: 5, u: 0), (g: 8, c: 0, p: 7305, f: 0, u: 0), (g: 9, c: 0, p: 3194, f: 2, u: 0), (g: 10, c: 0, p: 5473, f: 1, u: 0), (g: 11, c: 0, p: 39197, f: 3, u: 0), (g: 12, c: 0, p: 56580, f: 4, u: 0), (g: 13, c: 0, p: 7123, f: 1, u: 0), (g: 14, c: 0, p: 8583, f: 0, u: 0), (g: 16, c: 0, p: 40789, f: 3, u: 0), (g: 17, c: 0, p: 48669, f: 3, u: 0), (g: 18, c: 0, p: 40554, f: 4, u: 0), (g: 19, c: 0, p: 6126, f: 0, u: 0), (g: 20, c: 0, p: 43466, f: 3, u: 0), (g: 21, c: 0, p: 5838, f: 0, u: 0), (g: 22, c: 0, p: 9323, f: 2, u: 0), (g: 23, c: 0, p: 49818, f: 4, u: 0), (g: 24, c: 0, p: 40118, f: 5, u: 0), (g: 25, c: 0, p: 7483, f: 1, u: 0), (g: 26, c: 0, p: 4104, f: 0, u: 0), (g: 27, c: 0, p: 59173, f: 3, u: 0), (g: 29, c: 0, p: 6454, f: 1, u: 0), (g: 30, c: 0, p: 6262, f: 1, u: 0), (g: 31, c: 0, p: 64669, f: 4, u: 0), (g: 32, c: 0, p: 45361, f: 3, u: 0), (g: 34, c: 0, p: 8462, f: 2, u: 0), (g: 35, c: 0, p: 36725, f: 5, u: 0), (g: 36, c: 0, p: 49646, f: 3, u: 0), (g: 37, c: 0, p: 13439, f: 2, u: 0), (g: 38, c: 0, p: 7024, f: 1, u: 0), (g: 39, c: 0, p: 6748, f: 1, u: 0), (g: 40, c: 0, p: 12682, f: 1, u: 0), (g: 41, c: 0, p: 45703, f: 4, u: 0), (g: 42, c: 0, p: 32591, f: 2, u: 0), (g: 43, c: 0, p: 43254, f: 4, u: 0), (g: 44, c: 0, p: 6493, f: 1, u: 0), (g: 45, c: 0, p: 9960, f: 0, u: 0), (g: 46, c: 0, p: 8118, f: 0, u: 0), (g: 47, c: 0, p: 5122, f: 5, u: 0), (g: 48, c: 0, p: 9911, f: 2, u: 0), (g: 49, c: 0, p: 57092, f: 5, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr2 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr19 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000178.7 (1 sequence[s]), Genome from Sus_scrofa with 1 chromosomes: CM000826.4 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578339.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009264.2 (1 sequence[s]), Genome from Erinaceus_europaeus with 1 chromosomes: JH835546.1 (1 sequence[s]), Genome from Condylura_cristata with 1 chromosomes: JH655879.1 (1 sequence[s]), Genome from Solenodon_paradoxus with 1 chromosomes: SolPar_flattened_line_676 (1 sequence[s]), Genome from Sorex_araneus with 1 chromosomes: JH798328.1 (1 sequence[s]), Genome from Rousettus_aegyptiacus with 1 chromosomes: RouAeg_scaffold_595 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN270783.1 (1 sequence[s]), Genome from Noctilio_leporinus with 1 chromosomes: NocLep_scaffold_10472 (1 sequence[s]), Genome from Equus_caballus with 1 chromosomes: CM000394.2 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH418069.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_7154 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000275.1 (1 sequence[s]), Genome from Choloepus_hoffmanni with 1 chromosomes: KN194835.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_10997 (1 sequence[s]), Genome from Scalopus_aquaticus with 1 chromosomes: ScaAqu_scaffold_4566 (1 sequence[s]), Genome from Tapirus_terrestris with 1 chromosomes: TapTer_scaffold_4098 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000358.1 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000150.1 (1 sequence[s]), Genome from Kogia_breviceps with 1 chromosomes: KogBre_flattened_line_5925 (1 sequence[s]), Genome from Hyaena_hyaena with 1 chromosomes: HyaHya_flattened_line_2828 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010000814.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672467.1 (1 sequence[s]), Genome from Macroglossus_sobrinus with 1 chromosomes: MacSob_scaffold_569 (1 sequence[s]), Genome from Zalophus_californianus with 1 chromosomes: ZalCal_flattened_line_97 (1 sequence[s]), Genome from Odocoileus_virginianus with 1 chromosomes: KZ100652.1 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB103143.1 (1 sequence[s]), Genome from Pteropus_vampyrus with 1 chromosomes: KN525734.1 (1 sequence[s]), Genome from Mellivora_capensis with 1 chromosomes: MelCap_flattened_line_17541 (1 sequence[s]), Genome from Capra_aegagrus with 1 chromosomes: CM003215.1 (1 sequence[s]), Genome from Eptesicus_fuscus with 1 chromosomes: JH977631.1 (1 sequence[s]), Genome from Aotus_nancymaae with 1 chromosomes: KZ207949.1 (1 sequence[s]), Genome from Hipposideros_armiger with 1 chromosomes: JXIK01000674.1 (1 sequence[s]), Genome from Mus_musculus with 1 chromosomes: chr1 (1 sequence[s]), Genome from Felis_catus with 1 chromosomes: CM001385.2 (1 sequence[s]), Genome from Rattus_norvegicus with 1 chromosomes: chr13 (1 sequence[s]), Genome from Ochotona_princeps with 1 chromosomes: JH802098.1 (1 sequence[s]), Genome from Perognathus_longimembris with 1 chromosomes: PerPac_flattened_line_6840 (1 sequence[s]), Genome from Elephantulus_edwardii with 1 chromosomes: JH947272.1 (1 sequence[s]), Genome from Jaculus_jaculus with 1 chromosomes: JH725546.1 (1 sequence[s]), Genome from Ctenodactylus_gundi with 1 chromosomes: CteGun_scaffold_227 (1 sequence[s]), Genome from Tupaia_chinensis with 1 chromosomes: KB368231.1 (1 sequence[s]), Genome from Marmota_marmota with 1 chromosomes: CZRN01000006.1 (1 sequence[s]), Genome from Petromus_typicus with 1 chromosomes: PetTyp_scaffold_16346 (1 sequence[s]), Genome from Otolemur_garnettii with 1 chromosomes: GL873599.1 (1 sequence[s]), Genome from Nannospalax_galili with 1 chromosomes: KL200919.1 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:43:06,977 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:43:06,980 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:43:07,330 DEBUG: Error closing: fp
+2023-10-13 17:43:07,330 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 1 = 1.0
+2023-10-13 17:43:07,330 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0
+2023-10-13 17:43:07,407 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 199692.0 *
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> C 0.0332
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> K 0.0642
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> E 0.0371
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> W 0.0158
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> T 0.0523
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> G 0.0512
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0309
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> A 0.0389
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> I 0.0551
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> N 0.0418
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> V 0.0523
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> H 0.0310
+2023-10-13 17:43:07,408 INFO: [dataset.backGroundAAFreqs] >>> S 0.0886
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> D 0.0214
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> F 0.0638
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> M 0.0177
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> R 0.0515
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> L 0.1103
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> P 0.0513
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0370
+2023-10-13 17:43:07,409 INFO: [dataset.backGroundAAFreqs] >>> * 0.0548
+2023-10-13 17:43:07,680 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 160
+2023-10-13 17:43:07,680 WARNING: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> 160 profiles initialized, but 200 requested. Resetting U to 160
+2023-10-13 17:43:07,686 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:43:07,686 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:43:07,687 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:43:08,226 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(160,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:43:08,239 DEBUG: [model.getR] >>> Q: [0.03318611 0.06417883 0.03705707 0.01575927 0.0522705  0.05124892
+ 0.03091761 0.03892494 0.05512489 0.0418194  0.05229554 0.03097771
+ 0.08855638 0.02139795 0.06378323 0.01769225 0.05149931 0.11025479
+ 0.05125894 0.03696192 0.05483444]
+2023-10-13 17:43:08,267 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:43:08,287 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:43:08,304 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:43:08,474 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(160,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:43:08,485 DEBUG: [model.getR] >>> Q: [0.03318611 0.06417883 0.03705707 0.01575927 0.0522705  0.05124892
+ 0.03091761 0.03892494 0.05512489 0.0418194  0.05229554 0.03097771
+ 0.08855638 0.02139795 0.06378323 0.01769225 0.05149931 0.11025479
+ 0.05125894 0.03696192 0.05483444]
+2023-10-13 17:43:08,509 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:43:08,525 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:43:08,543 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:43:09,206 INFO: [model.train_reporting] >>> epoch 0 best profile 30 with mean loss -2883052.75
+2023-10-13 17:43:09,223 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = -372327.5312 max R: 4.143 min R: -5.876 time: 1.15
+2023-10-13 17:43:12,895 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:43:12,895 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:43:14,490 INFO: [model.train_reporting] >>> epoch 10 best profile 30 with mean loss -2986288.5
+2023-10-13 17:43:14,503 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -394772.1250 max R: 4.150 min R: -13.816 time: 6.43
+2023-10-13 17:43:19,888 INFO: [model.train_reporting] >>> epoch 20 best profile 30 with mean loss -2981505.25
+2023-10-13 17:43:19,903 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -398885.7500 max R: 4.150 min R: -13.816 time: 11.83
+2023-10-13 17:43:24,114 INFO: [model.train_reporting] >>> epoch 28 best profile 30 with mean loss-2981478.0
+2023-10-13 17:43:24,115 INFO: [model.train_reporting] >>> cleaning up profile 30
+2023-10-13 17:43:24,963 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:43:24,963 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:43:24,965 INFO: [training.trainAndEvaluate] >>> Training time: 17.28
+2023-10-13 17:43:25,273 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f599da5ff10>
+2023-10-13 17:43:25,273 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f599da5ff10> on colorbar
+2023-10-13 17:43:25,273 DEBUG: Setting pcolormesh
+2023-10-13 17:43:26,060 DEBUG: [training.trainAndEvaluate] >>> sites: [[  21    0  936    0    0]
+ [   2    0 1877    0    2]
+ [  10    0 1915    0    1]
+ [  11    0 1645    0    1]
+ [  14    0 1763    0    2]
+ [  17    0 1886    0    2]
+ [  19    0 1883    0    2]
+ [  22    0 1741    0    1]
+ [  23    0 1821    0    0]
+ [  24    0 1742    0    2]
+ [  29    0 1705    0    1]
+ [  30    0 1742    0    2]
+ [  31    0 1918    0    1]
+ [  33    0 1485    0    0]
+ [  37    0 1940    0    2]
+ [  40    0 1825    0    1]
+ [  47    0 1751    0    2]
+ [  48    0 1832    0    2]
+ [   6    0 2249    0    2]
+ [  18    0 2030    0    2]]
+2023-10-13 17:43:26,061 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 565, f: 4, u: 0), (g: 1, c: 0, p: 567, f: 3, u: 0), (g: 2, c: 0, p: 1877, f: 2, u: 0), (g: 3, c: 0, p: 645, f: 3, u: 0), (g: 4, c: 0, p: 565, f: 5, u: 0), (g: 5, c: 0, p: 565, f: 4, u: 0), (g: 6, c: 0, p: 2249, f: 2, u: 0), (g: 7, c: 0, p: 4281, f: 0, u: 0), (g: 8, c: 0, p: 554, f: 3, u: 0), (g: 9, c: 0, p: 490, f: 4, u: 0), (g: 10, c: 0, p: 1915, f: 1, u: 0), (g: 11, c: 0, p: 1645, f: 1, u: 0), (g: 12, c: 0, p: 989, f: 4, u: 0), (g: 13, c: 0, p: 547, f: 4, u: 0), (g: 14, c: 0, p: 1763, f: 2, u: 0), (g: 15, c: 0, p: 578, f: 4, u: 0), (g: 16, c: 0, p: 575, f: 5, u: 0), (g: 17, c: 0, p: 1886, f: 2, u: 0), (g: 18, c: 0, p: 2030, f: 2, u: 0), (g: 19, c: 0, p: 1883, f: 2, u: 0), (g: 20, c: 0, p: 553, f: 4, u: 0), (g: 21, c: 0, p: 936, f: 0, u: 0), (g: 22, c: 0, p: 1741, f: 1, u: 0), (g: 23, c: 0, p: 1821, f: 0, u: 0), (g: 24, c: 0, p: 1742, f: 2, u: 0), (g: 25, c: 0, p: 582, f: 3, u: 0), (g: 26, c: 0, p: 2230, f: 1, u: 0), (g: 27, c: 0, p: 1107, f: 4, u: 0), (g: 28, c: 0, p: 569, f: 4, u: 0), (g: 29, c: 0, p: 1705, f: 1, u: 0), (g: 30, c: 0, p: 1742, f: 2, u: 0), (g: 31, c: 0, p: 1918, f: 1, u: 0), (g: 32, c: 0, p: 533, f: 5, u: 0), (g: 33, c: 0, p: 1485, f: 0, u: 0), (g: 34, c: 0, p: 547, f: 3, u: 0), (g: 35, c: 0, p: 2259, f: 0, u: 0), (g: 36, c: 0, p: 806, f: 4, u: 0), (g: 37, c: 0, p: 1940, f: 2, u: 0), (g: 38, c: 0, p: 572, f: 4, u: 0), (g: 39, c: 0, p: 548, f: 4, u: 0), (g: 40, c: 0, p: 1825, f: 1, u: 0), (g: 41, c: 0, p: 720, f: 4, u: 0), (g: 42, c: 0, p: 720, f: 5, u: 0), (g: 43, c: 0, p: 576, f: 3, u: 0), (g: 44, c: 0, p: 951, f: 5, u: 0), (g: 45, c: 0, p: 709, f: 5, u: 0), (g: 46, c: 0, p: 734, f: 3, u: 0), (g: 47, c: 0, p: 1751, f: 2, u: 0), (g: 48, c: 0, p: 1832, f: 2, u: 0), (g: 49, c: 0, p: 579, f: 5, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr3 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr23 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000177.6 (1 sequence[s]), Genome from Sus_scrofa with 1 chromosomes: CM000824.4 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578340.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009265.2 (1 sequence[s]), Genome from Crocidura_indochinensis with 1 chromosomes: CroInd_scaffold_245268 (1 sequence[s]), Genome from Erinaceus_europaeus with 1 chromosomes: JH835607.1 (1 sequence[s]), Genome from Artibeus_jamaicensis with 1 chromosomes: ArtJam_scaffold_6958 (1 sequence[s]), Genome from Solenodon_paradoxus with 1 chromosomes: SolPar_flattened_line_954 (1 sequence[s]), Genome from Craseonycteris_thonglongyai with 1 chromosomes: CraTho_scaffold_36995 (1 sequence[s]), Genome from Sorex_araneus with 1 chromosomes: JH798155.1 (1 sequence[s]), Genome from Lasiurus_borealis with 1 chromosomes: LasBor_scaffold_165224 (1 sequence[s]), Genome from Uropsilus_gracilis with 1 chromosomes: UroGra_scaffold_25625 (1 sequence[s]), Genome from Rousettus_aegyptiacus with 1 chromosomes: RouAeg_scaffold_1579 (1 sequence[s]), Genome from Galeopterus_variegatus with 1 chromosomes: GalVar_scaffold_63998 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN269241.1 (1 sequence[s]), Genome from Noctilio_leporinus with 1 chromosomes: NocLep_scaffold_3097 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH417980.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_520 (1 sequence[s]), Genome from Suricata_suricatta with 1 chromosomes: SurSur_flattened_line_2933 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000093.1 (1 sequence[s]), Genome from Tadarida_brasiliensis with 1 chromosomes: TadBra_scaffold_38581 (1 sequence[s]), Genome from Choloepus_hoffmanni with 1 chromosomes: KN183963.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_23433 (1 sequence[s]), Genome from Hippopotamus_amphibius with 1 chromosomes: HipAmp_scaffold_14136 (1 sequence[s]), Genome from Spilogale_gracilis with 1 chromosomes: SpiGra_flattened_line_12322 (1 sequence[s]), Genome from Scalopus_aquaticus with 1 chromosomes: ScaAqu_scaffold_9162 (1 sequence[s]), Genome from Tapirus_terrestris with 1 chromosomes: TapTer_scaffold_17275 (1 sequence[s]), Genome from Micronycteris_hirsuta with 1 chromosomes: MicHir_scaffold_30250 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000041.1 (1 sequence[s]), Genome from Catagonus_wagneri with 1 chromosomes: CatWag_scaffold_5766 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000220.1 (1 sequence[s]), Genome from Kogia_breviceps with 1 chromosomes: KogBre_flattened_line_178279 (1 sequence[s]), Genome from Tonatia_saurophila with 1 chromosomes: TonSau_scaffold_12495 (1 sequence[s]), Genome from Hyaena_hyaena with 1 chromosomes: HyaHya_flattened_line_19422 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010002999.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672422.1 (1 sequence[s]), Genome from Macroglossus_sobrinus with 1 chromosomes: MacSob_scaffold_4800 (1 sequence[s]), Genome from Anoura_caudifer with 1 chromosomes: AnoCau_scaffold_6746 (1 sequence[s]), Genome from Zalophus_californianus with 1 chromosomes: ZalCal_flattened_line_27095 (1 sequence[s]), Genome from Antilocapra_americana with 1 chromosomes: AntAmePen_scaffold_15310 (1 sequence[s]), Genome from Odocoileus_virginianus with 1 chromosomes: KZ100633.1 (1 sequence[s]), Genome from Eidolon_helvum with 1 chromosomes: AWHC01090365.1 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB112110.1 (1 sequence[s]), Genome from Moschus_moschiferus with 1 chromosomes: MosMos_scaffold_41761 (1 sequence[s]), Genome from Okapia_johnstoni with 1 chromosomes: LVCL01S0018336.1 (1 sequence[s]), Genome from Pteropus_vampyrus with 1 chromosomes: KN525718.1 (1 sequence[s]), Genome from Alouatta_palliata with 1 chromosomes: AloPal_scaffold_5908 (1 sequence[s]), Genome from Inia_geoffrensis with 1 chromosomes: IniGeo_flattened_line_62627 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:43:26,061 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:43:26,063 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:43:26,397 DEBUG: Error closing: fp
+2023-10-13 17:43:26,397 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 1 = 1.0
+2023-10-13 17:43:26,398 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 1100442.0 *
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> C 0.0342
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> K 0.0627
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> E 0.0352
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> W 0.0144
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> T 0.0532
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> G 0.0389
+2023-10-13 17:43:27,003 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0386
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> A 0.0333
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> I 0.0677
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> N 0.0458
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> V 0.0533
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> H 0.0320
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> S 0.0891
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> D 0.0233
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> F 0.0624
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> M 0.0187
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> R 0.0452
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> L 0.1141
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> P 0.0389
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0371
+2023-10-13 17:43:27,004 INFO: [dataset.backGroundAAFreqs] >>> * 0.0620
+2023-10-13 17:43:28,711 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 200
+2023-10-13 17:43:28,735 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:43:28,735 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:43:28,736 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:43:29,940 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(200,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:43:29,951 DEBUG: [model.getR] >>> Q: [0.03418263 0.06265573 0.03515678 0.01436059 0.05315864 0.03888528
+ 0.03860994 0.03325028 0.0677237  0.04581341 0.0532904  0.03201441
+ 0.08910692 0.02331609 0.06238402 0.01873974 0.04519366 0.11411324
+ 0.03892799 0.03709237 0.06202417]
+2023-10-13 17:43:29,976 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:43:29,993 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:43:30,010 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:43:30,195 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(200,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:43:30,207 DEBUG: [model.getR] >>> Q: [0.03418263 0.06265573 0.03515678 0.01436059 0.05315864 0.03888528
+ 0.03860994 0.03325028 0.0677237  0.04581341 0.0532904  0.03201441
+ 0.08910692 0.02331609 0.06238402 0.01873974 0.04519366 0.11411324
+ 0.03892799 0.03709237 0.06202417]
+2023-10-13 17:43:30,236 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:43:30,250 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:43:30,265 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:43:32,675 INFO: [model.train_reporting] >>> epoch 0 best profile 160 with mean loss -843932.8125
+2023-10-13 17:43:32,698 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = -8170.0913 max R: 4.240 min R: -11.989 time: 3.01
+2023-10-13 17:43:59,254 INFO: [model.train_reporting] >>> epoch 10 best profile 101 with mean loss -851841.6875
+2023-10-13 17:43:59,276 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -7932.0308 max R: 4.243 min R: -13.816 time: 29.59
+2023-10-13 17:44:26,255 INFO: [model.train_reporting] >>> epoch 20 best profile 160 with mean loss -862742.0
+2023-10-13 17:44:26,279 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -9713.2100 max R: 4.243 min R: -13.816 time: 56.59
+2023-10-13 17:44:53,242 INFO: [model.train_reporting] >>> epoch 30 best profile 160 with mean loss -867973.125
+2023-10-13 17:44:53,266 INFO: [model.train_reporting] >>> epoch    30 profile loss sum = -10295.3438 max R: 4.243 min R: -13.816 time: 83.58
+2023-10-13 17:45:20,217 INFO: [model.train_reporting] >>> epoch 40 best profile 160 with mean loss -870402.6875
+2023-10-13 17:45:20,238 INFO: [model.train_reporting] >>> epoch    40 profile loss sum = -10654.9111 max R: 4.243 min R: -13.816 time: 110.56
+2023-10-13 17:45:46,522 INFO: [model.train_reporting] >>> epoch 50 best profile 160 with mean loss -871447.125
+2023-10-13 17:45:46,545 INFO: [model.train_reporting] >>> epoch    50 profile loss sum = -10813.5332 max R: 4.243 min R: -13.816 time: 136.86
+2023-10-13 17:46:13,181 INFO: [model.train_reporting] >>> epoch 60 best profile 160 with mean loss -869107.3125
+2023-10-13 17:46:13,202 INFO: [model.train_reporting] >>> epoch    60 profile loss sum = -10945.2881 max R: 4.243 min R: -13.816 time: 163.52
+2023-10-13 17:46:39,755 INFO: [model.train_reporting] >>> epoch 70 best profile 161 with mean loss -869486.1875
+2023-10-13 17:46:39,776 INFO: [model.train_reporting] >>> epoch    70 profile loss sum = -11023.3408 max R: 4.243 min R: -13.816 time: 190.09
+2023-10-13 17:47:06,280 INFO: [model.train_reporting] >>> epoch 80 best profile 161 with mean loss -864340.3125
+2023-10-13 17:47:06,299 INFO: [model.train_reporting] >>> epoch    80 profile loss sum = -11109.3066 max R: 4.243 min R: -13.816 time: 216.62
+2023-10-13 17:47:11,596 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:47:11,596 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:47:32,876 INFO: [model.train_reporting] >>> epoch 90 best profile 160 with mean loss -873038.0625
+2023-10-13 17:47:32,895 INFO: [model.train_reporting] >>> epoch    90 profile loss sum = -11151.0215 max R: 4.243 min R: -13.816 time: 243.22
+2023-10-13 17:47:59,744 INFO: [model.train_reporting] >>> epoch 100 best profile 160 with mean loss -873237.625
+2023-10-13 17:47:59,766 INFO: [model.train_reporting] >>> epoch   100 profile loss sum = -11270.7314 max R: 4.243 min R: -13.816 time: 270.08
+2023-10-13 17:48:15,682 INFO: [model.train_reporting] >>> epoch 106 best profile 160 with mean loss-873289.6875
+2023-10-13 17:48:15,682 INFO: [model.train_reporting] >>> cleaning up profile 160
+2023-10-13 17:48:21,332 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:48:21,332 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:48:21,334 INFO: [training.trainAndEvaluate] >>> Training time: 292.60
+2023-10-13 17:48:21,631 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598c42abb0>
+2023-10-13 17:48:21,631 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598c42abb0> on colorbar
+2023-10-13 17:48:21,631 DEBUG: Setting pcolormesh
+2023-10-13 17:48:23,827 DEBUG: [training.trainAndEvaluate] >>> sites: [[   7    0 1798    0    1]
+ [  39    0 1639    0    1]
+ [  46    0 1518    0    0]
+ [   2    0 2315    0    2]
+ [   5    0 2363    0    2]
+ [  25    0 2311    0    1]
+ [  34    0 2297    0    2]
+ [  38    0 2923    0    1]
+ [   1    0 3457    0    1]
+ [   9    0 3899    0    2]
+ [  10    0 3604    0    1]
+ [  20    0 3395    0    2]
+ [  26    0 3788    0    2]
+ [  28    0 3752    0    2]
+ [  42    0 3475    0    1]
+ [   0    0 4430    0    2]
+ [   3    0 4289    0    2]
+ [   4    0 4416    0    0]
+ [   8    0 4938    0    0]
+ [  17    0 4178    0    2]]
+2023-10-13 17:48:23,828 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 4430, f: 2, u: 0), (g: 1, c: 0, p: 3457, f: 1, u: 0), (g: 2, c: 0, p: 2315, f: 2, u: 0), (g: 3, c: 0, p: 4289, f: 2, u: 0), (g: 4, c: 0, p: 4416, f: 0, u: 0), (g: 5, c: 0, p: 2363, f: 2, u: 0), (g: 6, c: 0, p: 16452, f: 4, u: 0), (g: 7, c: 0, p: 1798, f: 1, u: 0), (g: 8, c: 0, p: 4938, f: 0, u: 0), (g: 9, c: 0, p: 3899, f: 2, u: 0), (g: 10, c: 0, p: 3604, f: 1, u: 0), (g: 11, c: 0, p: 18759, f: 3, u: 0), (g: 12, c: 0, p: 21643, f: 4, u: 0), (g: 14, c: 0, p: 12178, f: 1, u: 0), (g: 15, c: 0, p: 43679, f: 3, u: 0), (g: 16, c: 0, p: 19986, f: 5, u: 0), (g: 17, c: 0, p: 4178, f: 2, u: 0), (g: 18, c: 0, p: 4314, f: 0, u: 0), (g: 19, c: 0, p: 14672, f: 4, u: 0), (g: 20, c: 0, p: 3395, f: 2, u: 0), (g: 21, c: 0, p: 23590, f: 4, u: 0), (g: 22, c: 0, p: 31378, f: 5, u: 0), (g: 23, c: 0, p: 22323, f: 5, u: 0), (g: 24, c: 0, p: 19075, f: 4, u: 0), (g: 25, c: 0, p: 2311, f: 1, u: 0), (g: 26, c: 0, p: 3788, f: 2, u: 0), (g: 27, c: 0, p: 26840, f: 3, u: 0), (g: 28, c: 0, p: 3752, f: 2, u: 0), (g: 29, c: 0, p: 18994, f: 4, u: 0), (g: 30, c: 0, p: 23073, f: 4, u: 0), (g: 31, c: 0, p: 23036, f: 3, u: 0), (g: 32, c: 0, p: 5382, f: 0, u: 0), (g: 33, c: 0, p: 16788, f: 3, u: 0), (g: 34, c: 0, p: 2297, f: 2, u: 0), (g: 35, c: 0, p: 26606, f: 3, u: 0), (g: 36, c: 0, p: 19262, f: 3, u: 0), (g: 37, c: 0, p: 4190, f: 2, u: 0), (g: 38, c: 0, p: 2923, f: 1, u: 0), (g: 39, c: 0, p: 1639, f: 1, u: 0), (g: 40, c: 0, p: 21810, f: 3, u: 0), (g: 42, c: 0, p: 3475, f: 1, u: 0), (g: 43, c: 0, p: 5041, f: 1, u: 0), (g: 44, c: 0, p: 28258, f: 5, u: 0), (g: 45, c: 0, p: 18231, f: 5, u: 0), (g: 46, c: 0, p: 1518, f: 0, u: 0), (g: 47, c: 0, p: 27787, f: 4, u: 0), (g: 48, c: 0, p: 12529, f: 4, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr13 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr22 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000188.7 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578328.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009275.2 (1 sequence[s]), Genome from Erinaceus_europaeus with 1 chromosomes: JH835328.1 (1 sequence[s]), Genome from Condylura_cristata with 1 chromosomes: JH655887.1 (1 sequence[s]), Genome from Sorex_araneus with 1 chromosomes: JH798215.1 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN268257.1 (1 sequence[s]), Genome from Equus_caballus with 1 chromosomes: CM000393.2 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH417976.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_290 (1 sequence[s]), Genome from Suricata_suricatta with 1 chromosomes: SurSur_flattened_line_1847 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000025.1 (1 sequence[s]), Genome from Choloepus_hoffmanni with 1 chromosomes: KN189888.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_598 (1 sequence[s]), Genome from Spilogale_gracilis with 1 chromosomes: SpiGra_flattened_line_22750 (1 sequence[s]), Genome from Tapirus_terrestris with 1 chromosomes: TapTer_scaffold_12408 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000396.1 (1 sequence[s]), Genome from Catagonus_wagneri with 1 chromosomes: CatWag_scaffold_27752 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000216.1 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010002488.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672548.1 (1 sequence[s]), Genome from Macroglossus_sobrinus with 1 chromosomes: MacSob_scaffold_653 (1 sequence[s]), Genome from Antilocapra_americana with 1 chromosomes: AntAmePen_scaffold_8906 (1 sequence[s]), Genome from Odocoileus_virginianus with 1 chromosomes: KZ101017.1 (1 sequence[s]), Genome from Eidolon_helvum with 1 chromosomes: KE803624.1 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB106045.1 (1 sequence[s]), Genome from Moschus_moschiferus with 1 chromosomes: MosMos_scaffold_7904 (1 sequence[s]), Genome from Okapia_johnstoni with 1 chromosomes: LVCL01S0003752.1 (1 sequence[s]), Genome from Pteropus_vampyrus with 1 chromosomes: KN525800.1 (1 sequence[s]), Genome from Alouatta_palliata with 1 chromosomes: AloPal_scaffold_21531 (1 sequence[s]), Genome from Inia_geoffrensis with 1 chromosomes: IniGeo_flattened_line_34739 (1 sequence[s]), Genome from Mellivora_capensis with 1 chromosomes: MelCap_flattened_line_16385 (1 sequence[s]), Genome from Capra_aegagrus with 1 chromosomes: CM003226.1 (1 sequence[s]), Genome from Aotus_nancymaae with 1 chromosomes: KZ203741.1 (1 sequence[s]), Genome from Hipposideros_armiger with 1 chromosomes: JXIK01000398.1 (1 sequence[s]), Genome from Mus_musculus with 1 chromosomes: chr14 (1 sequence[s]), Genome from Felis_catus with 1 chromosomes: CM001378.2 (1 sequence[s]), Genome from Rattus_norvegicus with 1 chromosomes: chr15 (1 sequence[s]), Genome from Ochotona_princeps with 1 chromosomes: JH802062.1 (1 sequence[s]), Genome from Elephantulus_edwardii with 1 chromosomes: JH947132.1 (1 sequence[s]), Genome from Jaculus_jaculus with 1 chromosomes: JH725497.1 (1 sequence[s]), Genome from Ctenodactylus_gundi with 1 chromosomes: CteGun_scaffold_4030 (1 sequence[s]), Genome from Tupaia_chinensis with 1 chromosomes: KB320462.1 (1 sequence[s]), Genome from Marmota_marmota with 1 chromosomes: CZRN01000014.1 (1 sequence[s]), Genome from Otolemur_garnettii with 1 chromosomes: GL873553.1 (1 sequence[s]), Genome from Nannospalax_galili with 1 chromosomes: KL200661.1 (1 sequence[s]), Genome from Sigmodon_hispidus with 1 chromosomes: SigHis_scaffold_38237 (1 sequence[s]), Genome from Manis_javanica with 1 chromosomes: JSZB01021169.1 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:48:23,828 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:48:23,832 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:48:24,184 DEBUG: Error closing: fp
+2023-10-13 17:48:24,184 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 2 = 0.5
+2023-10-13 17:48:24,184 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0
+2023-10-13 17:48:24,265 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 180810.0 *
+2023-10-13 17:48:24,265 INFO: [dataset.backGroundAAFreqs] >>> C 0.0385
+2023-10-13 17:48:24,265 INFO: [dataset.backGroundAAFreqs] >>> K 0.0469
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> E 0.0392
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> W 0.0196
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> T 0.0543
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> G 0.0700
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0245
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> A 0.0562
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> I 0.0382
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> N 0.0284
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> V 0.0543
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> H 0.0337
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> S 0.0925
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> D 0.0214
+2023-10-13 17:48:24,266 INFO: [dataset.backGroundAAFreqs] >>> F 0.0457
+2023-10-13 17:48:24,267 INFO: [dataset.backGroundAAFreqs] >>> M 0.0156
+2023-10-13 17:48:24,267 INFO: [dataset.backGroundAAFreqs] >>> R 0.0655
+2023-10-13 17:48:24,267 INFO: [dataset.backGroundAAFreqs] >>> L 0.1051
+2023-10-13 17:48:24,267 INFO: [dataset.backGroundAAFreqs] >>> P 0.0700
+2023-10-13 17:48:24,267 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0401
+2023-10-13 17:48:24,267 INFO: [dataset.backGroundAAFreqs] >>> * 0.0402
+2023-10-13 17:48:24,520 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 37
+2023-10-13 17:48:24,520 WARNING: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> 37 profiles initialized, but 200 requested. Resetting U to 37
+2023-10-13 17:48:24,524 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:48:24,525 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:48:24,526 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:48:24,968 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(37,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:48:24,979 DEBUG: [model.getR] >>> Q: [0.03851004 0.04686135 0.03924562 0.01963387 0.05426138 0.06998507
+ 0.02451192 0.05624136 0.03818926 0.02841104 0.05425585 0.03367623
+ 0.09250595 0.02141475 0.04574415 0.01556883 0.06546098 0.10513799
+ 0.07004037 0.04012499 0.04021901]
+2023-10-13 17:48:25,004 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:48:25,023 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:48:25,041 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:48:25,218 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(37,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:48:25,226 DEBUG: [model.getR] >>> Q: [0.03851004 0.04686135 0.03924562 0.01963387 0.05426138 0.06998507
+ 0.02451192 0.05624136 0.03818926 0.02841104 0.05425585 0.03367623
+ 0.09250595 0.02141475 0.04574415 0.01556883 0.06546098 0.10513799
+ 0.07004037 0.04012499 0.04021901]
+2023-10-13 17:48:25,250 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:48:25,264 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:48:25,280 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:48:25,805 INFO: [model.train_reporting] >>> epoch 0 best profile 7 with mean loss -1168709.625
+2023-10-13 17:48:25,807 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = -70406.1719 max R: 3.906 min R: -5.824 time: 1.04
+2023-10-13 17:48:29,748 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:48:29,748 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:48:31,423 INFO: [model.train_reporting] >>> epoch 10 best profile 11 with mean loss -1242465.625
+2023-10-13 17:48:31,426 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -76335.8438 max R: 3.906 min R: -13.816 time: 6.65
+2023-10-13 17:48:37,472 INFO: [model.train_reporting] >>> epoch 20 best profile 11 with mean loss -1245583.875
+2023-10-13 17:48:37,475 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -76921.2578 max R: 3.918 min R: -13.816 time: 12.70
+2023-10-13 17:48:43,132 INFO: [model.train_reporting] >>> epoch 30 best profile 11 with mean loss -1248865.625
+2023-10-13 17:48:43,134 INFO: [model.train_reporting] >>> epoch    30 profile loss sum = -77224.4922 max R: 3.916 min R: -13.816 time: 18.36
+2023-10-13 17:48:49,000 INFO: [model.train_reporting] >>> epoch 40 best profile 7 with mean loss -1250848.0
+2023-10-13 17:48:49,002 INFO: [model.train_reporting] >>> epoch    40 profile loss sum = -77403.7500 max R: 3.908 min R: -13.816 time: 24.23
+2023-10-13 17:48:54,718 INFO: [model.train_reporting] >>> epoch 50 best profile 7 with mean loss -1252911.5
+2023-10-13 17:48:54,721 INFO: [model.train_reporting] >>> epoch    50 profile loss sum = -77539.1641 max R: 3.907 min R: -13.816 time: 29.95
+2023-10-13 17:49:00,825 INFO: [model.train_reporting] >>> epoch 60 best profile 7 with mean loss -1254310.875
+2023-10-13 17:49:00,827 INFO: [model.train_reporting] >>> epoch    60 profile loss sum = -77636.0938 max R: 3.908 min R: -13.816 time: 36.06
+2023-10-13 17:49:06,417 INFO: [model.train_reporting] >>> epoch 70 best profile 7 with mean loss -1255469.875
+2023-10-13 17:49:06,419 INFO: [model.train_reporting] >>> epoch    70 profile loss sum = -77713.3438 max R: 3.908 min R: -13.816 time: 41.65
+2023-10-13 17:49:12,121 INFO: [model.train_reporting] >>> epoch 80 best profile 7 with mean loss -1256345.625
+2023-10-13 17:49:12,123 INFO: [model.train_reporting] >>> epoch    80 profile loss sum = -77770.1172 max R: 3.908 min R: -13.816 time: 47.35
+2023-10-13 17:49:17,919 INFO: [model.train_reporting] >>> epoch 90 best profile 7 with mean loss -1257015.75
+2023-10-13 17:49:17,922 INFO: [model.train_reporting] >>> epoch    90 profile loss sum = -77813.2969 max R: 3.908 min R: -13.816 time: 53.15
+2023-10-13 17:49:23,770 INFO: [model.train_reporting] >>> epoch 100 best profile 7 with mean loss-1257541.0
+2023-10-13 17:49:23,771 INFO: [model.train_reporting] >>> cleaning up profile 7
+2023-10-13 17:49:24,865 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:49:24,865 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:49:24,870 INFO: [model.train_reporting] >>> epoch 100 best profile 7 with mean loss -1257541.0
+2023-10-13 17:49:24,872 INFO: [model.train_reporting] >>> epoch   100 profile loss sum = -39482.4922 max R: 3.841 min R: -2.035 time: 60.10
+2023-10-13 17:49:24,874 INFO: [training.trainAndEvaluate] >>> Training time: 60.35
+2023-10-13 17:49:25,155 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f59872155e0>
+2023-10-13 17:49:25,155 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f59872155e0> on colorbar
+2023-10-13 17:49:25,155 DEBUG: Setting pcolormesh
+2023-10-13 17:49:27,178 DEBUG: [training.trainAndEvaluate] >>> sites: [[  10    0  535    0    1]
+ [   8    0 1046    0    2]
+ [  12    0 1270    0    1]
+ [  15    0 1305    0    0]
+ [  20    0 1080    0    0]
+ [  23    0 1066    0    1]
+ [  30    0 1250    0    2]
+ [  32    0 1099    0    1]
+ [  34    0 1098    0    0]
+ [  38    0 1082    0    2]
+ [  39    0 1060    0    1]
+ [  40    0 1185    0    0]
+ [  43    0 1110    0    0]
+ [  46    0 1057    0    1]
+ [  47    0 1149    0    0]
+ [   0    0 1968    0    3]
+ [   2    0 1133    0    4]
+ [   3    0 1606    0    3]
+ [   4    0 1969    0    5]
+ [   5    0 1972    0    4]]
+2023-10-13 17:49:27,179 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 1968, f: 3, u: 0), (g: 2, c: 0, p: 1133, f: 4, u: 0), (g: 3, c: 0, p: 1606, f: 3, u: 0), (g: 4, c: 0, p: 1969, f: 5, u: 0), (g: 5, c: 0, p: 1972, f: 4, u: 0), (g: 6, c: 0, p: 2014, f: 3, u: 0), (g: 7, c: 0, p: 5369, f: 4, u: 0), (g: 8, c: 0, p: 1046, f: 2, u: 0), (g: 9, c: 0, p: 1092, f: 3, u: 0), (g: 10, c: 0, p: 535, f: 1, u: 0), (g: 11, c: 0, p: 1149, f: 5, u: 0), (g: 12, c: 0, p: 1270, f: 1, u: 0), (g: 13, c: 0, p: 1132, f: 5, u: 0), (g: 15, c: 0, p: 1305, f: 0, u: 0), (g: 17, c: 0, p: 1100, f: 4, u: 0), (g: 18, c: 0, p: 1091, f: 5, u: 0), (g: 19, c: 0, p: 2045, f: 5, u: 0), (g: 20, c: 0, p: 1080, f: 0, u: 0), (g: 21, c: 0, p: 1275, f: 4, u: 0), (g: 23, c: 0, p: 1066, f: 1, u: 0), (g: 24, c: 0, p: 5570, f: 3, u: 0), (g: 25, c: 0, p: 1030, f: 5, u: 0), (g: 26, c: 0, p: 1628, f: 3, u: 0), (g: 27, c: 0, p: 1294, f: 3, u: 0), (g: 28, c: 0, p: 1130, f: 3, u: 0), (g: 29, c: 0, p: 7196, f: 3, u: 0), (g: 30, c: 0, p: 1250, f: 2, u: 0), (g: 31, c: 0, p: 1091, f: 3, u: 0), (g: 32, c: 0, p: 1099, f: 1, u: 0), (g: 33, c: 0, p: 1083, f: 5, u: 0), (g: 34, c: 0, p: 1098, f: 0, u: 0), (g: 35, c: 0, p: 1234, f: 4, u: 0), (g: 36, c: 0, p: 1092, f: 4, u: 0), (g: 38, c: 0, p: 1082, f: 2, u: 0), (g: 39, c: 0, p: 1060, f: 1, u: 0), (g: 40, c: 0, p: 1185, f: 0, u: 0), (g: 41, c: 0, p: 1086, f: 3, u: 0), (g: 42, c: 0, p: 1101, f: 5, u: 0), (g: 43, c: 0, p: 1110, f: 0, u: 0), (g: 44, c: 0, p: 1020, f: 4, u: 0), (g: 45, c: 0, p: 1349, f: 5, u: 0), (g: 46, c: 0, p: 1057, f: 1, u: 0), (g: 47, c: 0, p: 1149, f: 0, u: 0), (g: 48, c: 0, p: 1111, f: 3, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr13 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr22 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000188.7 (1 sequence[s]), Genome from Sus_scrofa with 1 chromosomes: CM000822.4 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578328.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009275.2 (1 sequence[s]), Genome from Tamandua_tetradactyla with 1 chromosomes: TamTet_scaffold_50035 (1 sequence[s]), Genome from Artibeus_jamaicensis with 1 chromosomes: ArtJam_scaffold_8952 (1 sequence[s]), Genome from Lasiurus_borealis with 1 chromosomes: LasBor_scaffold_2800 (1 sequence[s]), Genome from Rousettus_aegyptiacus with 1 chromosomes: RouAeg_scaffold_4113 (1 sequence[s]), Genome from Galeopterus_variegatus with 1 chromosomes: GalVar_scaffold_23896 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN268068.1 (1 sequence[s]), Genome from Noctilio_leporinus with 1 chromosomes: NocLep_scaffold_1423 (1 sequence[s]), Genome from Equus_caballus with 1 chromosomes: CM000393.2 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH417976.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_2922 (1 sequence[s]), Genome from Suricata_suricatta with 1 chromosomes: SurSur_flattened_line_28384 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000256.1 (1 sequence[s]), Genome from Tadarida_brasiliensis with 1 chromosomes: TadBra_scaffold_16984 (1 sequence[s]), Genome from Choloepus_hoffmanni with 1 chromosomes: KN189760.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_11617 (1 sequence[s]), Genome from Hippopotamus_amphibius with 1 chromosomes: HipAmp_scaffold_552 (1 sequence[s]), Genome from Spilogale_gracilis with 1 chromosomes: SpiGra_flattened_line_32637 (1 sequence[s]), Genome from Tapirus_terrestris with 1 chromosomes: TapTer_scaffold_264 (1 sequence[s]), Genome from Micronycteris_hirsuta with 1 chromosomes: MicHir_scaffold_19506 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000076.1 (1 sequence[s]), Genome from Catagonus_wagneri with 1 chromosomes: CatWag_scaffold_28629 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000216.1 (1 sequence[s]), Genome from Kogia_breviceps with 1 chromosomes: KogBre_flattened_line_5578 (1 sequence[s]), Genome from Tonatia_saurophila with 1 chromosomes: TonSau_scaffold_1181 (1 sequence[s]), Genome from Hyaena_hyaena with 1 chromosomes: HyaHya_flattened_line_40222 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010004190.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672548.1 (1 sequence[s]), Genome from Macroglossus_sobrinus with 1 chromosomes: MacSob_scaffold_883 (1 sequence[s]), Genome from Anoura_caudifer with 1 chromosomes: AnoCau_scaffold_14467 (1 sequence[s]), Genome from Zalophus_californianus with 1 chromosomes: ZalCal_flattened_line_41159 (1 sequence[s]), Genome from Antilocapra_americana with 1 chromosomes: AntAmePen_scaffold_6051 (1 sequence[s]), Genome from Odocoileus_virginianus with 1 chromosomes: KZ100107.1 (1 sequence[s]), Genome from Eidolon_helvum with 1 chromosomes: KE798204.1 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB112372.1 (1 sequence[s]), Genome from Okapia_johnstoni with 1 chromosomes: LVCL01S0011976.1 (1 sequence[s]), Genome from Pteropus_vampyrus with 1 chromosomes: KN525953.1 (1 sequence[s]), Genome from Alouatta_palliata with 1 chromosomes: AloPal_scaffold_16038 (1 sequence[s]), Genome from Inia_geoffrensis with 1 chromosomes: IniGeo_flattened_line_6721 (1 sequence[s]), Genome from Mellivora_capensis with 1 chromosomes: MelCap_flattened_line_544 (1 sequence[s]), Genome from Capra_aegagrus with 1 chromosomes: CM003226.1 (1 sequence[s]), Genome from Eptesicus_fuscus with 1 chromosomes: JH977634.1 (1 sequence[s]), Genome from Aotus_nancymaae with 1 chromosomes: KZ206647.1 (1 sequence[s]), Genome from Hipposideros_armiger with 1 chromosomes: JXIK01000092.1 (1 sequence[s]), Genome from Mus_musculus with 1 chromosomes: chr8 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:49:27,179 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:49:27,180 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:49:27,488 DEBUG: Error closing: fp
+2023-10-13 17:49:27,489 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 1 = 1.0
+2023-10-13 17:49:27,489 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0
+2023-10-13 17:49:27,523 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 85004.0 *
+2023-10-13 17:49:27,523 INFO: [dataset.backGroundAAFreqs] >>> C 0.0311
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> K 0.0428
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> E 0.0449
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> W 0.0189
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> T 0.0523
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> G 0.0786
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0201
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> A 0.0468
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> I 0.0351
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> N 0.0245
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> V 0.0522
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> H 0.0313
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> S 0.1000
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> D 0.0258
+2023-10-13 17:49:27,524 INFO: [dataset.backGroundAAFreqs] >>> F 0.0394
+2023-10-13 17:49:27,525 INFO: [dataset.backGroundAAFreqs] >>> M 0.0143
+2023-10-13 17:49:27,525 INFO: [dataset.backGroundAAFreqs] >>> R 0.0709
+2023-10-13 17:49:27,525 INFO: [dataset.backGroundAAFreqs] >>> L 0.1108
+2023-10-13 17:49:27,525 INFO: [dataset.backGroundAAFreqs] >>> P 0.0789
+2023-10-13 17:49:27,525 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0374
+2023-10-13 17:49:27,525 INFO: [dataset.backGroundAAFreqs] >>> * 0.0440
+2023-10-13 17:49:27,636 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 93
+2023-10-13 17:49:27,637 WARNING: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> 93 profiles initialized, but 200 requested. Resetting U to 93
+2023-10-13 17:49:27,640 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:49:27,641 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:49:27,641 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:49:28,044 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(93,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:49:28,053 DEBUG: [model.getR] >>> Q: [0.03113971 0.04280975 0.04488024 0.0188697  0.05225636 0.07861983
+ 0.02008141 0.04684485 0.03509247 0.02449296 0.05223284 0.03125735
+ 0.09997176 0.02577526 0.03939814 0.01428168 0.07091431 0.11081831
+ 0.07889041 0.03742177 0.04395087]
+2023-10-13 17:49:28,080 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:49:28,095 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:49:28,107 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:49:28,270 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(93,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:49:28,278 DEBUG: [model.getR] >>> Q: [0.03113971 0.04280975 0.04488024 0.0188697  0.05225636 0.07861983
+ 0.02008141 0.04684485 0.03509247 0.02449296 0.05223284 0.03125735
+ 0.09997176 0.02577526 0.03939814 0.01428168 0.07091431 0.11081831
+ 0.07889041 0.03742177 0.04395087]
+2023-10-13 17:49:28,313 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:49:28,331 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:49:28,348 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:49:28,827 INFO: [model.train_reporting] >>> epoch 0 best profile 34 with mean loss -1665978.125
+2023-10-13 17:49:28,836 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = -218901.7188 max R: 4.205 min R: -5.858 time: 0.93
+2023-10-13 17:49:31,372 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:49:31,373 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:49:32,488 INFO: [model.train_reporting] >>> epoch 10 best profile 34 with mean loss -1729367.5
+2023-10-13 17:49:32,497 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -231174.3438 max R: 4.212 min R: -13.816 time: 4.59
+2023-10-13 17:49:36,258 INFO: [model.train_reporting] >>> epoch 20 best profile 34 with mean loss -1727421.375
+2023-10-13 17:49:36,267 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -232175.6094 max R: 4.232 min R: -13.816 time: 8.36
+2023-10-13 17:49:38,211 INFO: [model.train_reporting] >>> epoch 25 best profile 34 with mean loss-1727435.75
+2023-10-13 17:49:38,211 INFO: [model.train_reporting] >>> cleaning up profile 34
+2023-10-13 17:49:38,857 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:49:38,857 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:49:38,859 INFO: [training.trainAndEvaluate] >>> Training time: 11.22
+2023-10-13 17:49:39,153 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598c3674c0>
+2023-10-13 17:49:39,153 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598c3674c0> on colorbar
+2023-10-13 17:49:39,153 DEBUG: Setting pcolormesh
+2023-10-13 17:49:40,178 DEBUG: [training.trainAndEvaluate] >>> sites: [[  4   0 624   0   0]
+ [  5   0 627   0   0]
+ [  7   0 474   0   0]
+ [  9   0 632   0   2]
+ [ 10   0 591   0   0]
+ [ 11   0 609   0   0]
+ [ 14   0 626   0   2]
+ [ 19   0 587   0   2]
+ [ 21   0 609   0   0]
+ [ 22   0 643   0   1]
+ [ 23   0 625   0   1]
+ [ 24   0 603   0   0]
+ [ 26   0 637   0   1]
+ [ 29   0 622   0   1]
+ [ 30   0 601   0   1]
+ [ 31   0 834   0   0]
+ [ 32   0 630   0   0]
+ [ 36   0 617   0   2]
+ [ 38   0 640   0   1]
+ [ 40   0 618   0   0]]
+2023-10-13 17:49:40,179 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 353, f: 3, u: 0), (g: 1, c: 0, p: 404, f: 4, u: 0), (g: 2, c: 0, p: 353, f: 4, u: 0), (g: 3, c: 0, p: 367, f: 3, u: 0), (g: 4, c: 0, p: 624, f: 0, u: 0), (g: 5, c: 0, p: 627, f: 0, u: 0), (g: 6, c: 0, p: 1088, f: 2, u: 0), (g: 7, c: 0, p: 474, f: 0, u: 0), (g: 8, c: 0, p: 300, f: 5, u: 0), (g: 9, c: 0, p: 632, f: 2, u: 0), (g: 10, c: 0, p: 591, f: 0, u: 0), (g: 11, c: 0, p: 609, f: 0, u: 0), (g: 12, c: 0, p: 389, f: 3, u: 0), (g: 13, c: 0, p: 356, f: 5, u: 0), (g: 14, c: 0, p: 626, f: 2, u: 0), (g: 16, c: 0, p: 367, f: 3, u: 0), (g: 17, c: 0, p: 370, f: 4, u: 0), (g: 18, c: 0, p: 372, f: 4, u: 0), (g: 19, c: 0, p: 587, f: 2, u: 0), (g: 20, c: 0, p: 394, f: 4, u: 0), (g: 21, c: 0, p: 609, f: 0, u: 0), (g: 22, c: 0, p: 643, f: 1, u: 0), (g: 23, c: 0, p: 625, f: 1, u: 0), (g: 24, c: 0, p: 603, f: 0, u: 0), (g: 25, c: 0, p: 367, f: 5, u: 0), (g: 26, c: 0, p: 637, f: 1, u: 0), (g: 27, c: 0, p: 373, f: 4, u: 0), (g: 28, c: 0, p: 366, f: 4, u: 0), (g: 29, c: 0, p: 622, f: 1, u: 0), (g: 30, c: 0, p: 601, f: 1, u: 0), (g: 31, c: 0, p: 834, f: 0, u: 0), (g: 32, c: 0, p: 630, f: 0, u: 0), (g: 33, c: 0, p: 356, f: 4, u: 0), (g: 34, c: 0, p: 371, f: 3, u: 0), (g: 35, c: 0, p: 596, f: 3, u: 0), (g: 36, c: 0, p: 617, f: 2, u: 0), (g: 37, c: 0, p: 371, f: 3, u: 0), (g: 38, c: 0, p: 640, f: 1, u: 0), (g: 39, c: 0, p: 399, f: 5, u: 0), (g: 40, c: 0, p: 618, f: 0, u: 0), (g: 41, c: 0, p: 367, f: 3, u: 0), (g: 42, c: 0, p: 610, f: 1, u: 0), (g: 43, c: 0, p: 397, f: 5, u: 0), (g: 44, c: 0, p: 601, f: 1, u: 0), (g: 45, c: 0, p: 607, f: 1, u: 0), (g: 46, c: 0, p: 632, f: 2, u: 0), (g: 47, c: 0, p: 624, f: 0, u: 0), (g: 48, c: 0, p: 608, f: 2, u: 0), (g: 49, c: 0, p: 605, f: 2, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr9 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr11 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000184.6 (1 sequence[s]), Genome from Sus_scrofa with 1 chromosomes: CM000812.4 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578346.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009271.2 (1 sequence[s]), Genome from Crocidura_indochinensis with 1 chromosomes: CroInd_scaffold_135183 (1 sequence[s]), Genome from Erinaceus_europaeus with 1 chromosomes: JH835476.1 (1 sequence[s]), Genome from Condylura_cristata with 1 chromosomes: JH655883.1 (1 sequence[s]), Genome from Tamandua_tetradactyla with 1 chromosomes: TamTet_scaffold_37447 (1 sequence[s]), Genome from Artibeus_jamaicensis with 1 chromosomes: ArtJam_scaffold_16043 (1 sequence[s]), Genome from Solenodon_paradoxus with 1 chromosomes: SolPar_flattened_line_480 (1 sequence[s]), Genome from Craseonycteris_thonglongyai with 1 chromosomes: CraTho_scaffold_3126 (1 sequence[s]), Genome from Sorex_araneus with 1 chromosomes: JH798146.1 (1 sequence[s]), Genome from Lasiurus_borealis with 1 chromosomes: LasBor_scaffold_70673 (1 sequence[s]), Genome from Uropsilus_gracilis with 1 chromosomes: UroGra_scaffold_19447 (1 sequence[s]), Genome from Rousettus_aegyptiacus with 1 chromosomes: RouAeg_scaffold_285 (1 sequence[s]), Genome from Galeopterus_variegatus with 1 chromosomes: GalVar_scaffold_16644 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN267573.1 (1 sequence[s]), Genome from Noctilio_leporinus with 1 chromosomes: NocLep_scaffold_1161 (1 sequence[s]), Genome from Equus_caballus with 1 chromosomes: CM000401.2 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH418230.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_10644 (1 sequence[s]), Genome from Suricata_suricatta with 1 chromosomes: SurSur_flattened_line_4319 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000008.1 (1 sequence[s]), Genome from Tadarida_brasiliensis with 1 chromosomes: TadBra_scaffold_8028 (1 sequence[s]), Genome from Choloepus_hoffmanni with 1 chromosomes: KN184177.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_706 (1 sequence[s]), Genome from Hippopotamus_amphibius with 1 chromosomes: HipAmp_scaffold_800 (1 sequence[s]), Genome from Spilogale_gracilis with 1 chromosomes: SpiGra_flattened_line_11704 (1 sequence[s]), Genome from Scalopus_aquaticus with 1 chromosomes: ScaAqu_scaffold_14980 (1 sequence[s]), Genome from Tapirus_terrestris with 1 chromosomes: TapTer_scaffold_2818 (1 sequence[s]), Genome from Micronycteris_hirsuta with 1 chromosomes: MicHir_scaffold_1631 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000061.1 (1 sequence[s]), Genome from Catagonus_wagneri with 1 chromosomes: CatWag_scaffold_9963 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000024.1 (1 sequence[s]), Genome from Kogia_breviceps with 1 chromosomes: KogBre_flattened_line_2312 (1 sequence[s]), Genome from Tonatia_saurophila with 1 chromosomes: TonSau_scaffold_6239 (1 sequence[s]), Genome from Hyaena_hyaena with 1 chromosomes: HyaHya_flattened_line_17901 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010006722.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672230.1 (1 sequence[s]), Genome from Macroglossus_sobrinus with 1 chromosomes: MacSob_scaffold_2976 (1 sequence[s]), Genome from Anoura_caudifer with 1 chromosomes: AnoCau_scaffold_5127 (1 sequence[s]), Genome from Zalophus_californianus with 1 chromosomes: ZalCal_flattened_line_3821 (1 sequence[s]), Genome from Antilocapra_americana with 1 chromosomes: AntAmePen_scaffold_4131 (1 sequence[s]), Genome from Odocoileus_virginianus with 1 chromosomes: KZ104627.1 (1 sequence[s]), Genome from Eidolon_helvum with 1 chromosomes: KE758524.1 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB103229.1 (1 sequence[s]), Genome from Moschus_moschiferus with 1 chromosomes: MosMos_scaffold_190 (1 sequence[s]), Genome from Okapia_johnstoni with 1 chromosomes: LVCL01S0000501.1 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:49:40,180 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:49:40,182 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:49:40,523 DEBUG: Error closing: fp
+2023-10-13 17:49:40,524 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 1 = 1.0
+2023-10-13 17:49:40,524 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0
+2023-10-13 17:49:40,829 INFO: [dataset.backGroundAAFreqs] >>> background freqs: 471748.0 *
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> C 0.0338
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> K 0.0617
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> E 0.0347
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> W 0.0160
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> T 0.0512
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> G 0.0459
+2023-10-13 17:49:40,830 INFO: [dataset.backGroundAAFreqs] >>> Y 0.0360
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> A 0.0386
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> I 0.0638
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> N 0.0440
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> V 0.0513
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> H 0.0301
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> S 0.0882
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> D 0.0223
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> F 0.0601
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> M 0.0174
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> R 0.0466
+2023-10-13 17:49:40,831 INFO: [dataset.backGroundAAFreqs] >>> L 0.1148
+2023-10-13 17:49:40,832 INFO: [dataset.backGroundAAFreqs] >>> P 0.0459
+2023-10-13 17:49:40,832 INFO: [dataset.backGroundAAFreqs] >>> Q 0.0390
+2023-10-13 17:49:40,832 INFO: [dataset.backGroundAAFreqs] >>> * 0.0586
+2023-10-13 17:49:41,563 INFO: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: 92
+2023-10-13 17:49:41,563 WARNING: [ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> 92 profiles initialized, but 200 requested. Resetting U to 92
+2023-10-13 17:49:41,574 DEBUG: [model.__init__] >>> setting tf global seed to 42
+2023-10-13 17:49:41,574 DEBUG: [model.__init__] >>> using softmaxLoss: False // using experimentLoss: {self.experimentLoss}
+2023-10-13 17:49:41,575 DEBUG: [model.__init__] >>> Using initProfiles from training setup instead of random
+2023-10-13 17:49:42,388 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(92,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:49:42,397 DEBUG: [model.getR] >>> Q: [0.03383374 0.06170455 0.03471345 0.01599159 0.05123922 0.04585499
+ 0.03598955 0.03862444 0.06380949 0.04400443 0.05125618 0.03010506
+ 0.08823355 0.0223488  0.06008293 0.01738216 0.04661175 0.11475831
+ 0.04586347 0.03903779 0.05855457]
+2023-10-13 17:49:42,422 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:49:42,440 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:49:42,453 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:49:42,597 DEBUG: [model.getR] >>> nan in P: Tensor("cond/Any:0", shape=(92,), dtype=bool) Tensor("cond/boolean_mask/GatherV2:0", shape=(20, 21, None), dtype=float32)
+2023-10-13 17:49:42,609 DEBUG: [model.getR] >>> Q: [0.03383374 0.06170455 0.03471345 0.01599159 0.05123922 0.04585499
+ 0.03598955 0.03862444 0.06380949 0.04400443 0.05125618 0.03010506
+ 0.08823355 0.0223488  0.06008293 0.01738216 0.04661175 0.11475831
+ 0.04586347 0.03903779 0.05855457]
+2023-10-13 17:49:42,649 DEBUG: [model.getZ] >>> nan in R
+2023-10-13 17:49:42,664 DEBUG: [model.getZ] >>> nan in X
+2023-10-13 17:49:42,678 DEBUG: [model.getZ] >>> nan in Z
+2023-10-13 17:49:44,066 INFO: [model.train_reporting] >>> epoch 0 best profile 15 with mean loss -795971.1875
+2023-10-13 17:49:44,073 INFO: [model.train_reporting] >>> epoch     0 profile loss sum = -160974.4062 max R: 4.111 min R: -5.882 time: 1.95
+2023-10-13 17:49:54,227 INFO: [model.train_reporting.reduceLR] >>> Loss did not decrease for 5 epochs, reducing learning rate from 2 to 1.5
+2023-10-13 17:49:54,227 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 1.5
+2023-10-13 17:49:58,622 INFO: [model.train_reporting] >>> epoch 10 best profile 15 with mean loss -823352.0625
+2023-10-13 17:49:58,630 INFO: [model.train_reporting] >>> epoch    10 profile loss sum = -175400.1562 max R: 4.136 min R: -13.816 time: 16.50
+2023-10-13 17:50:13,154 INFO: [model.train_reporting] >>> epoch 20 best profile 15 with mean loss -821105.6875
+2023-10-13 17:50:13,162 INFO: [model.train_reporting] >>> epoch    20 profile loss sum = -175987.5938 max R: 4.136 min R: -13.816 time: 31.04
+2023-10-13 17:50:23,376 INFO: [model.train_reporting] >>> epoch 27 best profile 15 with mean loss-820983.5625
+2023-10-13 17:50:23,376 INFO: [model.train_reporting] >>> cleaning up profile 15
+2023-10-13 17:50:26,906 DEBUG: [model.train_reporting] >>> Resetting training
+2023-10-13 17:50:26,907 DEBUG: [model.train_reporting.setLR] >>> Setting learning rate to 2.0
+2023-10-13 17:50:26,908 INFO: [training.trainAndEvaluate] >>> Training time: 45.33
+2023-10-13 17:50:27,197 DEBUG: locator: <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598c245190>
+2023-10-13 17:50:27,197 DEBUG: Using auto colorbar locator <matplotlib.colorbar._ColorbarAutoLocator object at 0x7f598c245190> on colorbar
+2023-10-13 17:50:27,197 DEBUG: Setting pcolormesh
+2023-10-13 17:50:28,594 DEBUG: [training.trainAndEvaluate] >>> sites: [[   6    0  862    0    1]
+ [  18    0  924    0    0]
+ [  20    0  893    0    2]
+ [  22    0  893    0    2]
+ [  25    0  816    0    0]
+ [  27    0  898    0    1]
+ [  28    0  886    0    1]
+ [  33    0  896    0    2]
+ [  40    0  858    0    0]
+ [  43    0  874    0    1]
+ [  46    0  575    0    2]
+ [  49    0  892    0    1]
+ [   0    0 1040    0    2]
+ [   1    0 1047    0    0]
+ [   3    0 1040    0    2]
+ [   4    0 1040    0    2]
+ [  11    0 1072    0    1]
+ [  17    0 1122    0    0]
+ [  30    0 1009    0    1]
+ [  31    0 1116    0    0]]
+2023-10-13 17:50:28,595 DEBUG: [training.trainAndEvaluate] >>> links[:1] [Link(occs=[(g: 0, c: 0, p: 1040, f: 2, u: 0), (g: 1, c: 0, p: 1047, f: 0, u: 0), (g: 2, c: 0, p: 18484, f: 3, u: 0), (g: 3, c: 0, p: 1040, f: 2, u: 0), (g: 4, c: 0, p: 1040, f: 2, u: 0), (g: 5, c: 0, p: 10847, f: 3, u: 0), (g: 6, c: 0, p: 862, f: 1, u: 0), (g: 7, c: 0, p: 5040, f: 4, u: 0), (g: 8, c: 0, p: 6198, f: 3, u: 0), (g: 9, c: 0, p: 4918, f: 3, u: 0), (g: 10, c: 0, p: 5236, f: 3, u: 0), (g: 11, c: 0, p: 1072, f: 1, u: 0), (g: 12, c: 0, p: 7135, f: 3, u: 0), (g: 13, c: 0, p: 4362, f: 5, u: 0), (g: 14, c: 0, p: 36473, f: 3, u: 0), (g: 15, c: 0, p: 5614, f: 3, u: 0), (g: 16, c: 0, p: 43527, f: 3, u: 0), (g: 17, c: 0, p: 1122, f: 0, u: 0), (g: 18, c: 0, p: 924, f: 0, u: 0), (g: 19, c: 0, p: 37955, f: 5, u: 0), (g: 20, c: 0, p: 893, f: 2, u: 0), (g: 21, c: 0, p: 6875, f: 5, u: 0), (g: 22, c: 0, p: 893, f: 2, u: 0), (g: 23, c: 0, p: 7494, f: 5, u: 0), (g: 24, c: 0, p: 7784, f: 5, u: 0), (g: 25, c: 0, p: 816, f: 0, u: 0), (g: 26, c: 0, p: 4225, f: 5, u: 0), (g: 27, c: 0, p: 898, f: 1, u: 0), (g: 28, c: 0, p: 886, f: 1, u: 0), (g: 29, c: 0, p: 5985, f: 5, u: 0), (g: 30, c: 0, p: 1009, f: 1, u: 0), (g: 31, c: 0, p: 1116, f: 0, u: 0), (g: 32, c: 0, p: 1154, f: 2, u: 0), (g: 33, c: 0, p: 896, f: 2, u: 0), (g: 34, c: 0, p: 6413, f: 3, u: 0), (g: 35, c: 0, p: 12803, f: 5, u: 0), (g: 36, c: 0, p: 6433, f: 3, u: 0), (g: 37, c: 0, p: 34096, f: 3, u: 0), (g: 39, c: 0, p: 12822, f: 3, u: 0), (g: 40, c: 0, p: 858, f: 0, u: 0), (g: 41, c: 0, p: 9280, f: 3, u: 0), (g: 43, c: 0, p: 874, f: 1, u: 0), (g: 45, c: 0, p: 8152, f: 4, u: 0), (g: 46, c: 0, p: 575, f: 2, u: 0), (g: 47, c: 0, p: 1542, f: 0, u: 0), (g: 48, c: 0, p: 1027, f: 1, u: 0), (g: 49, c: 0, p: 892, f: 1, u: 0)], span=60, genomes=[Genome from Homo_sapiens with 1 chromosomes: chr6 (1 sequence[s]), Genome from Canis_lupus_familiaris with 1 chromosomes: chr12 (1 sequence[s]), Genome from Bos_taurus with 1 chromosomes: CM000199.8 (1 sequence[s]), Genome from Gorilla_gorilla with 1 chromosomes: LT578343.1 (1 sequence[s]), Genome from Pongo_abelii with 1 chromosomes: CM009268.2 (1 sequence[s]), Genome from Erinaceus_europaeus with 1 chromosomes: JH835342.1 (1 sequence[s]), Genome from Condylura_cristata with 1 chromosomes: JH655878.1 (1 sequence[s]), Genome from Tamandua_tetradactyla with 1 chromosomes: TamTet_scaffold_5971 (1 sequence[s]), Genome from Artibeus_jamaicensis with 1 chromosomes: ArtJam_scaffold_41195 (1 sequence[s]), Genome from Solenodon_paradoxus with 1 chromosomes: SolPar_flattened_line_7713 (1 sequence[s]), Genome from Craseonycteris_thonglongyai with 1 chromosomes: CraTho_scaffold_26300 (1 sequence[s]), Genome from Sorex_araneus with 1 chromosomes: JH798163.1 (1 sequence[s]), Genome from Lasiurus_borealis with 1 chromosomes: LasBor_scaffold_21477 (1 sequence[s]), Genome from Uropsilus_gracilis with 1 chromosomes: UroGra_scaffold_10396 (1 sequence[s]), Genome from Rousettus_aegyptiacus with 1 chromosomes: RouAeg_scaffold_4519 (1 sequence[s]), Genome from Galeopterus_variegatus with 1 chromosomes: GalVar_scaffold_11259 (1 sequence[s]), Genome from Vicugna_pacos with 1 chromosomes: KN268225.1 (1 sequence[s]), Genome from Noctilio_leporinus with 1 chromosomes: NocLep_scaffold_7856 (1 sequence[s]), Genome from Equus_caballus with 1 chromosomes: CM000396.2 (1 sequence[s]), Genome from Mustela_putorius with 1 chromosomes: JH418132.1 (1 sequence[s]), Genome from Megaderma_lyra with 1 chromosomes: MegLyr_scaffold_320 (1 sequence[s]), Genome from Suricata_suricatta with 1 chromosomes: SurSur_flattened_line_1105 (1 sequence[s]), Genome from Miniopterus_natalensis with 1 chromosomes: LDJU01000157.1 (1 sequence[s]), Genome from Mormoops_blainvillei with 1 chromosomes: MorMeg_scaffold_31157 (1 sequence[s]), Genome from Hippopotamus_amphibius with 1 chromosomes: HipAmp_scaffold_17383 (1 sequence[s]), Genome from Spilogale_gracilis with 1 chromosomes: SpiGra_flattened_line_5615 (1 sequence[s]), Genome from Scalopus_aquaticus with 1 chromosomes: ScaAqu_scaffold_8031 (1 sequence[s]), Genome from Micronycteris_hirsuta with 1 chromosomes: MicHir_scaffold_10870 (1 sequence[s]), Genome from Rhinolophus_sinicus with 1 chromosomes: LVEH01000106.1 (1 sequence[s]), Genome from Catagonus_wagneri with 1 chromosomes: CatWag_scaffold_1473 (1 sequence[s]), Genome from Ailuropoda_melanoleuca with 1 chromosomes: LNAT01000035.1 (1 sequence[s]), Genome from Hyaena_hyaena with 1 chromosomes: HyaHya_flattened_line_5501 (1 sequence[s]), Genome from Dicerorhinus_sumatrensis with 1 chromosomes: PEKH010005559.1 (1 sequence[s]), Genome from Desmodus_rotundus with 1 chromosomes: KZ672522.1 (1 sequence[s]), Genome from Anoura_caudifer with 1 chromosomes: AnoCau_scaffold_16574 (1 sequence[s]), Genome from Antilocapra_americana with 1 chromosomes: AntAmePen_scaffold_8642 (1 sequence[s]), Genome from Myotis_davidii with 1 chromosomes: KB102348.1 (1 sequence[s]), Genome from Pteropus_vampyrus with 1 chromosomes: KN525977.1 (1 sequence[s]), Genome from Mellivora_capensis with 1 chromosomes: MelCap_flattened_line_6029 (1 sequence[s]), Genome from Capra_aegagrus with 1 chromosomes: CM003237.1 (1 sequence[s]), Genome from Eptesicus_fuscus with 1 chromosomes: JH977611.1 (1 sequence[s]), Genome from Aotus_nancymaae with 1 chromosomes: KZ204062.1 (1 sequence[s]), Genome from Mus_musculus with 1 chromosomes: chr1 (1 sequence[s]), Genome from Felis_catus with 1 chromosomes: CM001382.2 (1 sequence[s]), Genome from Rattus_norvegicus with 1 chromosomes: chr9 (1 sequence[s]), Genome from Ochotona_princeps with 1 chromosomes: JH802068.1 (1 sequence[s]), Genome from Perognathus_longimembris with 1 chromosomes: PerPac_flattened_line_74589 (1 sequence[s]), Genome from Elephantulus_edwardii with 1 chromosomes: JH947253.1 (1 sequence[s]), Genome from Jaculus_jaculus with 1 chromosomes: JH725547.1 (1 sequence[s]), Genome from Ctenodactylus_gundi with 1 chromosomes: CteGun_scaffold_755 (1 sequence[s])], expandMatchParameter=5, expandMismatchParameter=-4, expandScoreThreshold=20, expandX=100)]
+2023-10-13 17:50:28,595 DEBUG: [training.trainAndEvaluate] >>> len(links) 1
+2023-10-13 17:50:28,597 WARNING: [geneLinkDraw.draw] >>> Too many gene rows for image height, increasing image height to 3124 pixels. Adjust outerMargin, genewidth and fontsize if you want to keep the lower image height
+2023-10-13 17:50:28,921 DEBUG: Error closing: fp
+2023-10-13 17:50:28,921 INFO: [training.trainAndEvaluate] >>> Sensitivity: 1 / 1 = 1.0
+2023-10-13 17:50:28,921 INFO: [training.trainAndEvaluate] >>> Specificity: 1 / 1 = 1.0

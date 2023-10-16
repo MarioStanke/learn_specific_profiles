@@ -267,6 +267,12 @@ class Sequence:
         """ Check if the sequence can contain homologies. """
         return hasattr(self, 'homology')
 
+    def isSubsequenceOf(self, parent) -> bool:
+        """ Check if the sequence is a subsequence of another Sequence object, i.e. start and end both lie inside the 
+            parent sequence. """
+        return _sequencesOverlap(self, parent) and self.genome_start >= parent.genome_start \
+            and self.genome_end <= parent.genome_end
+
     def stripSequence(self, amount, from_start = True):
         """ Remove `amount` positions from the sequence object. Discards genomic elements that no longer overlap 
             afterwards, has no impact on homologies.

@@ -5,10 +5,10 @@ import numpy as np
 import os
 import random
 
-import dataset
-import plotting
-import SequenceRepresentation as sr
-import sequtils as su
+from . import dataset
+from . import plotting
+from . import SequenceRepresentation as sr
+from . import sequtils as su
 
 # set logging level for logomaker to avoid debug message clutter
 logging.getLogger('plotting.logomaker').setLevel(logging.WARNING)

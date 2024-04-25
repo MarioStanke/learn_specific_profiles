@@ -92,7 +92,12 @@ def six_frame_translation(S):
 def convert_six_frame_position(pos: int, frame_idx: int, dna_seqlen: int, dna_to_aa: bool=True):
     """ Convert a sequence position according to six_frame_translation(),
           i.e. either from the nucleotide sequence to a positon in the aa sequence according to frame_idx
-          or the other way around (dna_to_aa False)
+          or the other way around (dna_to_aa False). In the latter case, the returned position always refers to the
+          _first codon base w.r.t. the forward strand_.
+          Example: g = 'AAACCCTTTGGG' translates to a0 = 'KPFG', a1 = 'NPL', a2 = 'TLW', a3 = 'PKGF', a4 = 'PKG' and
+           a5 =  'QRV' (a0-a2: forward, a3-a5: reverse complement).
+           a0[0] (K) then maps to g[0] ([A]AA...), a1[0] (N) -> g[1] (A[A]AC..), a2[0] (T) -> g[2] (AA[A]CC...),
+           and a3[0] (P) -> g[9] (...TT[G]GG), a4[0] -> g[8] (...TT[T]GGG), a5[0] (Q) -> g[7] (...CT[T]TGGG), etc.
           
         Parameters:
             pos (int): position to be converted
@@ -140,13 +145,28 @@ def to_aa_seq(profile, aa_alphabet = aa_alphabet):
         
     return aaseq
 
-def makeDFs(P):
+def makeDFs(P, alphabet:list[str] = aa_alphabet[1:], drop:list[str] = ['*']):
+    """ Create a list of pandas DataFrames from a profile matrix P.
+        Each DataFrame corresponds to a profile in the third dimension of P.
+        
+        Parameters:
+            P (np.ndarray): profile matrix of shape (k, alphabet_size, u (number of profiles))
+            alphabet (list[str]): list of characters for the columns of the DataFrames. Default: aa_alphabet[1:]
+            drop (list[str]): list of characters to drop from the columns of the DataFrames. Default: ['*']
+        
+        Returns:
+            list[pd.DataFrame]: list of DataFrames
+    """
     (k, s, u) = P.shape
     dfs = []
     for j in range(u):
         profile_matrix = P[:,:,j]
         df = pd.DataFrame(profile_matrix)
-        df.columns = aa_alphabet[1:]
-        df = df.drop(['*'], axis=1)
+        #df.columns = aa_alphabet[1:]
+        df.columns = alphabet
+        for dc in drop:
+            if dc in df.columns:
+                df = df.drop([dc], axis=1)
+        #df = df.drop(['*'], axis=1)
         dfs.append(df)
     return dfs

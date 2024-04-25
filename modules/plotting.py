@@ -5,18 +5,33 @@ import itertools
 import json
 import logging
 import logomaker
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 from PIL import Image, ImageDraw, ImageFont
+import plotly.graph_objects as go
 
-import GeneLinkDraw.geneLinkDraw as gld
-import Links
-import SequenceRepresentation
-import sequtils as su
+#import GeneLinkDraw.geneLinkDraw as gld
+from .GeneLinkDraw import geneLinkDraw as gld
+from . import Links
+from . import SequenceRepresentation
+from . import sequtils as su
 
 # set logging level for logomaker to avoid debug message clutter
 logging.getLogger('logomaker').setLevel(logging.WARNING)
+
+# try to find and use the font from this repo
+try:
+    _this_dir = str(os.path.dirname( os.path.abspath(__file__) ))
+    _font_path = os.path.join(_this_dir, 'font', 'NugoSansLight-9YzoK.ttf')
+    if not os.path.isfile(_font_path):
+        _font_path = "/opt/conda/fonts/Ubuntu-M.ttf"
+        logging.warning(f"[plotting] >>> Font file {_font_path} not found, falling back on {_font_path}")
+except Exception as e:
+    _font_path = "/opt/conda/fonts/Ubuntu-M.ttf"
+    logging.warning(f"[plotting] >>> Error while searching for 'NugoSansLight-9YzoK.ttf': {e}. " \
+                    +"Falling back on {_font_path}")
 
 
 def plotHistory(history):
@@ -53,12 +68,15 @@ def plotHistory(history):
 
 
 
-def plotLogo(P: np.ndarray, idxarray = None, pNames = None, pScores = None, pLosses = None, max_print=5, ax=None):
+def plotLogo(P: np.ndarray, alphabet:list[str] = su.aa_alphabet[1:],
+             idxarray = None, pNames = None, pScores = None, pLosses = None, max_print=5, ax=None,
+             **kwargs):
     """
     Create logo(s) from profile(s)
 
     Parameters
         P (tf.Tensor): tensor of shape (k, alphabet_size, U)
+        alphabet (list of str): list of characters for the columns of the DataFrames. Default: sequtils.aa_alphabet[1:]
         idxarray (list of int): optional list of indices in P's third axis to plot only certain profiles
         pNames (list): optional list of names to assign for each profile in P (if None, index of profile will be 
                        displayed)
@@ -66,11 +84,12 @@ def plotLogo(P: np.ndarray, idxarray = None, pNames = None, pScores = None, pLos
         pLosses (list of float): optional list of losses for each profile in P
         max_print (int): print up to this many logos
         ax (list of matplotlib axes): optional axes from a matplotlib Figure to plot on, one axes for each plot
+        **kwargs: named arguments forwarded to sequtils.makeDFs()
     """
     if type(P) is not np.ndarray: # catch tf.Tensor
         P = P.numpy()
 
-    dfs = su.makeDFs(P)
+    dfs = su.makeDFs(P, alphabet=alphabet, **kwargs)
     for i in range(min(P.shape[2], max_print)):
         j = idxarray[i] if idxarray is not None else i
         profile_df = dfs[j]
@@ -88,70 +107,75 @@ def plotLogo(P: np.ndarray, idxarray = None, pNames = None, pScores = None, pLos
 
 
 
-def sitesToLinks(sites, linkThreshold = 100):
-    """
-    From a tensor of profile match sites, create a list of links to use in drawGeneLinks_*()
+# DEPRECATED DUPLICATE (use Links.linksFromSites instead)
+# vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv        
+# def sitesToLinks(sites, linkThreshold = 100):
+#     """
+#     From a tensor of profile match sites, create a list of links to use in drawGeneLinks_*()
 
-    Parameters
-        sites (np.ndarray): array of shape (sites, (genomeID, contigID, pos, u, f)) with the profile match sites
-        linkThreshold (int): do not create links from a profile that would result in more than this many links
+#     Parameters
+#         sites (np.ndarray): array of shape (sites, (genomeID, contigID, pos, u, f)) with the profile match sites
+#         linkThreshold (int): do not create links from a profile that would result in more than this many links
 
-    Returns
-        links: list of links
-        linkProfiles: set of tuples with information from what the links were created
-        skipped: list of profiles that have been skipped due to too many links
-    """
-    # sites.shape == (fwdSites, (genomeID, contigID, pos, u, f))
-    links = []
-    skipped = []
-    profileToOcc = {}
-    linkProfiles = set()
-    for g, c, p, u, _ in sites:
-        if u not in profileToOcc:
-            profileToOcc[u] = {}
+#     Returns
+#         links: list of links
+#         linkProfiles: set of tuples with information from what the links were created
+#         skipped: list of profiles that have been skipped due to too many links
+#     """
+#     # sites.shape == (fwdSites, (genomeID, contigID, pos, u, f))
+#     links = []
+#     skipped = []
+#     profileToOcc = {}
+#     linkProfiles = set()
+#     for g, c, p, u, _ in sites:
+#         if u not in profileToOcc:
+#             profileToOcc[u] = {}
             
-        if g not in profileToOcc[u]:
-            profileToOcc[u][g] = []
+#         if g not in profileToOcc[u]:
+#             profileToOcc[u][g] = []
             
-        profileToOcc[u][g].append([g,c,p])
+#         profileToOcc[u][g].append([g,c,p])
         
-    for u in profileToOcc:
-        if (len(profileToOcc[u].keys()) == 1): # or (0 not in profileToOcc[p]):
-            continue
+#     for u in profileToOcc:
+#         if (len(profileToOcc[u].keys()) == 1): # or (0 not in profileToOcc[p]):
+#             continue
             
-        occs = []
-        for g in profileToOcc[u]:
-            occs.append(profileToOcc[u][g])
+#         occs = []
+#         for g in profileToOcc[u]:
+#             occs.append(profileToOcc[u][g])
             
-        # nlinks = np.prod([len(og) for og in occs]) # does not handle overflow!
-        nlinks = 1
-        for og in occs:
-            nlinks *= len(og)
-            if nlinks > linkThreshold:
-                break
+#         # nlinks = np.prod([len(og) for og in occs]) # does not handle overflow!
+#         nlinks = 1
+#         for og in occs:
+#             nlinks *= len(og)
+#             if nlinks > linkThreshold:
+#                 break
 
-        if nlinks > linkThreshold:
-            #print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
-            logging.warning(f"[plotting.sitesToLings] >>> Profile {u} would produce at least {nlinks} links, skipping")
-            skipped.append((u, nlinks))
-        else:
-            l = list(itertools.product(*occs))
-            #print("[DEBUG] >>> len(l):", len(l))
-            #print("[DEBUG] >>>      l:", l)
-            links.extend(l)
-            linkProfiles.add((u, nlinks, str(occs)))
+#         if nlinks > linkThreshold:
+#             #print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
+#             logging.warning(f"[plotting.sitesToLings] >>> Profile {u} would produce at least {nlinks} links, skipping")
+#             skipped.append((u, nlinks))
+#         else:
+#             l = list(itertools.product(*occs))
+#             #print("[DEBUG] >>> len(l):", len(l))
+#             #print("[DEBUG] >>>      l:", l)
+#             links.extend(l)
+#             linkProfiles.add((u, nlinks, str(occs)))
 
-    return links, linkProfiles, skipped
+#     return links, linkProfiles, skipped
 
 
 
-def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentation.Genome], 
-                                             links: list[Links.Link], imname,
-                                             kmerSites = None, kmerCol = None, 
-                                             maskingSites = None, maskingCol = 'darkred',
-                                             font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
+# use this function, the stuff below is deprecated
+def drawGeneLinks(genomes: list[SequenceRepresentation.Genome], 
+                  links: list[Links.Link], imname,
+                  kmerSites = None, kmerCol = None, 
+                  maskingSites = None, maskingCol = 'darkred',
+                  onlyLinkedGenes = False,
+                  font = None, **kwargs) -> Image.Image:
     """
-    Draw an image with sequences as horizontal bars and links as connecting lines
+    Draw an image with sequences as horizontal bars and links as connecting lines. Returns a PIL.Image object, which
+    you should remember to close!
 
     Parameters:
         genomes (list of SequenceRepresentation.Genome): genomes to draw
@@ -167,9 +191,12 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
         maskingCol (str or tuple of RGB values): Optional color used when drawing masking sites. Defaults to darkred. If
                                                  None and maskingSites are given, color is determined automatically. Use
                                                  gld.Palette class to get some color names
-        font (str): path to font file to use for text
+        onlyLinkedGenes (bool): If True, only draw genomes that have links
+        font (str): optional, path to an alternative font file to use for text
         **kwargs: named arguments forwarded to gld.draw()
     """
+    if font is None:
+        font = _font_path
 
     drawGenes = []
     for genome in genomes:
@@ -224,7 +251,7 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
             drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
         else:
             #print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
-            logging.warning("[plotting.drawGeneLinks_SequenceRepresentationData.createAdditionalSites] >>> Could not "+\
+            logging.warning("[plotting.drawGeneLinks.createAdditionalSites] >>> Could not "+\
                             "create kmer sites or masking sites because less than 2 genes are involved")
 
     if kmerSites is not None:
@@ -232,6 +259,12 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
     if maskingSites is not None:
         createAdditionalSites(maskingSites, maskingCol)
 
+    # if desired, only draw genes that have links
+    if onlyLinkedGenes:
+        linkedGenes = set()
+        for link in drawLinks:
+            linkedGenes.update(link.genes)
+        drawGenes = [dg for dg in drawGenes if dg.id in linkedGenes]
 
     # avoid masking kwargs and set defaults here that can be overwritten in function call
     gw = 20 if 'genewidth' not in kwargs else kwargs['genewidth']
@@ -244,7 +277,8 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
     if imname:
         img.save(imname)
 
-    img.close()
+    #img.close()
+    return img
 
 
 
@@ -252,7 +286,7 @@ def drawGeneLinks_SequenceRepresentationData(genomes: list[SequenceRepresentatio
 def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False, 
                           kmerSites = None, kmerCol = None, maskingSites = None, maskingCol = 'darkred',
                           highlightProfiles = None, highlightcol = 'darkgreen',
-                          font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
+                          font = None, **kwargs):
     """
     Draw an image with simulated "genomes" as horizontal bars and links as connecting lines
 
@@ -278,9 +312,12 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
                                          to define profile indices (u) in the site tuples that get a different link 
                                          color
         highlightcol (str or tuple of RGB values): Color to use for highlighted links
-        font (str): path to the font to use in the image
+        font (str): optional, path to an alternative font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
+    if font is None:
+        font = _font_path
+
     drawGenes = []
     for g in range(len(genomes)):
         for c in range(len(genomes[g])):
@@ -389,7 +426,7 @@ def drawGeneLinks_simData(genomes, links, posDict, imname, linksAreSites = False
                         
                         
         
-def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
+def drawGeneLinks_realData(datapath, seqnames, links, imname, font = None, **kwargs):
     """
     Draw an image with genomes as horizontal bars and links as connecting lines from real data
 
@@ -398,9 +435,12 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
         seqnames (list of lists of str): sequence names, one list per genome
         links (list of lists of occurrences): links between genome positions (occurrences)
         imname (str): path to image file to write the image to, set to None for no writing
-        font (str): path to the font to use in the image
+        font (str): optional, path to an alternative font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
+    if font is None:
+        font = _font_path
+
     with open(os.path.join(datapath, "orthologs.json"), 'rt') as fh:
         orthology = json.load(fh)
         
@@ -533,7 +573,7 @@ def drawGeneLinks_realData(datapath, seqnames, links, imname, font = "/opt/conda
 
 
 def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname, 
-                          font = "/opt/conda/fonts/Ubuntu-M.ttf", **kwargs):
+                          font = None, **kwargs):
     """
     Draw an image with toy data "genomes" as horizontal bars and links as connecting lines
 
@@ -543,9 +583,12 @@ def drawGeneLinks_toyData(genomes, links, insertTracking, repeatTracking, imname
         insertTracking (list of lists of dicts): tracking dicts of pattern inserts as returned from toy data creation
         repeatTracking (list of lists of dicts): tracking dicts of repeat inserts as returned from toy data creation
         imname (str): path to image file to write the image to, set to None for no writing
-        font (str): path to the font to use in the image
+        font (str): optional, path to an alternative font to use in the image
         **kwargs: named arguments forwarded to gld.draw()
     """
+    if font is None:
+        font = _font_path
+
     drawGenes = []
     for g in range(len(genomes)):
         for s in range(len(genomes[g])):
@@ -617,6 +660,145 @@ def makeVideo(path, video_name, fps = 1):
 
 
 
+# === Stuff for histograms ===
+
+def ownHist_impl(ls, binSize=None, bins=None):
+    """ Returns two lists, the first containing the bin indices and the second the item count per bin
+
+    Arguments:
+        ls: list of values to create histogram from
+        binSize: optional bin size, if None it is determined to
+                 yield at most 100 bins.
+                 Is ignored if bins is not None
+        bins:    optional list of bins to use, must have at least
+                 one element and pairwise bin differences must all
+                 be equal """
+    if bins is None:
+        maxls = np.nanmax(ls)
+        minls = np.nanmin(ls)
+        if binSize is None:    
+            if maxls == minls:
+                binSize = 1
+            else:
+                binSize = max(1, (maxls-minls)/100)
+
+        lbin = math.floor(minls/binSize)
+        rbin = math.floor(maxls/binSize)
+        # intercept if binsize would lead to more than 100 bins
+        if len(range(lbin,(rbin+1))) > 101:
+            return ownHist_impl(ls, (maxls-minls)/100)
+
+        bins = [b*binSize for b in range(lbin,(rbin+1))]
+        vals = [0 for b in range(lbin,(rbin+1))]
+    else:
+        assert len(bins) >= 1, "bins must contain at least one element"
+        lbin = int(bins[0])
+        assert lbin == bins[0], "first bin must be convertible to int, but is "+str(bins[0])
+        if len(bins) == 1:
+            binSize = 1
+            vals = [0]
+        else:
+            binSize = bins[1] - bins[0]
+            assert all([math.isclose(bins[i]-bins[i-1], binSize) for i in range(1,len(bins))]), "bin sizes not equal: "\
+                                                                  + str([bins[i]-bins[i-1] for i in range(1,len(bins))])
+            vals = [0 for _ in bins]
+        
+    for x in ls:
+        if not np.isnan(x):
+            b = math.floor(x/binSize)
+            i = b - lbin
+            vals[i] += 1
+        
+    return bins, vals
+
+
+
+def ownHist(ls, binSize=None, bins=None):
+    """ Returns two lists, the first containing the bin indices and the second the item count per bin, based on all 
+        items in `ls` that are not NaN. """
+    return ownHist_impl(ls, binSize, bins)
+
+
+
+def ownHistRel(ls, binSize=None, bins=None):
+    """ Returns two lists, the first containing the bin indices and the second the relative frequencies per bin, based 
+        on all items in `ls` that are not NaN."""
+    bins, vals = ownHist(ls, binSize, bins)
+    vals[:] = [v/len(ls) for v in vals]
+    return bins, vals
+
+
+
+def plotOwnHist(bins, vals, ylim=None, precision=None, ax=None, **kwargs):
+    """ Plots a histogram based on the output of ownHist or ownHistRel. Returns the figure and axis objects from 
+        plt.subplots.
+        Arguments:
+            bins: list of bin indices
+            vals: list of item counts/rel. frequencies per bin
+            ylim: optional tuple (a, b) where a < b, values outside this range are clipped
+            precision: optional int, number of digits after the decimal point to use for bin labels
+            ax: optional axes object to plot on, a new figure is created if None (default)
+            kwargs: additional arguments passed to plt.bar """
+    if len(bins) > 1:
+        if precision is None:
+            binsize = bins[1] - bins[0]
+            p = 1
+            while int((p*10)*binsize) != ((p*10)*binsize):
+                p += 1
+        else:
+            p = precision
+
+        bins = [np.format_float_positional(b, precision=p) for b in bins]
+
+    if ylim is not None:
+        assert type(ylim) == tuple, "ylim must be a tuple"
+        assert ylim[0] < ylim[1], 'ylim must be a tuple (a, b) where a < b'
+        vals = [max(ylim[0], min(ylim[1], y)) for y in vals]
+        
+    newfig = ax is None
+    if newfig:
+        fig, ax = plt.subplots(1, 1, figsize=(16,9))
+
+    ax.bar(x = range(len(bins)),
+           height = vals,
+           tick_label = bins, **kwargs)
+    
+    if newfig:
+        return fig, ax 
+    else:
+        return ax
+    
+
+
+def ownPlotlyHist(lists: dict[str, list], binSize=None, bins=None, **kwargs):
+    """ Create a plotly histogram from a dictionary of lists. The keys of the dictionary are used as labels for the 
+        traces. 
+        Arguments:
+            lists: dictionary of lists to create histograms from. Keys must be trace labels, values must be the lists.
+            binSize: optional bin size, if None it is determined to yield at most 100 bins. 
+                     Is ignored if bins is not None
+            bins: optional list of bins to use, must have at least one element and pairwise bin differences must all be 
+                  equal
+            kwargs: additional arguments passed to go.Histogram"""
+    
+    allvals = list(set([v for label in lists for v in lists[label]]))
+    allbins, _ = ownHist(allvals, binSize, bins)
+    
+    counts = {}
+    for label in lists:
+        _, c = ownHist(lists[label], bins=allbins)
+        counts[label] = c
+        
+    fig = go.Figure()
+    for label in counts:
+        fig.add_trace(go.Bar(x=allbins, y=counts[label], name=label, **kwargs))
+    
+    return fig
+
+
+
+# === Other stuff ===
+
 def combinePlots(plots: list, 
                  rows: int, cols: int, 
                  out: str, 
@@ -643,7 +825,8 @@ def combinePlots(plots: list,
         if fontpath is not None:
             assert os.path.isfile(fontpath), "Font not found"
         else:
-            fontpath = '/usr/share/fonts/truetype/freefont/FreeSerif.ttf'
+            #fontpath = '/usr/share/fonts/truetype/freefont/FreeSerif.ttf'
+            fontpath = _font_path
 
         if not os.path.isfile(fontpath):
             addLabels = False
@@ -651,7 +834,7 @@ def combinePlots(plots: list,
             logging.warning(f"[plotting.combinePlots] >>> Ignoring labels, default fontpath not found: {fontpath}")
         else:
             addLabels = True
-            font = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSerif.ttf', fontsize)
+            font = ImageFont.truetype(fontpath, fontsize)
     else:
         addLabels = False
         

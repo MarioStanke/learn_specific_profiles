@@ -3,9 +3,10 @@ import numpy as np
 import tensorflow as tf
 from typing import Union
 
-import MSAgen.MSAgen as MSAgen
-import SequenceRepresentation as sr
-import sequtils as su
+#import MSAgen.MSAgen as MSAgen
+from .MSAgen import MSAgen
+from . import SequenceRepresentation as sr
+from . import sequtils as su
 
 def backGroundAAFreqs(genomes: list[list[str]], verbose: bool = False):
     """

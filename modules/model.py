@@ -4,9 +4,9 @@ import numpy as np
 import tensorflow as tf
 from time import time
 
-import dataset
-import ProfileFindingSetup
-import sequtils as su
+from . import dataset
+from . import ProfileFindingSetup
+from . import sequtils as su
 
 
 
@@ -163,7 +163,11 @@ class SpecificProfile(tf.keras.Model):
         return P_logit_init           # shape: (self.k+(2*self.s), alphabet_size, U)
         
         
-        
+
+    # TODO: Rewrite this in order to make DNA input possible. Best is probably to remove position conversion altogether,
+    # except from tiles to acutal sequence positions. Conversion from AA to DNA or vice versa should be handled in the
+    # evaluation, not here. This should also simplify this function quite a bit.    
+    # ATTENTION: Currently, position conversion is imprecise as frame shift is ignored. Will be fixed with aboves TODO.
     def get_profile_match_sites(self, ds, score_threshold, pIdx = None, calculateLinks = False, otherP = None):
         """
         Get sites in the dataset where either all or a specific profile match according to a score threshold
@@ -492,7 +496,7 @@ class SpecificProfile(tf.keras.Model):
         P2 = tf.transpose(P2, [1,2,0]) # (k, alphabet_size, U*)
         #print("[DEBUG] >>> transposed P2 shape:", P2.shape)
         
-        return P2, scores, losses
+        return P2, scores.numpy(), losses.numpy()
 
 
 
@@ -726,8 +730,8 @@ class SpecificProfile(tf.keras.Model):
 
         def profileHistInit():
             return {
-                'idx': np.ndarray([self.setup.profile_plateau], dtype=np.int), 
-                'score': np.ndarray([self.setup.profile_plateau], dtype=np.int),
+                'idx': np.ndarray([self.setup.profile_plateau], dtype=int), 
+                'score': np.ndarray([self.setup.profile_plateau], dtype=int),
                 'i': 0,
                 'c': 0}
         

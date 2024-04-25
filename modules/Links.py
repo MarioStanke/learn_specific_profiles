@@ -3,7 +3,6 @@ import logging
 import itertools
 import numpy as np
 
-#import model
 from . import SequenceRepresentation
 from . import sequtils as su
 
@@ -22,14 +21,10 @@ class Occurrence:
         assert self.strand in ['+', '-'], "[ERROR] >>> Invalid strand: " + self.strand
 
     def __str__(self) -> str:
-        #return(f"(g: {self.genomeIdx}, c: {self.sequenceIdx}, p: {self.position}, f: {self.frame}, "\
-        #       + f"u: {self.profileIdx})")
         return(f"(g: {self.genomeIdx}, c: {self.sequenceIdx}, p: {self.position}, s: {self.strand}, "\
                + f"u: {self.profileIdx})")
     def __repr__(self) -> str:
         return self.__str__()
-        #return (f"Occurrence(genomeID={self.genomeIdx}, sequenceID={self.sequenceIdx}, position={self.position}, " \
-        #        +f"frame={self.frame}, profileID={self.profileIdx})")
     def __lt__(self, other):
         return self.tuple() < other.tuple()
     def __eq__(self, other):
@@ -74,7 +69,6 @@ class MultiLink:
                                          + f"but multiple profile indices: {set([occ.profileIdx for occ in occs])}"
         occs = sorted(occs)
         for occ in occs:
-            # print("[DEBUG] >>> occ:", occ)
             assert occ.genomeIdx < len(self.genomes), "[ERROR] >>> Genome index out of range: " + str(occ.genomeIdx)
             assert occ.sequenceIdx < len(self.genomes[occ.genomeIdx]), \
                 "[ERROR] >>> Sequence index out of range: " + str(occ.sequenceIdx)
@@ -104,9 +98,6 @@ class MultiLink:
     def __len__(self):
         """ Returns number of genomes that have occurrences in the MultiLink. """
         return len(self.occs)
-    
-    #def __getitem__(self, key):
-    #    return self.occs[key]
     
     def __iter__(self):
         return iter(self.occs)
@@ -231,7 +222,6 @@ class Link:
         for occ in self.occs:
             seqRep = self.genomes[occ.genomeIdx][occ.sequenceIdx]
             seq = seqRep.getSequence()[occ.position:occ.position+self.span]
-            #if occ.frame >= 3:
             if occ.strand == '-':
                 seq = SequenceRepresentation.Sequence("", "", "-", 0, sequence=seq).getSequence(rc = True)
                 
@@ -353,7 +343,6 @@ def linksFromSites(sites: np.ndarray, span: int, genomes: list[SequenceRepresent
                 break
 
         if nlinks > linkThreshold:
-            #print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
             logging.debug(f"[Links.linksFromSites] >>> Profile {u} would produce at least {nlinks} links, skipping")
             skipped.append((u, nlinks))
         else:
@@ -363,9 +352,6 @@ def linksFromSites(sites: np.ndarray, span: int, genomes: list[SequenceRepresent
                 links.append(Link([Occurrence(o[0], o[1], o[2], '+' if o[3] < 3 else '-', o[4]) for o in l], 
                                   int(span), genomes))
             
-            #print("[DEBUG] >>> len(l):", len(l))
-            #print("[DEBUG] >>>      l:", l)
-            #links.extend(l)
             linkProfiles.add((u, nlinks, str(occs)))
 
     return links, linkProfiles, skipped

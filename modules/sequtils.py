@@ -85,7 +85,7 @@ def six_frame_translation(S):
                     prot += ' '                    # use null aa in that case
                 else:
                     prot += genetic_code[codon]
-                #prot += genetic_code[seq[i:i+codon_len]]
+                
             T.append(prot)
     return T
 
@@ -162,11 +162,10 @@ def makeDFs(P, alphabet:list[str] = aa_alphabet[1:], drop:list[str] = ['*']):
     for j in range(u):
         profile_matrix = P[:,:,j]
         df = pd.DataFrame(profile_matrix)
-        #df.columns = aa_alphabet[1:]
         df.columns = alphabet
         for dc in drop:
             if dc in df.columns:
                 df = df.drop([dc], axis=1)
-        #df = df.drop(['*'], axis=1)
+        
         dfs.append(df)
     return dfs

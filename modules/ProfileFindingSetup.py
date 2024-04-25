@@ -130,7 +130,6 @@ class ProfileFindingDataSetup:
                 
         # set Q, overwrites anything that was initialized!
         if self.Q is not None:
-            #print("[WARNING] >>> Overwriting previous Q:", self.Q)
             logging.warning("[ProfileFindingSetup.ProfileFindingDataSetup.addGenomes] >>> Overwriting previous Q: " + \
                             str(self.Q))
             
@@ -158,7 +157,6 @@ class ProfileFindingDataSetup:
 
             return desiredPatternAA, repeatPatternAA
         else:
-            #print(f"[WARNING] >>> expectedPatterns() only valid in `toy` mode, not in `{self.mode}` mode.")
             logging.warning("[ProfileFindingSetup.ProfileFindingDataSetup.expectedPatterns] >>> expectedPatterns() " + \
                             f"only valid in `toy` mode, not in `{self.mode}` mode.")
             return None, None
@@ -175,13 +173,10 @@ class ProfileFindingDataSetup:
               genomes list."""
         assert self.genomes is not None, "[ERROR] >>> Add genomes first"
         sequences = []
-        #seqnames = []
         for genome in self.genomes:
             sequences.append([])
-            #seqnames.append([])
             for sequence in genome:
                 sequences[-1].append(sequence.getSequence(rc = False))
-                #seqnames[-1].append(sequence.id)
 
         # For dataset creation, uneven genomes list of contigs is not supported as tf apparently fails to handle ragged
         # tensors there. Thus, do a "None-padding" of the genomes list
@@ -190,9 +185,8 @@ class ProfileFindingDataSetup:
             for g in range(len(sequences)):
                 while len(sequences[g]) < maxLen:
                     sequences[g].append("")
-                    #seqnames[g].append(None)
                 
-        return sequences#, seqnames
+        return sequences
     
 
 
@@ -221,7 +215,6 @@ class ProfileFindingDataSetup:
     def storeGenomes(self, filename: str, overwrite = False):
         if os.path.isfile(filename):
             if overwrite:
-                #print(f"[INFO] >>> Overwriting {filename}")
                 logging.info(f"[ProfileFindingSetup.ProfileFindingDataSetup.storeGenomes] >>> Overwriting {filename}")
             else:
                 assert not os.path.isfile(filename), f"[ERROR] >>> Overwriting {filename} not allowed"
@@ -335,8 +328,6 @@ class ProfileFindingTrainingSetup:
                                     +f"({self.data.genomes[g][c]})"
                             
                             tile = (g, c, pos//overlapTilesize)
-                            #tile = (g, c, f, i//overlapTilesize)# pos//overlapTilesize)
-                            #print(f"[DEBUG] >>> overlapTilesize={overlapTilesize}, i={i}, i//overlapTilesize={i//overlapTilesize}, f={f}, pos={pos}, kmer={kmer}")
                             if (kmer not in kmerToOcc) and (tile in seenTiles):
                                 continue # ignore new kmers that overlap with already seen kmers
                             if kmer not in kmerToOcc:
@@ -352,8 +343,6 @@ class ProfileFindingTrainingSetup:
         # initialize all profiles with most frequent kmers
         if enforceU:
             if len(kmerToOcc) < self.U:
-                #print(f"[WARNING] >>> Only {len(kmerToOcc)} different kmers found, but {self.U} profiles requested.", 
-                #    "Using all kmers plus random kmers.")
                 logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Only " + \
                                 f"{len(kmerToOcc)} different kmers found, but {self.U} profiles requested. " + \
                                 "Using all kmers plus random kmers.")
@@ -369,8 +358,6 @@ class ProfileFindingTrainingSetup:
 
         else:
             if len(kmerToOcc) < minU:
-                #print(f"[WARNING] >>> Only {len(kmerToOcc)} different kmers found, but min. {minU} profiles requested.",
-                #      f"Violating minU and only initializing {len(kmerToOcc)} profiles.")
                 logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Only " + \
                                 f"{len(kmerToOcc)} different kmers found, but min. {minU} profiles requested. " + \
                                 f"Violating minU and only initializing {len(kmerToOcc)} profiles.")
@@ -396,12 +383,9 @@ class ProfileFindingTrainingSetup:
         for kmer in midKmers:
             self.initKmerPositions[kmer] = kmerToOcc[kmer]
             
-        #print("[INFO] >>> Number of profiles:", len(midKmers))
         logging.info("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: " + \
                      str(len(midKmers)))
         if len(midKmers) != self.U:
-            #print(f"[WARNING] >>> {len(midKmers)} profiles initialized, but {self.U} requested.", 
-            #      f"Resetting U to {len(midKmers)}")
             logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> " + \
                             f"{len(midKmers)} profiles initialized, but {self.U} requested. " + \
                             f"Resetting U to {len(midKmers)}")
@@ -414,15 +398,12 @@ class ProfileFindingTrainingSetup:
         self.initProfiles = getCustomMidProfiles(midKmers, self.k+(2*self.s), self.data.Q, mid_factor=4, bg_factor=1)
         
         if self.n_best_profiles > self.initProfiles.shape[2]:
-            #print(f"[WARNING] >>> n_best_profiles ({self.n_best_profiles}) > number of profiles",
-            #      f"({self.initProfiles.shape[2]}), setting to {self.initProfiles.shape[2]}")
             logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> " + \
                             f"n_best_profiles ({self.n_best_profiles}) > number of profiles " + \
                             f"({self.initProfiles.shape[2]}), setting to {self.initProfiles.shape[2]}")
             self.n_best_profiles = self.initProfiles.shape[2]
 
         if plot:
-            #plotting.plotLogo(self.initProfiles)
             # softmax to see the profiles as they would be reported by the model
             softmaxProfiles = np.transpose(np.exp(self.initProfiles), (1,2,0)) # axis one needs to become 0 for softmax
             softmaxProfiles = softmaxProfiles / np.sum(softmaxProfiles, axis=0)
@@ -512,12 +493,8 @@ def getCustomMidProfiles(midSeqs: list[str], k: int, Q: np.ndarray, mid_factor: 
     
     U = len(midSeqs)
     profiles = np.repeat([Q], repeats=k, axis=0)
-    #print("[DEBUG] >>> profiles.shape:", profiles.shape)
     profiles = np.repeat([profiles], repeats=U, axis=0)
-    #print("[DEBUG] >>> profiles.shape:", profiles.shape)
     profiles = np.transpose(profiles, (1,2,0))
-    #print("[DEBUG] >>> profiles.shape:", profiles.shape)
-    #print("[DEBUG] >>> profiles[:,:,0]:", profiles[:,:,0])
     
     for u in range(U):
         midlen = len(midSeqs[u])

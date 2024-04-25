@@ -326,7 +326,6 @@ class Sequence:
 
     def toDict(self) -> dict:
         """ Return a dictionary representation of the sequence. """
-        #print("[DEBUG] >>> called .toDict from Sequence", str(self))
         objdict = {
             'id': self.id,
             'species': self.species,
@@ -348,7 +347,6 @@ class Sequence:
         if hasattr(self, 'homology'):
             objdict['homology'] = [homology.toDict() for homology in self.homology]
 
-        #print("[DEBUG] >>> finished .toDict from Sequence", str(self))
         return objdict
     
     def toTuple(self) -> tuple:
@@ -434,9 +432,7 @@ class TranslatedSequence(Sequence):
         self.frame = frame
         self.type = genomic_sequence.type
         self.source = genomic_sequence.source
-        #self.homology = None
-        #self.genomic_elements = None
-
+        
         assert not hasattr(self, 'homology'), f"[ERROR] >>> did not expect homology: {self.homology}"
         assert not hasattr(self, 'genomic_elements'), \
             f"[ERROR] >>> did not expect genomic_elements: {self.genomic_elements}"
@@ -474,11 +470,7 @@ class TranslatedSequence(Sequence):
 # helper functions for adding genomic elements and homology to a sequence
 def _addElementToSequence(element: Sequence, sequence: Sequence):
     """ Helper function for adding genomic elements to a sequence, do not use directly """
-    #assert type(element) == Sequence, f"[ERROR] >>> `element` must be of type Sequence, not {type(element)}."
-    #assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
     assert hasattr(sequence, 'genomic_elements'), "[ERROR] >>> `sequence` must have attribute `genomic_elements`."
-    #assert element.genome_start >= sequence.genome_start, "[ERROR] >>> `element` must start after `sequence`."
-    #assert element.genome_end <= sequence.genome_end, "[ERROR] >>> `element` must end before `sequence`."
     assert _sequencesOverlap(element, sequence), "[ERROR] >>> `element` must overlap with `sequence`."
     sequence.genomic_elements.append(element)
 
@@ -486,8 +478,6 @@ def _addElementToSequence(element: Sequence, sequence: Sequence):
 
 def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
     """ Helper function for adding a homology to a sequence, do not use directly """
-    #assert type(homology) == Sequence, f"[ERROR] >>> `homology` must be of type Sequence, not {type(homology)}."
-    #assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
     assert hasattr(sequence, 'homology'), "[ERROR] >>> `sequence` must have attribute `homology`."
     sequence.homology.append(homology)
 
@@ -495,8 +485,6 @@ def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
 
 def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = False) -> tuple[int, int]:
     """ Helper function, returns the relative positions of a sequence within a parent sequence """
-    #assert isinstance(sequence, Sequence), f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
-    #assert isinstance(parent, Sequence), f"[ERROR] >>> `parent` must be of type Sequence, not {type(parent)}."
     assert _sequencesOverlap(sequence, parent), "[ERROR] >>> `sequence` must overlap with `parent`."
 
     start = sequence.genome_start - parent.genome_start
@@ -513,7 +501,6 @@ def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = 
 
 def _sequencesOverlap(seq1: Sequence, seq2: Sequence) -> bool:
     """ Helper function, returns true if two sequences are from the same species and chromosome and overlap """
-    #print("[DEBUG] >>> ", repr(seq1), "\n", repr(seq2))
     return seq1.species == seq2.species and seq1.chromosome == seq2.chromosome and \
         seq1.genome_start < seq2.genome_end and seq1.genome_end > seq2.genome_start
 
@@ -632,9 +619,6 @@ def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
     )
 
     if sequence.id != objdict['id']:
-        #print("[WARNING] >>> ID mismatch, setting ID to", objdict['id'])
-        #print("              old ID:", sequence.id)
-        #print("              You might want to call _regenerateID() on the sequence.")
         logging.warning(f"[SequenceRepresentation.sequenceFromJSON] >>> ID mismatch, setting ID to {objdict['id']}")
         logging.warning(f"                                              old ID: {sequence.id}")
         logging.warning( "                                              You might want to call _regenerateID() on " + \
@@ -722,9 +706,6 @@ class Genome:
         # if key is a string, return the respective chromosome (i.e. a list of Sequences)
         if type(key) == str:
             if key in self._chromap:
-                # [DEPRECATED] for sequence in self.sequences:
-                #    if sequence.chromosome == key:
-                #        return sequence
                 return [self.sequences[i] for i in self._chromap[key]]
             else:
                 raise KeyError(f"Chromosome {key} not found in genome.")
@@ -758,15 +739,12 @@ class Genome:
     
     def addSequence(self, sequence: Sequence):
         """ Adds a Sequence to the genome and performs checks to ensure that the genome is valid. """
-        #assert type(sequence) == Sequence, f"[ERROR] >>> `sequence` must be of type Sequence, not {type(sequence)}."
         if self.species is None:
             self.species = sequence.species
         else:
             assert self.species == sequence.species, \
                 f"[ERROR] >>> All sequences in a genome must be from the same species {self.species}. " \
                 + f" You tried to add a sequence from {sequence.species}."
-        # [DEPRECATED] assert sequence.chromosome not in [seq.chromosome for seq in self.sequences], \
-        #    f"[ERROR] >>> All chromosomes in a genome must be unique, {sequence.chromosome} is already in the genome."
         
         if sequence.chromosome not in self._chromap:
             self._chromap[sequence.chromosome] = []

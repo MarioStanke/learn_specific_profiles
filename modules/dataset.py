@@ -3,7 +3,6 @@ import numpy as np
 import tensorflow as tf
 from typing import Union
 
-#import MSAgen.MSAgen as MSAgen
 from .MSAgen import MSAgen
 from . import SequenceRepresentation as sr
 from . import sequtils as su
@@ -32,10 +31,8 @@ def backGroundAAFreqs(genomes: list[list[str]], verbose: bool = False):
     if sum > 0:
         Q /= Q.sum()
     if verbose:
-        #print ("background freqs: ", sum, "*")
         logging.info(f"[dataset.backGroundAAFreqs] >>> background freqs: {sum} *")
         for c in range(su.aa_alphabet_size):
-            #print (f"{su.aa_alphabet[c+1]} {Q[c]:.4f}")
             logging.info(f"[dataset.backGroundAAFreqs] >>> {su.aa_alphabet[c+1]} {Q[c]:.4f}")
     return Q
 
@@ -60,7 +57,6 @@ def translateSequenceTiles(sequence, fwd_a, rc_b, tilesize):
     fwd_seq = sequence[fwd_a:fwd_b]
     rc_seq = sequence[rc_a:rc_b]
     rc_seq = rc_seq[::-1].translate(su.rctbl)
-    #print("DEBUG >>> Sequence:\n'"+sequence+"'")
     assert len(fwd_seq) == len(rc_seq), f"\nfwd: {fwd_a}: {fwd_b} -> {len(fwd_seq)}\n" \
                                          + f"rc: {rc_a}: {rc_b} -> {len(rc_seq)}\nseqlen: {seqlen}\n'{fwd_seq}'"
         
@@ -127,7 +123,6 @@ def seqlistFromGenomes(genomes: list[sr.Genome]) -> list[list[str]]:
 
 
 # Use a generator to get genome batches, simplified position handling
-#def createBatch(ntiles: int, aa_tile_size: int, genomes: list[list[str]], withPosTracking: bool = False):
 def createBatch(ntiles: Union[int, np.int32, tf.Tensor], aa_tile_size: Union[int, np.int32, tf.Tensor], 
                 genomes: Union[list[list[str]], np.ndarray, tf.Tensor], 
                 withPosTracking: Union[bool, np.bool_, tf.Tensor] = tf.constant(False)):
@@ -210,7 +205,6 @@ def createBatch(ntiles: Union[int, np.int32, tf.Tensor], aa_tile_size: Union[int
                 # translate and add tiles
                 if type(sequence) is not str:
                     # with tf, input are byte-strings and need to be converted back
-                    #sequence = tf.compat.as_str(sequence.numpy()) 
                     sequence = tf.compat.as_str(sequence.numpy()) if hasattr(sequence, 'numpy') \
                                    else tf.compat.as_str(sequence)
                 
@@ -285,34 +279,6 @@ def getDataset(genomes: list[list[str]], tiles_per_X: int, tile_size: int, withP
                                  tf.TensorShape(0))
             )
         else:
-            #print("DEBUG >>> genomes size", flush=True)
-            #print("[", ',\n  '.join([str(len(g)) for g in genomes]), "]", flush=True)
-            #print("DEBUG >>> genomes type:", type(genomes), flush=True)
-            #print("DEBUG >>> tiles_per_X type:", type(tiles_per_X), flush=True)
-            #print("DEBUG >>> tile_size type:", type(tile_size), flush=True)
-            #print("DEBUG >>> withPosTracking type:", type(withPosTracking), flush=True)
-            #print("DEBUG >>> convert tiles_per_X", flush=True)
-            #d1 = tf.constant(tiles_per_X)
-            #print("DEBUG >>> tiles_per_X", d1, flush=True)
-            #print("DEBUG >>> convert tile_size", flush=True)
-            #d2 = tf.constant(tile_size)
-            #print("DEBUG >>> tile_size", d2, flush=True)
-            #print("DEBUG >>> convert genomes", flush=True)
-            #d3 = tf.constant(genomes, dtype=tf.string)
-            #d3_1 = d3[0][0]
-            #print("DEBUG >>>", d3_1, flush=True)
-            #print("DEBUG >>> genomes", tf.compat.as_str(d3_1.numpy())[:10], flush=True)
-            #print("DEBUG >>> convert False", flush=True)
-            #d4 = tf.constant(False)
-            #print("DEBUG >>> False", d4, flush=True)
-            #print("DEBUG >>> create batch", flush=True)
-            #d5 = createBatch(d1, d2, d3, d4)
-            #print("DEBUG >>> dataset", d5, flush=True)
-            #for x in d5:
-            #    print("DEBUG >>> dataset element type", type(x), flush=True)
-            #    break
-
-            #N = d3.shape[0]
             ds = tf.data.Dataset.from_generator(
                 createBatch,
                 args = (tf.constant(tiles_per_X), tf.constant(tile_size), tf.constant(genomes, dtype=tf.string), 
@@ -436,7 +402,6 @@ def insertPatternsToGenomes(patterns: list[str],
     dna_alphabet_size = len(dna_alphabet)
     for pattern in patterns:
         if verbose: # print translated peptide
-            #print (f"Pattern {pattern} translates to ", su.six_frame_translation(pattern))
             logging.info(f"[dataset.insertPatternsToGenomes] >>> Pattern {pattern} translates to " + \
                          str(su.six_frame_translation(pattern)))
             

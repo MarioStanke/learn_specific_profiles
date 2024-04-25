@@ -123,14 +123,6 @@ class TrainingEvaluation():
 @dataclass
 class MultiTrainingEvaluation():
     """ Class to store results of multiple training evaluations. """
-    # runIDs: list = field(default_factory=list) # anything that lets us identify the run later
-    # motifs: list[MotifWrapper] = field(default_factory=list) # list of motifs used in the training run
-    # links: list[list[Links.Link]] = field(default_factory=list)
-    # nexonsHit: list[int] = field(default_factory=list)
-    # nhumanExons: list[int] = field(default_factory=list)
-    # nlinks: list[int] = field(default_factory=list)
-    # nlinksThatHit: list[int] = field(default_factory=list)
-    # trainingTime: list[float] = field(default_factory=list) # time in seconds, TODO: put that in a history class or sth, does not really fit here
     trainings: list[TrainingEvaluation] = field(default_factory=list)
 
     def add_result(self, runID, 
@@ -169,12 +161,6 @@ class MultiTrainingEvaluation():
                 if link.genomes[link.occs[0][0].genomeIdx].species == 'Homo_sapiens':
                     nhumanOccs += len(link.occs[0])
 
-            #occ = link.occs[0] if link.classname == "Link" else link.occs[0][0]
-            #hgoccs = [link.occs[0]] if link.classname == "Link" else link.occs[0]
-            #for occ in hgoccs:
-            #    if link.genomes[0].species == 'Homo_sapiens':
-            #        nlinks += 1
-    
         for sequence in genomes[0]:
             for i, exon in enumerate(sequence.genomic_elements):
                 nhumanExons += 1
@@ -184,8 +170,6 @@ class MultiTrainingEvaluation():
                     if link.classname == "Link":
                         occ = link.occs[0]
                         # TODO: re-evaluate. I think we cannot guarantee that a link hits human, but count anyway since that would be bad and accuracy should be low then
-                        #assert link.genomes[occ.genomeIdx].species == 'Homo_sapiens', \
-                        #    f"g: {occ.genomeIdx}, link: {link}"
                         if link.genomes[occ.genomeIdx].species != 'Homo_sapiens':
                             continue
 
@@ -228,14 +212,6 @@ class MultiTrainingEvaluation():
                 if exonHit:
                     nexonsHit += 1
 
-        # self.runIDs.append(runID)
-        # self.motifs.append(motifs)
-        # self.links.append(links)
-        # self.nexonsHit.append(nexonsHit)
-        # self.nlinks.append(nlinks)
-        # self.nhumanExons.append(nhumanExons)
-        # self.nlinksThatHit.append(nlinksThatHit)
-        # self.trainingTime.append(time)
         self.trainings.append(
             TrainingEvaluation(runID=runID, 
                                motifs=motifs, 
@@ -273,53 +249,10 @@ class MultiTrainingEvaluation():
 
     def dump(self, filename):
         """ Write a JSON representation of the object to a file. """
-        # d = {
-        #     'runIDs': self.runIDs,
-        #     'nexonsHit': self.nexonsHit,
-        #     'nhumanExons': self.nhumanExons,
-        #     'nlinks': self.nlinks,
-        #     'nlinksThatHit': self.nlinksThatHit,
-        #     'trainingTime': self.trainingTime,
-        #     'links': [[l.toDict() for l in links] for links in self.links],
-        #     'motifs': [m.toDict() for m in self.motifs]
-        # }
-
-        # # for easier debugging
-        # for key in d:
-        #     try:
-        #         _ = json.dumps(d[key])
-        #     except Exception as e:
-        #         logging.error(f"[MultiTrainingEvaluation.dump] >>> Error converting {key} to JSON, dump will fail.")
-        #         logging.error(f"[MultiTrainingEvaluation.dump] >>> Exception:\n{e}")
-
+        
         d = [t.toDict() for t in self.trainings]
-
         with open(filename, 'wt') as fh:
             json.dump(d, fh)
-
-        # except Exception as e:
-        #     logging.error(f"[MultiTrainingEvaluation.dump] >>> Error writing to file {filename}.")
-        #     logging.error(f"[MultiTrainingEvaluation.dump] >>> Exception:\n{e}")
-        #     logging.info(f"[MultiTrainingEvaluation.dump] >>> Writing data manually")
-            
-        #     with open(filename, 'wt') as fh:
-        #         fh.write("{")
-        #         fh.write('"runIDs": '+json.dumps(self.runIDs)+',\n')
-        #         fh.write('"nexonsHit": '+json.dumps(self.nexonsHit)+',\n')
-        #         fh.write('"nhumanExons": '+json.dumps(self.nhumanExons)+',\n')
-        #         fh.write('"nlinks": '+json.dumps(self.nlinks)+',\n')
-        #         fh.write('"nlinksThatHit": '+json.dumps(self.nlinksThatHit)+',\n')
-        #         fh.write('"trainingTime": '+json.dumps(self.trainingTime)+',\n')
-        #         fh.write('"links": [')
-        #         links_inner = []
-        #         for links in self.links:
-        #             links_inner.append('[' + ', '.join([str(l.toDict()) for l in links]) + '],')
-        #         fh.write(', '.join(links_inner))
-        #         fh.write("],\n")
-        #         fh.write('"motifs": [')
-        #         fh.write(', '.join(str(m.toDict()) for m in self.motifs))
-        #         fh.write("],\n")
-        #         fh.write("}")
 
 
 
@@ -348,7 +281,6 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                 for seqID in genome:
                     assert seqID in seqIDsToGenomes, f"Sequence ID {seqID} not found in allGenomes."
                     gidx, sidx = seqIDsToGenomes[seqID]
-                    #subGenomes[-1].append(allGenomes[gidx][sidx])
                     subGenomes[-1].addSequence(allGenomes[gidx][sidx])
 
             links = [Links.linkFromDict(l, subGenomes) for l in t['links']]
@@ -363,7 +295,6 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
             mte.trainings.append(
                 TrainingEvaluation(runID=t['runID'], 
                                    motifs=loadMotifWrapperFromDict(t['motifs']),
-                                   #links=[Links.linkFromDict(l, subGenomes) for l in t['links']],
                                    links=links,
                                    nexonsHit=t['nexonsHit'],
                                    nhumanExons=t['nhumanExons'],
@@ -374,36 +305,6 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                                    trainingTime=t['trainingTime'])
                 )
 
-
-    # mte.runIDs = d['runIDs']
-    # mte.nexonsHit = d['nexonsHit']
-    # mte.nhumanExons = d['nhumanExons']
-    # mte.nlinks = d['nlinks']
-    # mte.nlinksThatHit = d['nlinksThatHit']
-    # mte.trainingTime = d['trainingTime']
-    # mte.motifs = [loadMotifWrapperFromDict(m) for m in d['motifs']]
-
-    # mte.links = []
-
-    # seqIDsToGenomes = {allGenomes[gidx][sidx].id: (gidx, sidx) \
-    #                        for gidx in range(len(allGenomes)) \
-    #                        for sidx in range(len(allGenomes[gidx]))}
-    # for links in d['links']:
-    #     # in theory, we could have different genomes in different runs, but we assume that the genomes are the same
-    #     subGenomes = []
-    #     if len(links) == 0:
-    #         mte.links.append([])
-    #         continue
-
-    #     for genome in links[0]['genomes']:
-    #         subGenomes.append([])
-    #         for seqID in genome:
-    #             assert seqID in seqIDsToGenomes, f"Sequence ID {seqID} not found in allGenomes."
-    #             gidx, sidx = seqIDsToGenomes[seqID]
-    #             subGenomes[-1].append(allGenomes[gidx][sidx])
-
-    #     mte.links.append([Links.linkFromDict(l, subGenomes) for l in links])
-
     return mte
 
 
@@ -413,7 +314,7 @@ def trainAndEvaluate(runID,
                      evaluator: MultiTrainingEvaluation,
                      outdir: str, outprefix: str = "",
                      trainingWithReporting: bool = True,
-                     rand_seed: int = None) -> None: #-> tuple[float, float]:
+                     rand_seed: int = None) -> None:
     """ 
     Train profiles on a given training setup and evaluate them. 
     Parameters:
@@ -439,7 +340,6 @@ def trainAndEvaluate(runID,
 
     # build and randomly initialize profile model
     tf.keras.backend.clear_session() # avoid memory cluttering by remains of old models
-    #specProModel = None
     specProModel = model.SpecificProfile(setup = trainsetup,
                                          alphabet_size = su.aa_alphabet_size, 
                                          rand_seed = rand_seed)
@@ -460,13 +360,10 @@ def trainAndEvaluate(runID,
         end = time()
     except Exception as e:
         end = time()
-        #print(f"Training failed after {end-start:.2f}.")
-        #print("Exception:\n", e)
         logging.error(f"[training.trainAndEvaluate] >>> Training failed after {end-start:.2f}.")
         logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
         
     training_time = end-start
-    #print(f"Training time: {end-start:.2f}")
     logging.info(f"[training.trainAndEvaluate] >>> Training time: {training_time:.2f}")
 
     # evaluate model (if possible)
@@ -536,49 +433,6 @@ def trainAndEvaluate(runID,
                                      show=False)
         img.close()
         
-        # # calculate accuracy
-        # def accuracy(links: list[Links.Link]):
-        #     assert trainsetup.data.genomes[0].species == 'Homo_sapiens'
-        #     #nlinks = len(links)
-        #     nlinks = 0
-        #     nhumanExons = 0
-        #     nexonsHit = 0
-        #     nlinksThatHit = 0
-        #     for link in links:
-        #         occ = link.occs[0]
-        #         if link.genomes[0].species == 'Homo_sapiens':
-        #             nlinks += 1
-            
-        #     for sequence in trainsetup.data.genomes[0]:
-        #         for i, exon in enumerate(sequence.genomic_elements):
-        #             nhumanExons += 1
-        #             exonHit = False
-        #             exonStart, exonEnd = exon.getRelativePositions(sequence)
-        #             for link in links:
-        #                 occ = link.occs[0]
-        #                 assert link.genomes[0].species == 'Homo_sapiens'
-        #                 if (occ.sequenceIdx == i) and (exonStart <= occ.position + link.span - 1) and (occ.position < exonEnd):
-        #                     exonHit = True
-        #                     nlinksThatHit += 1
-                            
-        #             if exonHit:
-        #                 nexonsHit += 1
-                        
-        #     sensitivity = nexonsHit/nhumanExons
-        #     specificity = nlinksThatHit/nlinks
-        #     #print(f"Sensitivity: {nexonsHit} / {nhumanExons} = {nexonsHit/nhumanExons}")
-        #     #print(f"Specificity: {nlinksThatHit} / {nlinks} = {nlinksThatHit/nlinks}")
-        #     logging.info("[training.trainAndEvaluate] >>> " + \
-        #                  f"Sensitivity: {nexonsHit} / {nhumanExons} = {sensitivity}")
-        #     logging.info("[training.trainAndEvaluate] >>> " + \
-        #                  f"Specificity: {nlinksThatHit} / {nlinks} = {specificity}")
-        #     return (sensitivity, specificity)
-                        
-        # return accuracy(links)
-
     except Exception as e:
-        #print("Evaluation failed.")
-        #print("Exception:\n", e)
         logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")
         logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
-        #return None, None # return two Nones so caller can always unpack the result

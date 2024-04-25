@@ -12,7 +12,6 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import plotly.graph_objects as go
 
-#import GeneLinkDraw.geneLinkDraw as gld
 from .GeneLinkDraw import geneLinkDraw as gld
 from . import Links
 from . import SequenceRepresentation
@@ -107,65 +106,6 @@ def plotLogo(P: np.ndarray, alphabet:list[str] = su.aa_alphabet[1:],
 
 
 
-# DEPRECATED DUPLICATE (use Links.linksFromSites instead)
-# vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv        
-# def sitesToLinks(sites, linkThreshold = 100):
-#     """
-#     From a tensor of profile match sites, create a list of links to use in drawGeneLinks_*()
-
-#     Parameters
-#         sites (np.ndarray): array of shape (sites, (genomeID, contigID, pos, u, f)) with the profile match sites
-#         linkThreshold (int): do not create links from a profile that would result in more than this many links
-
-#     Returns
-#         links: list of links
-#         linkProfiles: set of tuples with information from what the links were created
-#         skipped: list of profiles that have been skipped due to too many links
-#     """
-#     # sites.shape == (fwdSites, (genomeID, contigID, pos, u, f))
-#     links = []
-#     skipped = []
-#     profileToOcc = {}
-#     linkProfiles = set()
-#     for g, c, p, u, _ in sites:
-#         if u not in profileToOcc:
-#             profileToOcc[u] = {}
-            
-#         if g not in profileToOcc[u]:
-#             profileToOcc[u][g] = []
-            
-#         profileToOcc[u][g].append([g,c,p])
-        
-#     for u in profileToOcc:
-#         if (len(profileToOcc[u].keys()) == 1): # or (0 not in profileToOcc[p]):
-#             continue
-            
-#         occs = []
-#         for g in profileToOcc[u]:
-#             occs.append(profileToOcc[u][g])
-            
-#         # nlinks = np.prod([len(og) for og in occs]) # does not handle overflow!
-#         nlinks = 1
-#         for og in occs:
-#             nlinks *= len(og)
-#             if nlinks > linkThreshold:
-#                 break
-
-#         if nlinks > linkThreshold:
-#             #print("[DEBUG] >>> Profile", u, "would produce at least", nlinks, "links, skipping")
-#             logging.warning(f"[plotting.sitesToLings] >>> Profile {u} would produce at least {nlinks} links, skipping")
-#             skipped.append((u, nlinks))
-#         else:
-#             l = list(itertools.product(*occs))
-#             #print("[DEBUG] >>> len(l):", len(l))
-#             #print("[DEBUG] >>>      l:", l)
-#             links.extend(l)
-#             linkProfiles.add((u, nlinks, str(occs)))
-
-#     return links, linkProfiles, skipped
-
-
-
 # use this function, the stuff below is deprecated
 def drawGeneLinks(genomes: list[SequenceRepresentation.Genome], 
                   links: list[Links.Link], imname,
@@ -250,7 +190,6 @@ def drawGeneLinks(genomes: list[SequenceRepresentation.Genome],
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
         else:
-            #print("[WARNING] >>> Could not create kmer sites or masking sites because less than 2 genes are involved")
             logging.warning("[plotting.drawGeneLinks.createAdditionalSites] >>> Could not "+\
                             "create kmer sites or masking sites because less than 2 genes are involved")
 

@@ -38,7 +38,6 @@ class StremeXMLParser:
         """ Parse the STREME XML output and return the found motifs.
         Returns: np.array of shape (maxwidth, len(alphabet), n_motifs)"""
         def start_handler(name, attrs):
-            #print(f"[DEBUG] >>> start name: {name}, attrs: {attrs}")
             if name == 'alphabet':
                 assert self.counting_letters is None, f"[ERROR] >>> Multiple <alphabet> tags encountered in {self.file}"
                 self.counting_letters = True
@@ -78,7 +77,6 @@ class StremeXMLParser:
                 
         
         def end_handler(name):
-            #print(f"[DEBUG] >>> end name: {name}")
             if name == 'alphabet':
                 assert self.counting_letters, f"[ERROR] >>> </alphabet> with no opening tag encountered in {self.file}"
                 self.counting_letters = False
@@ -179,7 +177,6 @@ class Streme:
             + f"vs. {[s.id for s in data]}"
         
         # map STREME 'seq_ID' to data sequences
-        #sites['seq_ID'] = sites['seq_ID'].apply(lambda x: seqNameMapping[x]) # restore actual sequence IDs from mapping
         trueSeqIDs = []
         for sid in sites['seq_ID']:
             tsid = self._seqname_mapping.get(str(sid), None)
@@ -198,26 +195,6 @@ class Streme:
                 continue
 
             streme_seqdict[row.seq_ID] = data_seqdict[row.seq_ID]
-            # else:
-            #     logging.warning(f"Sequence ID {row.seq_ID} not found in input data. Trying to find a match.")
-
-            #     # try to find a match
-            #     candidates = []
-            #     for sid in data_seqdict:
-            #         if row.seq_ID in sid:
-            #             candidates.append(sid)
-
-            #     if len(candidates) == 0:
-            #         logging.error(f"No match found for sequence ID {row.seq_ID}.")
-            #         continue
-
-            #     elif len(candidates) == 1:
-            #         logging.warning(f"Match found for sequence ID {row.seq_ID}: {candidates[0]}.")
-            #         streme_seqdict[row.seq_ID] = data_seqdict[candidates[0]]
-            #     else:
-            #         logging.warning(f"Multiple matches found for sequence ID {row.seq_ID}: {candidates}. " \
-            #                         + f"Using the first one ({candidates[0]}).")
-            #         streme_seqdict[row.seq_ID] = data_seqdict[candidates[0]]
 
         # map `genomes` sequence IDs to (genomeIdx, sequenceIdx) tuples
         genome_seqToIdxs = {}

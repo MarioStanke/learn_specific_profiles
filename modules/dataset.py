@@ -292,58 +292,59 @@ def getDataset(genomes: list[list[str]], tiles_per_X: int, tile_size: int, withP
     return ds
 
 
-
-class DatasetHelper:
-    """ Helper class to easily pass dataset parameters around and tweak dataset creation as needed """
+# === seems to be unused, deprecated ===========================================
+# class DatasetHelper:
+#     """ Helper class to easily pass dataset parameters around and tweak dataset creation as needed """
     
-    def __init__(self, 
-                 genomes,
-                 tiles_per_X: int,
-                 tile_size: int,
-                 batch_size: int = None,
-                 prefetch: int = None):
-        """ If batch_size and/or prefetch are None (default), 
-            no batch size and/or prefetch dataset is created unless
-            specified in the call to DatasetHelper.getDataset() """
-        self.genomes = genomes
-        self.tilesPerX = tiles_per_X
-        self.tileSize = tile_size
-        self.batchSize = batch_size
-        self.prefetch = prefetch
+#     def __init__(self, 
+#                  genomes,
+#                  tiles_per_X: int,
+#                  tile_size: int,
+#                  batch_size: int = None,
+#                  prefetch: int = None):
+#         """ If batch_size and/or prefetch are None (default), 
+#             no batch size and/or prefetch dataset is created unless
+#             specified in the call to DatasetHelper.getDataset() """
+#         self.genomes = genomes
+#         self.tilesPerX = tiles_per_X
+#         self.tileSize = tile_size
+#         self.batchSize = batch_size
+#         self.prefetch = prefetch
         
-    def getDataset(self, 
-                   tiles_per_X: int = None,
-                   tile_size: int = None,
-                   batch_size: int = None,
-                   prefetch: int = None,
-                   repeat: bool = False,
-                   withPosTracking: bool = False):
-        """ Any argument specified here overwrites the defaults from object constuction """
-        tilesPerX = tiles_per_X if tiles_per_X is not None else self.tilesPerX
-        tileSize = tile_size if tile_size is not None else self.tileSize
-        batchSize = batch_size if batch_size is not None else self.batchSize
-        prefetch_ = prefetch if prefetch is not None else self.prefetch
-        ds = getDataset(self.genomes,
-                        tilesPerX,
-                        tileSize,
-                        withPosTracking)
+#     def getDataset(self, 
+#                    tiles_per_X: int = None,
+#                    tile_size: int = None,
+#                    batch_size: int = None,
+#                    prefetch: int = None,
+#                    repeat: bool = False,
+#                    withPosTracking: bool = False):
+#         """ Any argument specified here overwrites the defaults from object constuction """
+#         tilesPerX = tiles_per_X if tiles_per_X is not None else self.tilesPerX
+#         tileSize = tile_size if tile_size is not None else self.tileSize
+#         batchSize = batch_size if batch_size is not None else self.batchSize
+#         prefetch_ = prefetch if prefetch is not None else self.prefetch
+#         ds = getDataset(self.genomes,
+#                         tilesPerX,
+#                         tileSize,
+#                         withPosTracking)
         
-        if repeat:
-            ds = ds.repeat()
+#         if repeat:
+#             ds = ds.repeat()
         
-        if batchSize is not None:
-            ds = ds.batch(batchSize)
+#         if batchSize is not None:
+#             ds = ds.batch(batchSize)
             
-        if prefetch_ is not None:
-            ds = ds.prefetch(prefetch_)
+#         if prefetch_ is not None:
+#             ds = ds.prefetch(prefetch_)
             
-        return ds
+#         return ds
 
-    def allUC(self):
-        """ Make all bases in the genome upper case (in place!, useful after training with reporting) """
-        for g in range(len(self.genomes)):
-            for c in range(len(self.genomes[g])):
-                self.genomes[g][c] = self.genomes[g][c].upper()
+#     def allUC(self):
+#         """ Make all bases in the genome upper case (in place!, useful after training with reporting) """
+#         for g in range(len(self.genomes)):
+#             for c in range(len(self.genomes[g])):
+#                 self.genomes[g][c] = self.genomes[g][c].upper()
+# ==============================================================================
 
 
 

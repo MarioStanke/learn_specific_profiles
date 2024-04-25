@@ -36,6 +36,7 @@ aa_alphabet =[' ', # missing value, 0 used for padding
              ]
 aa_alphabet_size = len(aa_alphabet) - 1 # do not count ' '
 
+
 def sequence_translation(S, rc = False):
     """ Translate single DNA sequence to AA sequence. Set `rc` to `True` to translate the reverse complement of `S` """
     if rc:
@@ -50,7 +51,6 @@ def sequence_translation(S, rc = False):
             prot += genetic_code[codon]
             
     return prot
-    
     
     
 def three_frame_translation(S, rc = False, offsets=range(3)):
@@ -73,6 +73,7 @@ def three_frame_translation(S, rc = False, offsets=range(3)):
 
     return T
 
+
 def six_frame_translation(S):
     """ return all 6 conceptually translated protein sequences """
     T = []
@@ -88,6 +89,7 @@ def six_frame_translation(S):
                 
             T.append(prot)
     return T
+
 
 def convert_six_frame_position(pos: int, frame_idx: int, dna_seqlen: int, dna_to_aa: bool=True):
     """ Convert a sequence position according to six_frame_translation(),
@@ -128,12 +130,13 @@ def convert_six_frame_position(pos: int, frame_idx: int, dna_seqlen: int, dna_to
         return convPos
             
             
-
 nuc_idx = dict((c,i) for i,c in enumerate(dna_alphabet))
 aa_idx = dict((c,i) for i,c in enumerate(aa_alphabet))
 
+
 def to_idx(seq, idx = aa_idx): # used later to one-hot encode
     return np.array(list(idx[c] for c in seq))
+
 
 def to_aa_seq(profile, aa_alphabet = aa_alphabet):
     assert len(profile.shape) == 2
@@ -144,6 +147,7 @@ def to_aa_seq(profile, aa_alphabet = aa_alphabet):
         aaseq += aa
         
     return aaseq
+
 
 def makeDFs(P, alphabet:list[str] = aa_alphabet[1:], drop:list[str] = ['*']):
     """ Create a list of pandas DataFrames from a profile matrix P.

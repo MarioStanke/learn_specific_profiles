@@ -1,19 +1,13 @@
 SEED = 42
 
 import argparse
-from datetime import datetime#, timezone
+from datetime import datetime
 import json
 import logging
-#import matplotlib.pyplot as plt
-#from numba import cuda
-#import numpy as np
 import os
-#import pickle
 import random
 import re
-#import scipy.stats
 import tensorflow as tf
-#import logomaker
 from time import time
 from tqdm import tqdm
 from IPython.display import Audio
@@ -23,45 +17,11 @@ if SEED is not None:
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(SEED)
 
-#import sys
-#sys.path.insert(0, 'modules/')
-#import importlib
-#from modules import sequtils as su
-#print(importlib.reload(su))
-#from modules import dataset as dsg
-#print(importlib.reload(dsg))
-#from modules import model
-#print(importlib.reload(model))
-#import aadist
-#print(importlib.reload(aadist))
-#import initProfilesExperiment as ipe
-#print(importlib.reload(ipe))
-#from modules import plotting
-#print(importlib.reload(plotting))
-#from modules import stuff
-#print(importlib.reload(stuff))
-
-#sys.path.insert(0, 'modules/GeneLinkDraw/')
-#sys.path.insert(0, 'modules/MSAgen/')
-#sys.path.insert(0, 'dataset/')
-#import geneLinkDraw as gld
-#print(importlib.reload(gld))
-#from modules import Links
-#print(importlib.reload(Links))
-#import MSAgen
-#print(importlib.reload(MSAgen))
 from modules import SequenceRepresentation
 from modules import Streme
-#print(importlib.reload(SequenceRepresentation))
 from modules import ProfileFindingSetup
-#print(importlib.reload(ProfileFindingSetup))
 from modules import training
-#print(importlib.reload(training))
 
-#%load_ext memory_profiler
-
-# is set in main():
-#logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", encoding='utf-8', level=logging.DEBUG)
 
 
 # HOTFIX: make exon annotations unique, i.e. if the exact same region is annotated multiple times, keep only one annotation
@@ -109,9 +69,7 @@ def makeAnnotationsUnique(genomes: list[SequenceRepresentation.Genome]):
                     stats['nremoved'] += len(elements[key])-1
                     annotQuality = [bestAnnot(element.source) for element in elements[key]]
                     annotation = elements[key][annotQuality.index(True)] if any(annotQuality) else elements[key][0]
-                    #print("[DEBUG] >>> type of annotation:", type(annotation))
                     elements[key] = annotation
-                    #print("[DEBUG] >>> type of elements[key]:", type(elements[key]))
                 else:
                     elements[key] = elements[key][0]
                     
@@ -187,8 +145,6 @@ def checkUniqueAnnotations(genomes: list[SequenceRepresentation.Genome]):
             for key in elements:
                 if len(elements[key]) > 1:
                     allUnique = False
-                    #print(f"[DEBUG] >>> Not all unique, sequence {sequence} has multiple annotations for {key}: {elements[key]}")
-                    #return allUnique # [DEBUG] early stop
 
     return allUnique
 
@@ -208,7 +164,6 @@ def main():
     else:
         MAXEXONS = None
 
-    #outdir = os.path.join(".", datetime.now().strftime("%Y%m%d-%H%M%S")+"_test")
     outdir = args.out
     os.makedirs(outdir, exist_ok=True) # make sure that outdir exists
 
@@ -221,9 +176,6 @@ def main():
 
     # === LOAD DATA ===
 
-    #MAXEXONS = 100 # CAP DATA SET, 1000 EXONS ALREADY OCCUPIES ABOUT 20GB
-    # get all exon dirs
-    #datadir = "/home/jovyan/brain/genomegraph/data/241_species/20231123_subset150_NM_RefSeqBest/out_subset150_withEnforced_20_15_20_50_15_20_15_20_mammals/"
     exonsetFiles = []
     warnings = []
     logging.info("[main] Getting exon list")
@@ -310,12 +262,7 @@ def main():
                               for i in range(max([len(g) for g in allGenomes])) \
                               if [len(g) for g in allGenomes].count(i) > 0]))
 
-    #logging.info("[main] Making annotations unique")
-    #logging.info("[main] Unique annotations pre:", checkUniqueAnnotations(allGenomes))
-    #makeAnnotationsUnique(allGenomes)
     logging.info("[main] Check unique annotations: "+str(checkUniqueAnnotations(allGenomes)))
-    #logging.info("[main] Selecting longest transcripts in case of complete overlap")
-    #selectLongestTranscript(allGenomes)
 
     # store all genomes for later evaluation
     with open(os.path.join(outdir, "allGenomes.json"), 'wt') as fh:
@@ -360,14 +307,6 @@ def main():
             continue
 
         evaluator.dump(os.path.join(outdir, "evaluator.json")) # save after each run
-
-        # if sensitivity is None:
-        #     print(f"[WARNING] >>> trainAndEvaluate failed for homology {i}, check log for details")
-        #     continue # something went wrong, will show up in the logs
-            
-        # accuracies.append([i, sensitivity, specificity])
-        # with open(os.path.join(outdir, "results.json"), 'wt') as fh:
-        #     json.dump(accuracies, fh)
 
         # --- run STREME ---
         logging.info(f"[main] Start training and evaluation on STREME for {runID}")

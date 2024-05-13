@@ -1,28 +1,39 @@
 from dataclasses import dataclass, field
+import json
 import logging
 import itertools
 import numpy as np
+import sys
 
 from . import SequenceRepresentation
 from . import sequtils as su
+from .typecheck import typecheck, typecheck_objdict, typecheck_objdict_list
 
 @dataclass
 class Occurrence:
     """ Coordinates of a position in a genomic (DNA) sequence. Attribute position should always refer to the top strand,
      even if the referred-to genomic element is on the bottom strand. Such information is stored in the strand 
      attribute (strand can be either '+' or '-')."""
-    genomeIdx: int
-    sequenceIdx: int
+    #genomeIdx: int # TODO: replace this by a Sequence reference
+    #sequenceIdx: int
+    sequence: SequenceRepresentation.Sequence
     position: int
     strand: str
     profileIdx: int
 
     def __post_init__(self):
+        assert typecheck(self.sequence, "Sequence", die=True), \
+            "[ERROR] >>> Invalid sequence type: " + str(type(self.sequence))
+        assert self.position >= 0, "[ERROR] >>> Negative position: " + str(self.position)
         assert self.strand in ['+', '-'], "[ERROR] >>> Invalid strand: " + self.strand
+        assert self.profileIdx >= 0, "[ERROR] >>> Negative profile index: " + str(self.profileIdx) # TODO: maybe allow -1 or None for "no profile"?
+
+        self.classname = "Occurrence" # for typechecking
 
     def __str__(self) -> str:
-        return(f"(g: {self.genomeIdx}, c: {self.sequenceIdx}, p: {self.position}, s: {self.strand}, "\
-               + f"u: {self.profileIdx})")
+        #return(f"(g: {self.genomeIdx}, c: {self.sequenceIdx}, p: {self.position}, s: {self.strand}, "\
+        #       + f"u: {self.profileIdx})")
+        return(f"{self.sequence.id}\tp = {self.position}\t{self.strand}\tu = {self.profileIdx}")
     def __repr__(self) -> str:
         return self.__str__()
     def __lt__(self, other):
@@ -30,65 +41,128 @@ class Occurrence:
     def __eq__(self, other):
         return self.tuple() == other.tuple()
     def __hash__(self):
-        return hash(self.tuple()) # can probably be deprecated in the next big refactoring when Occurrences hold refs to Sequences
+        return hash(self.tuple()) # TODO: can probably be deprecated in the next big refactoring when Occurrences hold refs to Sequences
     def tuple(self):
-        return (self.genomeIdx, self.sequenceIdx, self.position, self.strand, self.profileIdx)
+        """ Attention: does not include the sequence reference, only the ID! """
+        #return (self.genomeIdx, self.sequenceIdx, self.position, self.strand, self.profileIdx)
+        return (self.sequence.id, self.position, self.strand, self.profileIdx)
+    def toDict(self):
+        """ Returns a dictionary representation of the Occurrence, with the complete dictionary of the Sequence. """
+        return {"sequence": self.sequence.toDict(), 
+                "position": self.position, 
+                "strand": self.strand, 
+                "profileIdx": self.profileIdx,
+                "classname": self.classname}
+    
 
+def occurrenceFromTuple(t: tuple, seq_collection, die: bool = True) -> Occurrence:
+    """ Creates an Occurrence from a tuple that was created via Occurrence.tuple() and the corresponding 
+    Sequence object. 
+    `seq_collection` can be a Sequence, a Genome, or a list (or list of lists) of Sequences or Genomes. It _must_
+    contain the Sequence object that corresponds to the Occurrence's sequence ID. If `die` is False, None is returned
+    if the Sequence object is not found.
+    
+    Args:
+        t (tuple): tuple representation of the Occurrence
+        seq_collection: Sequence, Genome, or list of Sequences or Genomes
+        die (bool, optional): If True, raise an error if the Sequence object is not found. Defaults to True.
+        
+    Returns:
+        Occurrence: The Occurrence object
+
+    Raises:
+        AssertionError: If the Sequence object's ID does not match the ID in the tuple and `die` is True.
+        ValueError: If the Sequence object is not found in `seq_collection` and `die` is True, 
+                    or if `seq_collection` is not a valid type.
+    """
+    if typecheck(seq_collection, "Sequence", die=False, log_warnings=False):
+        sequence = seq_collection
+        seqmatch = sequence.id == t[0]
+        if seqmatch:
+            return Occurrence(sequence, t[1], t[2], t[3])
+        elif not die:
+            return None
+        else:
+            raise AssertionError(f"[ERROR] >>> Sequence ID mismatch: {sequence.id} != {t[0]}")
+    
+    elif typecheck(seq_collection, "Genome", die=False, log_warnings=False):
+        genome = seq_collection
+        for sequence in genome:
+            if sequence.id == t[0]:
+                return Occurrence(sequence, t[1], t[2], t[3])
+            
+        if not die:
+            return None
+        else:
+            raise ValueError(f"[ERROR] >>> Sequence ID {t[0]} not found in genome {genome}.")
+        
+    elif type(seq_collection) is list:
+        for element in seq_collection:
+            occ = occurrenceFromTuple(t, element, die=False)
+            if occ is not None:
+                break
+
+        if occ is not None:
+            return occ
+        elif not die:
+            return None
+        else:
+            raise ValueError(f"[ERROR] >>> Sequence ID {t[0]} not found in list {seq_collection}.")
+
+    else: # always die
+        raise ValueError(f"[ERROR] >>> Invalid seq_collection type: {type(seq_collection)}")
+        
+
+def occurrenceFromDict(d: dict) -> Occurrence:
+    """ Creates an Occurrence from a dictionary that was created via Occurrence.toDict(). """
+    assert typecheck_objdict(d, "Occurrence", die=True)
+    sequence = SequenceRepresentation.sequenceFromJSON(jsonstring=json.dumps(d["sequence"]))
+    return Occurrence(sequence, d["position"], d["strand"], d["profileIdx"])
 
 
 # Class representing MultiLinks, i.e. multple occurrences per genome are allowed
 class MultiLink:
     """ A generalization of the Link class that allows multiple occurrences per genome. 
     Attributes:
-        occs: list of lists of Occurrences, one list per genome that has occurrences (i.e.: not necessarily the same
-              length as `genomes`!)
+        occs: list of lists of Occurrences, one list per genome that has occurrences
         span: int
-        genomes: list of SequenceRepresentation.Genome
     """
 
     classname = "MultiLink"
 
-    def __init__(self, occs: list[Occurrence], span: int, genomes: list[SequenceRepresentation.Genome],
-                 singleProfile: bool = True):
+    def __init__(self, occs: list[Occurrence], span: int, singleProfile: bool = True):
         """ Constructor for MultiLink.
         Args:
             occs: list of Occurrences
             span: int
-            genomes: list of SequenceRepresentation.Genome
             singleProfile: bool, default True. Indicates if all Occurrences come from the same profile.
         """
-        self.occs = []
+        self.occs: list[list[Occurrence]] = []
         self.span = span
-        self.genomes = genomes
-        self.singleProfile = singleProfile
-        self._genomeIdxToOccListIdx: dict[int, list[int]] = {}
+        self._singleProfile = singleProfile
+        self._speciesToOccListIdx: dict[str, int] = {}
 
         assert self.span > 0, "[ERROR] >>> Span must be positive: " + str(self.span)
-        if self.singleProfile:
+        if self._singleProfile:
             assert len(set([occ.profileIdx for occ in occs])) == 1, "[ERROR] >>> Single-profile MultiLink, " \
                                          + f"but multiple profile indices: {set([occ.profileIdx for occ in occs])}"
         occs = sorted(occs)
         for occ in occs:
-            assert occ.genomeIdx < len(self.genomes), "[ERROR] >>> Genome index out of range: " + str(occ.genomeIdx)
-            assert occ.sequenceIdx < len(self.genomes[occ.genomeIdx]), \
-                "[ERROR] >>> Sequence index out of range: " + str(occ.sequenceIdx)
-            assert occ.position >= 0, f"[ERROR] >>> Negative position: {occ.position} " \
-                + f"(sequence {self.genomes[occ.genomeIdx][occ.sequenceIdx].id})"
-            assert occ.position < len(self.genomes[occ.genomeIdx][occ.sequenceIdx]), \
-                f"[ERROR] >>> Position out of range (0, {len(self.genomes[occ.genomeIdx][occ.sequenceIdx])}): " \
-                    + f"{occ.position} (sequence {self.genomes[occ.genomeIdx][occ.sequenceIdx].id})"
+            assert occ.position >= 0, f"[ERROR] >>> Negative position: {occ.position} (sequence {occ.sequence.id})"
+            assert occ.position < len(occ.sequence), f"[ERROR] >>> Position out of range (0, {len(occ.sequence)}): " \
+                                                      + f"{occ.position} (sequence {occ.sequence.id})"
 
-            if occ.genomeIdx not in self._genomeIdxToOccListIdx:
-                self._genomeIdxToOccListIdx[occ.genomeIdx] = len(self.occs)
+            if occ.sequence.species not in self._speciesToOccListIdx:
+                self._speciesToOccListIdx[occ.sequence.species] = len(self.occs)
                 self.occs.append([])
                 
-            self.occs[self._genomeIdxToOccListIdx[occ.genomeIdx]].append(occ) # add occ to list of occs for genome
+            self.occs[self._speciesToOccListIdx[occ.sequence.species]].append(occ) # add occ to list of occs for genome
 
     def __str__(self):
         s = []
         for occs in self.occs:
             for occ in occs:
-                s.append(f"{self.genomes[occ.genomeIdx][occ.sequenceIdx].id}\t{occ.tuple()[2]}")
+                s.append(f"{occ.tuple()}")
 
         return '['+"\n ".join(s)+']'
 
@@ -101,14 +175,36 @@ class MultiLink:
     
     def __iter__(self):
         return iter(self.occs)
+
+    def getSpeciesOccurrences(self, species: str) -> list[Occurrence] | None:
+        """ Returns the list of occurrences that belong to species, or None if species is not found. """
+        for occs in self.occs:
+            if occs[0].sequence.species == species:
+                return occs
+            
+        return None
     
     def nUniqueLinks(self):
         """ Returns the number of unique links that can be created from the MultiLink. """
-        if self.singleProfile:
-            return int(np.prod([len(occs) for occs in self.occs])) # json will not like np.int64
+        if self._singleProfile:
+            # attention: np.prod() does not handle numeric overflow!
+            nlinks = 1
+            for occs in self.occs:
+                if nlinks >= (sys.maxsize / len(occs)):
+                    logging.warning(f"[MultiLink.nUniqueLinks] >>> Numeric overflow: {nlinks} * {len(occs)}, " \
+                                    + f"returning {sys.maxsize=}")
+                    return sys.maxsize
+                
+                nlinks *= len(occs)
+                
+            #return int(np.prod([len(occs) for occs in self.occs])) # json will not like np.int64
+            return nlinks
         else:
             return _calculateUniqueLinksFromMultiprofileMultiLink(self)
 
+    def singleProfile(self) -> bool:
+        return self._singleProfile
+    
     def size(self) -> tuple[int, int]:
         """ Returns a tuple with the first element being the number of genomes 
         and the second the total number of occurrences. """
@@ -116,11 +212,10 @@ class MultiLink:
     
     def toDict(self):
         """ Returns a dictionary representation of the Link. Important: Does _not_ contain the whole genomes, but only
-         a list of the genome IDs (i.e. a list of Sequence IDs per Genome). """
+         the genome IDs in the occurrences. """
         return {"occs": [[list(occ.tuple()) for occ in occs] for occs in self.occs], 
                 "span": self.span, 
-                "genomes": [[seq.id for seq in genome] for genome in self.genomes],
-                "singleProfile": self.singleProfile,
+                "singleProfile": self._singleProfile,
                 "classname": self.classname}
 
     # TODO: frame information in sites array is useless, but model.get_profile_match_sites needs to be fixed before 
@@ -128,13 +223,17 @@ class MultiLink:
     def toLinks(self, linkThreshold: int = 100) -> list:
         """ Converts the MultiLink to a list of Links. If the number of Links would exceed linkThreshold,
             None is returned. """
-        sites = np.array([[o.genomeIdx, o.sequenceIdx, o.position, o.profileIdx, 0 if o.strand == '+' else 3] \
-                            for occs in self.occs for o in occs],
+        genomes = [SequenceRepresentation.Genome([occ.sequence for occ in occs]) for occs in self.occs]
+        sites = np.array([[i, j, o.position, o.profileIdx, 0 if o.strand == '+' else 3] \
+                            for i, occs in enumerate(self.occs) \
+                                for j, o in enumerate(occs)],
                          dtype=np.int32)
-        links, _, skipped = linksFromSites(sites, self.span, self.genomes, linkThreshold)
+        lfsr = linksFromSites(sites, self.span, genomes, linkThreshold)
+        links = lfsr.links
+        skipped = lfsr.skipped
         if len(skipped) > 0:
             logging.warning(f"[MultiLink.toLinks] >>> Skipped {len(skipped)} profiles: {skipped}")
-            if self.singleProfile:
+            if self._singleProfile:
                 assert len(links) == 0, "[ERROR] >>> Skipped profiles, but links were created."
                 return None
             else:
@@ -151,7 +250,7 @@ class MultiLink:
 
 def _calculateUniqueLinksFromMultiprofileMultiLink(link: MultiLink) -> int:
     """ Calculates the number of unique links that can be created from a MultiLink with multiple profiles. """
-    profileToOccs = {}
+    profileToOccs: dict[int, list[Occurrence]] = {}
     for occs in link.occs:
         for occ in occs:
             if occ.profileIdx not in profileToOccs:
@@ -160,9 +259,13 @@ def _calculateUniqueLinksFromMultiprofileMultiLink(link: MultiLink) -> int:
 
     nUniqueLinks = 0
     for profileidx in profileToOccs:
-        uniqueMultiLink = MultiLink(profileToOccs[profileidx], link.span, link.genomes, singleProfile=True)
         # very important that singleProfile is set to true, otherwise infinite recursion!
-        nUniqueLinks += uniqueMultiLink.nUniqueLinks()
+        uniqueMultiLink = MultiLink(profileToOccs[profileidx], link.span, singleProfile=True)
+        nl = uniqueMultiLink.nUniqueLinks()
+        if nl == sys.maxsize or nUniqueLinks >= (sys.maxsize - nl):
+            return sys.maxsize # avoid int overflow
+        
+        nUniqueLinks += nl
         
     return nUniqueLinks	
 
@@ -173,7 +276,6 @@ def _calculateUniqueLinksFromMultiprofileMultiLink(link: MultiLink) -> int:
 class Link:
     occs: list[Occurrence]
     span: int
-    genomes: list[SequenceRepresentation.Genome]
 
     # needed for X-Drop-like expansion
     expandMatchParameter: float = 5
@@ -182,30 +284,26 @@ class Link:
     expandX: float = 100
 
     # control check for single-profile links
-    singleProfile: bool = True
+    _singleProfile: bool = True
 
     def __post_init__(self):
         self.classname = "Link"
 
         assert self.span > 0, "[ERROR] >>> Span must be positive: " + str(self.span)
         self.occs = sorted(self.occs)
-        genoccs = [o.genomeIdx for o in self.occs]
+        genoccs = [o.sequence.species for o in self.occs]
         assert genoccs == sorted(set(genoccs)), "[ERROR] >>> Genomes are not unique: " + str(genoccs)
-        if self.singleProfile:
+        if self._singleProfile:
             assert len(set([occ.profileIdx for occ in self.occs])) == 1, "[ERROR] >>> Single-profile Link, " \
                                          + f"but multiple profile indices: {set([occ.profileIdx for occ in self.occs])}"
 
         for occ in self.occs:
-            assert occ.genomeIdx < len(self.genomes), "[ERROR] >>> Genome index out of range: " + str(occ.genomeIdx)
-            assert occ.sequenceIdx < len(self.genomes[occ.genomeIdx]), \
-                "[ERROR] >>> Sequence index out of range: " + str(occ.sequenceIdx)
-            assert occ.position < len(self.genomes[occ.genomeIdx][occ.sequenceIdx]), \
-                "[ERROR] >>> Position index out of range: " + str(occ.position)
+            assert occ.position < len(occ.sequence), "[ERROR] >>> Position index out of range: " + str(occ.position) \
+                                                        + f"for {occ=}"
 
     def __str__(self):
         for occ in self.occs:
-            print(self.genomes[occ.genomeIdx][occ.sequenceIdx].id, end="\t")
-            print(occ[2])
+            print(occ)
 
     def __len__(self):
         return len(self.occs)
@@ -215,21 +313,27 @@ class Link:
     
     def __iter__(self):
         return iter(self.occs)
+
+    def getSpeciesOccurrence(self, species: str) -> Occurrence | None:
+        """ Returns the occurrence that belongs to species, or None if species is not found. """
+        for occ in self.occs:
+            if occ.sequence.species == species:
+                return occ
+            
+        return None
     
     def MSA(self, aa = False):
         """ Prints a multiple sequence alignment of the sequences in the link.
             If aa is True, the sequences are translated to amino acids before alignment. """
         for occ in self.occs:
-            seqRep = self.genomes[occ.genomeIdx][occ.sequenceIdx]
-            seq = seqRep.getSequence()[occ.position:occ.position+self.span]
+            seq = occ.sequence.getSequence()[occ.position:occ.position+self.span]
             if occ.strand == '-':
                 seq = SequenceRepresentation.Sequence("", "", "-", 0, sequence=seq).getSequence(rc = True)
                 
             if aa:
                 seq = su.sequence_translation(seq)
 
-            print(seq, "-", self.genomes[occ.genomeIdx][occ.sequenceIdx].id, 
-                  f"at {occ.position}:{occ.position+self.span}")
+            print(seq, "-", occ.sequence.id, f"at {occ.position}:{occ.position+self.span}")
     
     def expand(self, matchParameter: float = None, mismatchParameter: float = None, 
                scoreThreshold: float = None, x: float = None):
@@ -246,17 +350,19 @@ class Link:
         """
         pass
 
+    def singleProfile(self) -> bool:
+        return self._singleProfile
+
     def toDict(self):
         """ Returns a dictionary representation of the Link. Important: Does _not_ contain the whole genomes, but only
-         a list of the genome IDs (i.e. a list of Sequence IDs per Genome). """
+         the genome IDs in the occurrences. """
         return {"occs": [list(occ.tuple()) for occ in self.occs], 
                 "span": self.span, 
-                "genomes": [[seq.id for seq in genome] for genome in self.genomes],
                 "expandMatchParameter": self.expandMatchParameter,
                 "expandMismatchParameter": self.expandMismatchParameter,
                 "expandScoreThreshold": self.expandScoreThreshold,
                 "expandX": self.expandX,
-                "singleProfile": self.singleProfile,
+                "singleProfile": self._singleProfile,
                 "classname": self.classname}
 
 
@@ -264,54 +370,56 @@ class Link:
 def linkFromDict(d: dict, genomes: list[SequenceRepresentation.Genome]) -> Link | MultiLink:
     """ Creates a Link from a dictionary representation that was created via the toDict() member. Returns either a 
      Link or a MultiLink, depending on the inputs `classname` tag. """
-    assert "classname" in d, "[ERROR] >>> No classname in dictionary representation of Link."
-    assert d["classname"] in ["Link", "MultiLink"], \
-        f"[ERROR] >>> Invalid classname in dictionary representation of Link: '{d['classname']}'"
+    assert typecheck_objdict_list(d, ["Link", "MultiLink"], die=True)
     
     if d["classname"] == "Link":
-        occs = [Occurrence(*occ) for occ in d["occs"]]
-    else:
-        occs = [Occurrence(*occ) for occs in d["occs"] for occ in occs]
-
-    # assert correct genomes
-    assert len(d["genomes"]) == len(genomes), \
-        f"[ERROR] >>> Number of genomes does not match: {len(d['genomes'])} != {len(genomes)}"
-    for i in range(len(genomes)):
-        assert len(d["genomes"][i]) == len(genomes[i]), \
-            f"[ERROR] >>> Number of sequences in genome {i} does not match: {len(d['genomes'][i])} != {len(genomes[i])}"
-        for j in range(len(genomes[i])):
-            assert d["genomes"][i][j] == genomes[i][j].id, \
-                f"[ERROR] >>> Sequence ID {i}:{j} does not match: {d['genomes'][i][j]} != {genomes[i][j].id}"
-    
-    if d["classname"] == "Link":
-        return Link(occs, d["span"], genomes, d["expandMatchParameter"], d["expandMismatchParameter"],
+        occs = [occurrenceFromTuple(occ, genomes) for occ in d["occs"]]
+        return Link(occs, d["span"], d["expandMatchParameter"], d["expandMismatchParameter"],
                     d["expandScoreThreshold"], d["expandX"], d["singleProfile"])
     else:
-        return MultiLink(occs, d["span"], genomes, d["singleProfile"])
+        occs = [occurrenceFromTuple(occ, genomes) for occs in d["occs"] for occ in occs]
+        return MultiLink(occs, d["span"], d["singleProfile"])
 
+
+
+@dataclass
+class LinksFromSitesResult:
+    links: list[Link]
+    linkProfiles: set[tuple[int, int, str]]
+    skipped: list[tuple[int, int]]
 
 
 # TODO: Currently expects genomic positions, not AA-positions. Not a problem, but why do we have frames in the input then?
 # sites from model.get_profile_match_sites are currently imprecise, should be safe to just ignore the frame. In the future,
 # either do the site conversion here or somewhere else and do it properly then.
 def linksFromSites(sites: np.ndarray, span: int, genomes: list[SequenceRepresentation.Genome], linkThreshold = 100) \
-    -> tuple[list[Link], set[tuple[int, int, str]], list[tuple[int, int]]]:
+    -> LinksFromSitesResult:
     """ Creates links from sites 
     
     Args:
         sites (np.ndarray): Array of sites of shape (X, 5) where X is the number of sites and the second dimension is 
                               (genomeIdx, sequenceIdx, position, profileIdx, frame)
-        genomes (list[SequenceRepresentation.Genome]): List of genomes
+        genomes (list[SequenceRepresentation.Genome]): List of genomes, must contain all sequences that are referenced 
+                                                        in the sites array
         linkThreshold (int, optional): Threshold for creating links. Profiles that would create more than linkThreshold
                                         links are ignored. Defaults to 100.
     """
 
+    @dataclass
+    class rawocc:
+        genome_idx: int
+        sequence_idx: int
+        position: int
+        profile_idx: int
+        frame: int
+
+    assert linkThreshold < sys.maxsize, f"[ERROR] >>> {linkThreshold=} >= {sys.maxsize=}"
     if type(sites) != np.ndarray:
         sites = sites.numpy() # catch tensor
 
-    links = []
-    skipped = []
-    profileToOcc = {}
+    links: list[Link] = []
+    skipped: list[tuple[int, int]] = []
+    profileToOcc: dict[int, dict[int, list[rawocc]]] = {}
     linkProfiles = set()
     for _g, _c, _p, _u, _f in sites:
         g = int(_g) # json will not like np.int32 later, so just convert everything to int
@@ -319,25 +427,35 @@ def linksFromSites(sites: np.ndarray, span: int, genomes: list[SequenceRepresent
         p = int(_p)
         u = int(_u)
         f = int(_f)
+        assert g < len(genomes), f"[ERROR] >>> Genome index out of range: {g} >= {len(genomes)}"
+        assert c < len(genomes[g]), f"[ERROR] >>> Sequence index out of range: {c} >= {len(genomes[g])}"
+        assert p < len(genomes[g][c]), f"[ERROR] >>> Position index out of range: {p} >= {len(genomes[g][c])}"
+        assert p >= 0, f"[ERROR] >>> Negative position: {p}"
+        assert u >= 0, f"[ERROR] >>> Negative profile index: {u}"
+        assert f in range(6), f"[ERROR] >>> Invalid frame: {f}"
+
         if u not in profileToOcc:
             profileToOcc[u] = {}
             
         if g not in profileToOcc[u]:
             profileToOcc[u][g] = []
             
-        profileToOcc[u][g].append([g,c,p,f,u])
+        profileToOcc[u][g].append(rawocc(g,c,p,u,f))
         
     for u in sorted(profileToOcc.keys()):
         if (len(profileToOcc[u].keys()) == 1):
-            continue
+            continue # no link possible, only one genome has occurrences
             
-        occs = []
-        for g in profileToOcc[u]:
-            occs.append(profileToOcc[u][g])
+        occs: list[list[rawocc]] = [profileToOcc[u][g] for g in profileToOcc[u]]
             
         # attention: nlinks = np.prod([len(og) for og in occs]) does not handle numeric overflow!
         nlinks = 1
         for og in occs:
+            if nlinks >= (sys.maxsize / len(og)):
+                logging.debug(f"[Links.linksFromSites] >>> Avoiding numeric overflow: {nlinks} * {len(og)}")
+                nlinks = sys.maxsize
+                break # catch overflow
+
             nlinks *= len(og)
             if nlinks > linkThreshold:
                 break
@@ -346,12 +464,15 @@ def linksFromSites(sites: np.ndarray, span: int, genomes: list[SequenceRepresent
             logging.debug(f"[Links.linksFromSites] >>> Profile {u} would produce at least {nlinks} links, skipping")
             skipped.append((u, nlinks))
         else:
-            rawlinks = list(itertools.product(*occs))
+            rawlinks: list[list[rawocc]] = list(itertools.product(*occs))
             for l in rawlinks:
-                # l: [(g,c,p,f,u), (g,c,p,f,u), ...)]
-                links.append(Link([Occurrence(o[0], o[1], o[2], '+' if o[3] < 3 else '-', o[4]) for o in l], 
-                                  int(span), genomes))
+                # l: [rawocc, rawocc, ...)]
+                links.append(Link([Occurrence(sequence=genomes[o.genome_idx][o.sequence_idx], 
+                                              position=o.position, 
+                                              strand='+' if o.frame < 3 else '-', 
+                                              profileIdx=o.profile_idx) for o in l], 
+                                  int(span)))
             
             linkProfiles.add((u, nlinks, str(occs)))
 
-    return links, linkProfiles, skipped
+    return LinksFromSitesResult(links, linkProfiles, skipped)

@@ -216,6 +216,7 @@ def main():
         assert len(seqIDs) == len(set(seqIDs)), f"[ERROR] >>> Duplicate sequences in {sequences}"
         assert len(species) == len(set(species)), f"[ERROR] >>> Duplicate species in {sequences}"
         assert 'Homo_sapiens' in species, f"[ERROR] >>> Homo sapiens not in {sequences}"
+        assert species[0] == 'Homo_sapiens', f"[ERROR] >>> Homo sapiens not first in {sequences}"
 
         skip = False
         for seq in sequences:

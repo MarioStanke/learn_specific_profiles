@@ -17,6 +17,7 @@ from . import plotting
 from . import SequenceRepresentation as sr
 from . import sequtils as su
 from . import training
+from .typecheck import typecheck, typecheck_list
 
 
 
@@ -157,7 +158,8 @@ class Streme:
         return parser.getMotifs(), parser
 
 
-    def _getStremeOutputSites(self, data: list[sr.Sequence], genomes: list[sr.Genome]) -> list[Links.MultiLink]:
+
+    def _getStremeOutputSites(self, data: list[sr.Sequence | sr.TranslatedSequence]) -> list[Links.MultiLink]:
         """ Load the sites of the found motifs from the STREME output. """
         resultfile = os.path.join(self.working_dir, self._streme_outdir, "sites.tsv")
         if not os.path.exists(resultfile):
@@ -187,36 +189,18 @@ class Streme:
             trueSeqIDs.append(tsid)
 
         sites['seq_ID'] = trueSeqIDs # restore actual sequence IDs from mapping
-        data_seqdict = {s.id: s for s in data}
-        streme_seqdict = {}
-        for row in sites.itertuples():
-            if row.seq_ID not in data_seqdict:
-                logging.critical(f"Sequence ID {row.seq_ID} not found in input data.")
-                continue
-
-            streme_seqdict[row.seq_ID] = data_seqdict[row.seq_ID]
-
-        # map `genomes` sequence IDs to (genomeIdx, sequenceIdx) tuples
-        genome_seqToIdxs = {}
-        for gidx, genome in enumerate(genomes):
-            for sidx, genome_sequence in enumerate(genome):
-                assert hasattr(genome_sequence, "classname") and genome_sequence.classname == "Sequence", \
-                    f"Unexpected type of genome sequence (want 'Sequence'): {type(genome_sequence)}"
-                if genome_sequence.id in data_seqdict \
-                    or any([genome_sequence.id+f":f{frame}" in data_seqdict for frame in range(6)]):
-                    genome_seqToIdxs[genome_sequence.id] = (gidx, sidx)
-                else:
-                    print(f"[DEBUG] >>> {genome_sequence.id} not in data_seqdict {list(data_seqdict.keys())}")
-
+        data_seqdict: dict[str, sr.Sequence | sr.TranslatedSequence] = {s.id: s for s in data}
+        
         # generate Links from the sites
         motifToOccs = {}
         for row in sites.itertuples():
             assert re.match(r"STREME-\d+", row.motif_ALT_ID), f"Unexpected motif ID: {row.motif_ALT_ID}"
-            if row.seq_ID not in streme_seqdict:
+            if row.seq_ID not in data_seqdict:
+                logging.critical(f"Sequence ID {row.seq_ID} not found in input data.")
                 continue
 
-            seq = streme_seqdict[row.seq_ID]
-            assert hasattr(seq, "classname"), f"Unexpected type of sequence (want attribute classname): {type(seq)}"
+            seq: sr.Sequence | sr.TranslatedSequence = data_seqdict[row.seq_ID]
+            assert typecheck(seq, ["Sequence", "TranslatedSequence"], die=True)
 
             # DEBUG: check that row.site_Sequence matches the sequence at the given position!
             siteseq = row.site_Sequence
@@ -225,45 +209,37 @@ class Streme:
             assert seq.sequence[a:b] == siteseq, f"Sequence mismatch: {seq.sequence[a:b]} vs. {siteseq} in row {row}"
             # -------------------------------------------------------------------------------
 
-            if seq.classname == "TranslatedSequence":
-                assert seq.genomic_id in genome_seqToIdxs, \
-                  f"Genomic sequence ID {seq.genomic_id} not found in genome_seqToIdxs {list(genome_seqToIdxs.keys())}."
+            if typecheck(seq, "TranslatedSequence", die=False, log_warnings=False):
+                seq: sr.TranslatedSequence = seq # only for linting
                 assert row.site_Strand == ".", f"Unexpected strand for AA sequence: {row.site_Strand}"
-                genome_idxs = genome_seqToIdxs[seq.genomic_id]
-            elif seq.classname == "Sequence":
-                assert seq.id in genome_seqToIdxs, \
-                    f"Sequence ID {seq.id} not found in genome_seqToIdxs {list(genome_seqToIdxs.keys())}."
-                assert row.site_Strand in ["+", "-"], f"Unexpected strand for genomic sequence: {row.site_Strand}"
-                genome_idxs = genome_seqToIdxs[seq.id]
-            else:
-                raise ValueError(f"Unexpected sequence type: {seq.classname}")
-
-            if seq.classname == "TranslatedSequence":
                 strand = "+" if seq.frame < 3 else "-"
                 # convert_six_frame_position returns the position of the first codon base w.r.t. the forward strand for
                 #   the codon that translates into the first aa of the sequence. 
                 # I.e. for frame 3, aa[0,1,2,...] <-> dna[len(dna)-3, len(dna)-6, len(dna)-9, ...]
                 aa_pos = row.site_Start-1 if seq.frame < 3 else row.site_End-1 # to get the first dna pos w.r.t. fwd
-                position = su.convert_six_frame_position(aa_pos, seq.frame, seq.genomic_length, dna_to_aa=False)
+                position = su.convert_six_frame_position(aa_pos, seq.frame, seq.genomic_sequence.length, 
+                                                         dna_to_aa=False)
                 
                 # DEBUG: check that the translated sequence at the converted position matches row.site_Sequence!
                 siteseq = row.site_Sequence
-                gseq = genomes[genome_idxs[0]][genome_idxs[1]]
-                assert gseq.id == seq.genomic_id, f"Genomic sequence mismatch: {gseq.id} vs. {seq.genomic_id} in row {row}"
+                gseq = seq.genomic_sequence #genomes[genome_idxs[0]][genome_idxs[1]]
                 gsitelen = len(siteseq) * 3
                 gsiteseq = gseq.sequence[position:position+gsitelen]
                 assert su.sequence_translation(gsiteseq, seq.frame >= 3) == siteseq, f"Sequence mismatch: {su.sequence_translation(gsiteseq, seq.frame >= 3)} vs. {siteseq} in row {row}"
                 # -------------------------------------------------------------------------------
+                oseq = seq.genomic_sequence
 
-            else:
+            else: # seq: Sequence
+                assert row.site_Strand in ["+", "-"], f"Unexpected strand for genomic sequence: {row.site_Strand}"
+                # genome_idxs = genome_seqToIdxs[seq.id]
                 strand = row.site_Strand
                 position = row.site_Start-1
                 # ^^^ checked: STREME uses 1-based positions; if the motif is on the reverse strand, the position still
                 #              refers to the top strand (the `site_Sequence` is reverse-complemented, but the 
-                #              `site_Start` and `site_End` are not)
+                #              `site_Start` and `site_End` are not)    
+                oseq = seq
 
-            occ = Links.Occurrence(genomeIdx = genome_idxs[0], 
-                                   sequenceIdx = genome_idxs[1], 
+            occ = Links.Occurrence(sequence = oseq,
                                    position = position, 
                                    strand = strand,
                                    profileIdx = int(row.motif_ALT_ID.split('-')[1]) - 1) # streme starts counting at 1
@@ -275,7 +251,7 @@ class Streme:
 
         # create Links
         links = [
-            Links.MultiLink(occs = motifToOccs[motif], genomes = genomes, span = len(motif.split('-')[1]))
+            Links.MultiLink(occs = motifToOccs[motif], span = len(motif.split('-')[1]), singleProfile = True)
                 for motif in motifToOccs
         ]
 
@@ -335,7 +311,8 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                                       font = plot_font, **kwargs)
 
     
-    def run(self, runID, data: list[sr.Sequence], genomes: list[sr.Genome], evaluator: training.MultiTrainingEvaluation,
+    def run(self, runID, data: list[sr.Sequence | sr.TranslatedSequence], genomes: list[sr.Genome], 
+            evaluator: training.MultiTrainingEvaluation,
             dryrun: bool = False,
             plot_motifs: bool = False, plot_links: bool = False, 
             plot_linkThreshold: int = 100, plot_onlyLinkedSeqs: bool = True,
@@ -344,8 +321,8 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
         """ Run STREME on the given data. 
         Args:
             runID: ID of the current run
-            data: list of SequenceRepresentation.Sequences to run STREME on
-            genomes: list of SequenceRepresentation.Genomes that contain the data
+            data: list of SequenceRepresentation.Sequences/TranslatedSequences to run STREME on
+            genomes: list of SequenceRepresentation.Genomes that contain (at least) the data
             evaluator: training.MultiTrainingEvaluation object to use for performance evaluation over multiple runs
             dryrun: whether to skip the actual STREME execution and subsequent plotting, i.e. do only run preparation
                     and return None
@@ -357,10 +334,12 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
         Returns:
             list of Links.MultiLink objects representing the found motif sites in the data
         """
+        for s in data:
+            typecheck_list(s, ["Sequence", "TranslatedSequence"], die=True)
+
         seqtype = set([s.classname for s in data])
         assert len(seqtype) == 1, f"Multiple sequence types encountered: {seqtype}"
         seqtype = seqtype.pop()
-        assert seqtype in ["Sequence", "TranslatedSequence"], f"Unexpected sequence type: {seqtype}"
         mode = 'dna' if seqtype == "Sequence" else 'protein'
 
         # rename sequences to simple numbers for STREME, write data and name mapping to files, then re-rename
@@ -396,15 +375,18 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                 logging.info(f"STREME output: {p.stdout}")
 
             # load the sites of the found motifs from the STREME output
-            multilinks = self._getStremeOutputSites(data, genomes)
+            multilinks = self._getStremeOutputSites(data)
             motifs, parser = self._getStremeOutputMotifs()
             motif_meta = {'attr': parser.motif_attributes,
                           'alphabet': parser.alphabet}
 
+            hgGenome = [g for g in genomes if g.species == 'Homo_sapiens']
+            assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
+            hgGenome = hgGenome[0]
             evaluator.add_result(runID, 
                                  motifs=training.MotifWrapper(motifs=motifs, metadata=motif_meta), 
                                  links=multilinks, 
-                                 genomes=genomes, 
+                                 hg_genome=hgGenome,
                                  time=training_time)
 
         except subprocess.CalledProcessError as e:

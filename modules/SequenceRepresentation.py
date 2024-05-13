@@ -14,6 +14,7 @@ import re
 from typing import Union
 
 from . import sequtils as su
+from .typecheck import typecheck, typecheck_objdict
 
 class Sequence:
     """ Basic genomic sequence class. Sequence is viewed as a subsequence of a larger sequence, i.e. a chromosome. 
@@ -124,9 +125,9 @@ class Sequence:
             self.sequence = None
 
         if not no_homology:
-            self.homology = []
+            self.homology: list[Sequence] = []
         if not no_elements:
-            self.genomic_elements = [] # store exons etc. later
+            self.genomic_elements: list[Sequence] = [] # store exons etc. later
 
     def __str__(self) -> str:
         """ String representation of the sequence. """
@@ -291,6 +292,7 @@ class Sequence:
     def isSubsequenceOf(self, parent) -> bool:
         """ Check if the sequence is a subsequence of another Sequence object, i.e. start and end both lie inside the 
             parent sequence. """
+        _ = typecheck(parent, "Sequence", die = True)
         return _sequencesOverlap(self, parent) and self.genome_start >= parent.genome_start \
             and self.genome_end <= parent.genome_end
 
@@ -369,32 +371,21 @@ class Sequence:
 
 
 
-class TranslatedSequence(Sequence):
-    """ Child class of Sequence to represent a AA translation. It is similar to a Sequence object, but contains AA
+class TranslatedSequence:
+    """ Modified Sequence class to represent a AA translation. It is similar to a Sequence object, but contains AA
         sequence data and a frame attribute to indicate the reading frame of the translation. It is created from an
-        existing Sequence object. TranslatedSequence objects lose their homology and genomic_elements data, if any.
-        The coordinates _do not_ change when creating a TranslatedSequence object, i.e. the start and end positions are
-        still genomic positions. The sequence is translated from the sequence that is stored in the initial Sequence
-        object.
+        existing Sequence object. TranslatedSequence objects don't have homology and genomic_elements data. The sequence
+        is translated from the sequence that is stored in the initial Sequence object.
         
         Attributes:
             id (str): Unique identifier of the sequence, resembles genome browser range plus reading frame information 
                       and possibly additional info
                         (e.g. Homo_sapiens:chr1:1,000-1,100:s+:f0)
-            genomic_id (str): id of the original genomic sequence when this object was initialized
             species (str): Species name.
-            chromosome (str): Chromosome (or scaffold, ...) name.
-            strand (str): Strand of the original genomic sequence. Can be either '+' or '-'.
-            genome_start (int): Start position of the original genomic sequence on the chromosome.
-            genome_end (int): End position of the original genomic sequence on the chromosome.
-            length (int): Length of the AA sequence.
-            genomic_length (int): Length of the original genomic sequence, useful for later position conversion
+            length (int): Length of the sequence.
             frame (int): Value in range(6)
-            sequence (str): The AA strand sequence itself.
-            type (str): Description of original genomic sequence type, e.g. `sequence` or `exon`
-            source (any): Optional reference to where the sequence comes from, useful for genomic elements
-            homology (list): always None.
-            genomic_elements (list): always None.
+            sequence (str): The AA sequence itself.
+            genomic_sequence (Sequence): The sequence object from which this object was derived
         """
     
     # custom way for instance type check as isinstance() is unstable when imports are named differently across modules
@@ -414,13 +405,9 @@ class TranslatedSequence(Sequence):
 
         assert frame in range(6), f"[ERROR] >>> `frame` must be 0, 1, 2, 3, 4 or 5, not {frame}."
 
-        self.genomic_id = genomic_sequence.id
+        self.genomic_sequence = genomic_sequence
         self.id = genomic_sequence.id + f":f{frame}"
         self.species = genomic_sequence.species
-        self.chromosome = genomic_sequence.chromosome
-        self.strand = genomic_sequence.strand
-        self.genome_start = genomic_sequence.genome_start
-        self.genome_end = genomic_sequence.genome_end
         self.sequence = su.six_frame_translation(genomic_sequence.sequence)[frame]
         if replaceSpaceWithX:
             assert 'X' not in self.sequence, "[ERROR] >>> Did not expect any ambiguous codons in the translation."
@@ -428,25 +415,77 @@ class TranslatedSequence(Sequence):
             self.sequence = self.sequence.replace(' ', 'X') 
             
         self.length = len(self.sequence)
-        self.genomic_length = genomic_sequence.length
         self.frame = frame
-        self.type = genomic_sequence.type
-        self.source = genomic_sequence.source
         
-        assert not hasattr(self, 'homology'), f"[ERROR] >>> did not expect homology: {self.homology}"
-        assert not hasattr(self, 'genomic_elements'), \
-            f"[ERROR] >>> did not expect genomic_elements: {self.genomic_elements}"
- 
+    
+    def __str__(self) -> str:
+        """ String representation of the translated sequence. """
+        rep = f"{self.id} (length = {self.length:,}, frame = {self.frame})"
+        if self.length > 23:
+            rep += f"\n{self.sequence[:10]}...{self.sequence[-10:]}"
+        else:
+            rep += f"\n{self.sequence}"
+    
+        return rep
+    
+    def __repr__(self) -> str:
+        """ Representation of the sequence. This is a JSON string. """
+        return json.dumps(self.toDict(), indent = 4)
+    
+    def __len__(self) -> int:
+        """ Length of the sequence. """
+        return self.length
+    
+    def __eq__(self, __value: object) -> bool:
+        """ Check if two sequences are equal. """
+        if not isinstance(__value, TranslatedSequence):
+            return NotImplemented
+
+        eq = self.id == __value.id and self.species == __value.species and self.sequence == __value.sequence \
+            and self.length == __value.length and self.frame == __value.frame \
+            and self.genomic_sequence == __value.genomic_sequence
+        
+        return eq
 
     def _regenerateID(self):
-        super()._regenerateID()
-        self.id += f":f{self.frame}"
+        genID_bak = self.genomic_sequence.id
+        self.genomic_sequence._regenerateID()
+        self.id = self.genomic_sequence.id + f":f{self.frame}"
+        self.genomic_sequence.id = genID_bak # restore original genomic ID
+
+    # TODO: probably don't even need these not implemented methods
+    def addElement(self, *args, **kwargs):
+        raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support addElement().")
+
+    def addSubsequenceAsElement(self, *args, **kwargs):
+        raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support addSubsequenceAsElement().")
+
+    def addHomology(self, *args, **kwargs):
+        raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support addHomology().")
+
+    def elementsPossible(self) -> bool:
+        return False
+    
+    def getElement(self, *args, **kwargs):
+        raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support getElement().")
+
+    def getRelativePositions(self, *args, **kwargs):
+        raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support getRelativePositions().")
 
     def getSequence(self) -> str:
         return self.sequence
 
     def getSubsequence(self, *args, **kwargs):
         raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support getSubsequence().")
+    
+    def hasElements(self) -> bool:
+        return False
+    
+    def hasHomologies(self) -> bool:
+        return False
+
+    def homologiesPossible(self) -> bool:
+        return False
 
     def isSubsequenceOf(self, *args, **kwargs):
         raise NotImplementedError("[ERROR] >>> TranslatedSequence does not support isSubsequenceOf().")
@@ -456,21 +495,30 @@ class TranslatedSequence(Sequence):
 
     def toDict(self) -> dict:
         """ Return a dictionary representation of the sequence. """
-        objdict = super().toDict()
-        objdict['frame'] = self.frame
+        objdict = {
+            'genomic_sequence': self.genomic_sequence.toDict(),
+            'id': self.id,
+            'species': self.species,
+            'length': self.length,
+            'sequence': self.sequence,
+            'frame': self.frame
+        }
+        
         return objdict
 
     def toTuple(self) -> tuple:
-        """ Return a hashable tuple representation of the sequence. The element order is: (id, species, chromosome,
-              strand, genome_start, genome_end, length, sequence, type, source, None, None, frame). """
-        return super().toTuple() + (self.frame,)
+        """ Return a hashable tuple representation of the sequence. The element order is: (id, species, length, 
+        sequence, frame, (tuple_of_genomic_sequence)). """
+        return (self.id, self.species, self.length, self.sequence, self.frame, self.genomic_sequence.toTuple())
         
 
 
 # helper functions for adding genomic elements and homology to a sequence
 def _addElementToSequence(element: Sequence, sequence: Sequence):
     """ Helper function for adding genomic elements to a sequence, do not use directly """
-    assert hasattr(sequence, 'genomic_elements'), "[ERROR] >>> `sequence` must have attribute `genomic_elements`."
+    assert typecheck(element, "Sequence", die = True)
+    assert typecheck(sequence, "Sequence", die = True)
+    assert sequence.elementsPossible(), "[ERROR] >>> `sequence` must have attribute `genomic_elements`."
     assert _sequencesOverlap(element, sequence), "[ERROR] >>> `element` must overlap with `sequence`."
     sequence.genomic_elements.append(element)
 
@@ -478,13 +526,17 @@ def _addElementToSequence(element: Sequence, sequence: Sequence):
 
 def _addHomologyToSequence(homology: Sequence, sequence: Sequence):
     """ Helper function for adding a homology to a sequence, do not use directly """
-    assert hasattr(sequence, 'homology'), "[ERROR] >>> `sequence` must have attribute `homology`."
+    assert typecheck(homology, "Sequence", die = True)
+    assert typecheck(sequence, "Sequence", die = True)
+    assert sequence.homologiesPossible(), "[ERROR] >>> `sequence` must have attribute `homology`."
     sequence.homology.append(homology)
 
 
 
 def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = False) -> tuple[int, int]:
     """ Helper function, returns the relative positions of a sequence within a parent sequence """
+    assert typecheck(sequence, "Sequence", die = True)
+    assert typecheck(parent, "Sequence", die = True)
     assert _sequencesOverlap(sequence, parent), "[ERROR] >>> `sequence` must overlap with `parent`."
 
     start = sequence.genome_start - parent.genome_start
@@ -501,6 +553,8 @@ def _getRelativePositions(sequence: Sequence, parent: Sequence, from_rc: bool = 
 
 def _sequencesOverlap(seq1: Sequence, seq2: Sequence) -> bool:
     """ Helper function, returns true if two sequences are from the same species and chromosome and overlap """
+    assert typecheck(seq1, "Sequence", die = True)
+    assert typecheck(seq2, "Sequence", die = True)
     return seq1.species == seq2.species and seq1.chromosome == seq2.chromosome and \
         seq1.genome_start < seq2.genome_end and seq1.genome_end > seq2.genome_start
 
@@ -509,7 +563,8 @@ def _sequencesOverlap(seq1: Sequence, seq2: Sequence) -> bool:
 def makeAnnotationsUnique(sequence: Sequence) -> None:
     """ If a sequence in a genome has mutliple identical annotations w.r.t. the annotated positions, remove that 
         redundancy by trying to choose the best annotation (in place) """
-    
+    assert typecheck(sequence, "Sequence", die = True)
+
     def bestAnnot(annotation):
         """ `annotation` might be None, a string or a dict. Check if 'BestRefSeq' is part of the source """
         if annotation is None:
@@ -564,6 +619,8 @@ def makeAnnotationsUnique(sequence: Sequence) -> None:
 def selectLongestTranscript(sequence: Sequence) -> None:
     """ If a sequence has mutliple annotations, check if any two of them overlap such that the shorter is 
         completely inside the longer one. If such a pair is found, discard the shorter annotation (in place) """
+    assert typecheck(sequence, "Sequence", die = True)
+
     nremoved = 0
     assert sequence.elementsPossible, f"[ERROR] >>> No elements possible in sequence '{sequence}'"
     if len(sequence.genomic_elements) <= 1:
@@ -605,6 +662,8 @@ def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
             objdict = json.load(f)
     else:
         objdict = json.loads(jsonstring)
+
+    assert typecheck_objdict(objdict, "Sequence", die = True), "[ERROR] >>> JSON must be a valid Sequence object."
 
     sequence = Sequence(
         species = objdict['species'],
@@ -650,7 +709,7 @@ def loadJSONSequenceList(jsonfile: str) -> list[Sequence]:
 
 
 
-def sequenceListToFASTA(sequences: list[Sequence], file: str):
+def sequenceListToFASTA(sequences: list[Sequence|TranslatedSequence], file: str):
     """ Write a list of Sequence objects to a FASTA file. """
     seqRecords = []
     for sequence in sequences:

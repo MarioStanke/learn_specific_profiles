@@ -740,8 +740,8 @@ class Genome:
     def __init__(self, sequences: list[Sequence] = None):
         assert sequences is None or type(sequences) == list, "[ERROR] >>> `sequences` must be None or a list of " \
                                                                            + f"Sequence objects, not {type(sequences)}."
-        self.sequences = []
-        self.species = None
+        self.sequences: list[Sequence] = []
+        self.species: str = None
         self._chromap = {} # chromosome map, maps chromosome names to indices in self.sequences
         if sequences is not None:
             for sequence in sequences:

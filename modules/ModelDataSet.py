@@ -260,7 +260,6 @@ class ModelDataSet:
     Class that provides the data for training and testing a Tensorflow model. 
     Data is always provided to this class as a list of Genomes, i.e. DNA-Data. It can be set via datamode that the
     model is trained on translated sequences. Translation and position-conversion is handled by this class. """
-# TODO: store translated sequences (or original sequence reference) as _presenting_data (or so) member, create dataset from that, edit posTracking accordingly
 
     def __init__(self, data: list[sr.Genome], datamode: DataMode, Q: np.ndarray = None,
                  tile_size: int = 334, tiles_per_X: int = 13, batch_size: int = 1, prefetch: int = 3):
@@ -309,7 +308,10 @@ class ModelDataSet:
         return len(self.training_data.getTrainingData())
     
 
-    def getDataset(self, withPosTracking: bool = False, original_data: bool = False):
+    def getDataset(self, 
+                   repeat: bool = False,
+                   withPosTracking: bool = False, 
+                   original_data: bool = False):
         """ Returns a tensorflow dataset that yields batches of tiles from the given genomes. """
         genomes = self.training_data.getTrainingData(fromSource=original_data)
 
@@ -327,6 +329,15 @@ class ModelDataSet:
                                 second_out_sig)
         )
         
+        if repeat:
+            ds = ds.repeat()
+        
+        if self.batch_size is not None:
+            ds = ds.batch(self.batch_size)
+            
+        if self.prefetch is not None:
+            ds = ds.prefetch(self.prefetch)
+
         return ds
         
         

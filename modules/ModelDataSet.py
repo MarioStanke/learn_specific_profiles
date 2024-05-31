@@ -341,3 +341,42 @@ class ModelDataSet:
         return ds
         
         
+    def getRawData(self, fromSource: bool = False) -> list[list[list[TileableSequence]]]:
+        """ Returns a list of lists of lists of TileableSequence with the (possibly translated, depends on datamode) 
+        training data. Outer list: genomes/species, second list: sequences, inner list: frames ([fwd, rc] for DNA data,
+        6 frames for translated data). If fromSource is False (default), uses the internal copy. Otherwise, a new 
+        extraction from the untouched source data is returned. """
+        return self.training_data.getTrainingData(fromSource=fromSource)
+    
+
+    def softmask(self, genome_idx: int, sequence_idx: int, frame_idx: int, startPos: int, masklen: int) -> str:
+        """ Softmask the specified part of the training data, so that it is not used for further training. Uses the 
+        internal copy and leaves the original data untouched. 
+        Returns the specified part of the training data as string _before_ softmaskin (i.e. conv. to lower case). If the
+        specified part is (partly) out of bounds, returns a shorter or an empty string. """
+        trainingData = self.training_data.getTrainingData(fromSource=False)
+
+        assert startPos >= 0, f"[ERROR] >>> startPos must be >= 0, not {startPos}"
+        assert masklen > 0, f"[ERROR] >>> masklen must be > 0, not {masklen}"
+        assert genome_idx in range(len(trainingData)), \
+            f"[ERROR] >>> No sequence with genome index {genome_idx}"
+        assert sequence_idx in range(len(trainingData[genome_idx])), \
+            f"[ERROR] >>> No sequence with inner index {sequence_idx} in genome {genome_idx}"
+        assert frame_idx in range(len(trainingData[genome_idx][sequence_idx])), \
+            f"[ERROR] >>> No sequence with frame index {frame_idx} in sequence {sequence_idx} of genome {genome_idx}"
+        
+        tseq = trainingData[genome_idx][sequence_idx][frame_idx]
+        if startPos >= len(tseq):
+            logging.warning(f"[WARNING] >>> startPos {startPos} >= len(tseq) {len(tseq)}")
+            return ""
+        
+        endPos = startPos + masklen
+        if endPos > len(tseq):
+            logging.warning(f"[WARNING] >>> endPos {endPos} > len(tseq) {len(tseq)}")
+        
+        endPos = min(endPos, len(tseq))
+        rseq = tseq.seq[startPos:endPos] # return this
+        smseq = tseq.seq[:startPos] + tseq.seq[startPos:endPos].lower() + tseq.seq[endPos:]
+        tseq.seq = smseq
+
+        return rseq

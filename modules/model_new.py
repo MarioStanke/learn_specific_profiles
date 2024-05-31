@@ -358,7 +358,7 @@ class SpecificProfile(tf.keras.Model):
 
 
     def get_best_profile(self, ds):
-        """ Return index of the profile that has the lowest loss """
+        """ Return index of the profile that has the lowest loss. """
         losses = []
         for batch in ds:
             X = batch[0]        # (B, tilePerX, N, f, tileSize, 21)
@@ -389,3 +389,205 @@ class SpecificProfile(tf.keras.Model):
         #     self.P_report_plosshist =  tf.concat([self.P_report_plosshist, tf.reshape(B, (1,-1))], axis=0)
         
         return tf.argmin(B), tf.reduce_min(B) # profile index, mean loss
+    
+
+
+    def max_profile_scores(self, ds, P):
+        """ Return for each profile the best score at any position in the dataset (shape (U)).
+            Argument `P` must be _softmaxed_, don't pass the logits! """
+        U = P.shape[-1]
+        scores = tf.ones([U], dtype=tf.float32) * -np.infty
+        for batch, _ in ds:
+            for X in batch:
+                assert len(X.shape) == 5, str(X.shape)
+                S, _, _ = self.call(X, P)                                 # shape (ntiles, N, U)
+                scores = tf.maximum(tf.reduce_max(S, axis=(0,1)), scores) # shape (U)
+                                    
+        return scores
+    
+
+
+    def profile_losses(self, ds, P):
+        """ Return for each profile and each batch the loss contribution (shape (U, x) 
+              where x is number_of_batches * batch_size).
+              Argument `P` must be _softmaxed_, don't pass the logits! """
+        U = P.shape[-1]
+        losses = tf.zeros([U, 0], dtype=tf.float32) # shape (U, 0)
+        for batch, _ in ds:
+            for X in batch:
+                assert len(X.shape) == 5, str(X.shape)
+                _, _, Z = self.call(X, P)
+                _, loss_by_unit = self.loss(Z, P) # shape (U)
+                losses = tf.concat([losses, tf.expand_dims(loss_by_unit, -1)], axis=1) # shape (U, x)
+                                    
+        return losses
+    
+
+
+    def min_profile_losses(self, ds, P):
+        """ Sums up the loss of each profile at each batch in the dataset (shape (U)).
+            Argument `P` must be _softmaxed_, don't pass the logits! """
+        lossesPerBatch = self.profile_losses(ds, P)   # (U, x)
+        losses = tf.reduce_sum(lossesPerBatch, axis=-1)    # (U)
+        return losses
+    
+
+
+    # works with shifts, pattern k-mer has the lowest loss, but repeat is still found 
+    #   (usually first, although k-mer has bad loss)
+    # leave it for now, as sorting by k-mer loss or introducing a filter 
+    #   (for repeat profile, whole-loss is about 10*k-mer loss) is more cosmetic
+    def profile_cleanup(self, pIdx):
+        """ Add profile at pIdx to report profiles, mask match sites, and get newly initialized profiles """
+        # get ks-mer, extract all k-mers, temporarily set k-mers as new profiles
+        P = self.P_logit # shape: (k, alphabet_size, U)
+        b = P[:,:,pIdx].numpy()
+        Pk_logit = np.empty(shape=(self.setup.k, self.data.alphabet_size(), (2*self.setup.s)+1), dtype=np.float32)
+        for s in range(b.shape[0]-self.setup.k+1):
+            Pk_logit[:,:,s] = b[s:(s+self.setup.k),:]
+            
+        Pk = tf.nn.softmax(Pk_logit, axis=1, name="Pk")
+        
+        # get best k-mer and report (unless it is the first or last k-mer when shift > 0)
+        genomes = self.data.getRawData(fromSource = False)
+        scores = self.max_profile_scores(self.data.getDataset(), P = Pk)   # (U)
+        bestIdx = tf.math.argmax(scores, axis=0).numpy()
+        returnEdgeCase = False
+        if bestIdx not in [0, Pk.shape[2]-1] or self.setup.s == 0:
+            # [DEBUG] get whole profile metrics
+            whole_score = self.max_profile_scores(self.data.getDataset(), self.getP())[pIdx]
+            whole_loss = self.min_profile_losses(self.data.getDataset(), self.getP())[pIdx]
+            
+            threshold = self.setup.match_score_factor * scores[bestIdx]
+            minloss = tf.reduce_min(self.profile_losses(self.data.getDataset(), P = Pk)[bestIdx,:]).numpy()
+
+            pass
+            
+            # TODO: Take care of site extraction and tracking stuff
+
+            # "remove" match sites from genomes, site: <genomeIdx, contigIdx, frameIdx, tileStartPos, T-k+1_idx, U_idx>
+            sites, sitescores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), Pk, 
+                                                             threshold, pIdx)
+            
+            # reportSites = []
+            for site in sites:
+            #     #print("DEBUG >>> site:", site)
+                matchseq = self.data.softmask(genome_idx=site[0].numpy(), 
+                                              sequence_idx=site[1].numpy(),
+                                              frame_idx=site[2].numpy(), 
+                                              start_pos=site[3].numpy()+site[4].numpy(), 
+                                              masklen=self.setup.k)
+                if len(matchseq) != self.setup.k:
+                    logging.warning(f"[model.profile_cleanup] >>> Match sequence has wrong length: {len(matchseq)}" \
+                                    + f", expected {self.setup.k}. Site {site} seems out of bounds")
+            #     g = site[0]
+            #     c = site[1]
+            #     a = site[2]
+            #     b = a+(self.setup.k*3)
+                
+            #     # [DEBUG] report matched sites for each reported profile
+            #     reportSites.append((su.sequence_translation(genomes[g][c][a:b].upper()), g, c, a, b))
+                
+            #     if a >= 0 and b <= len(genomes[g][c]):
+            #         #print("DEBUG >>>  pre:", genomes[g][c][:a])
+            #         #print("DEBUG >>>  new:", genomes[g][c][a:b].lower())
+            #         #print("DEBUG >>> post:", genomes[g][c][b:])
+            #         genomes[g][c] = genomes[g][c][:a]+genomes[g][c][a:b].lower()+genomes[g][c][b:] # mask match
+
+            # # report profile, get new seeds
+            # self.P_report.append(Pk_logit[:,:,bestIdx])
+            # self.P_report_idx.append(pIdx)
+            # self.P_report_thresold.append(threshold)
+            # #self.P_report_loss.append(tf.reduce_mean(losses).numpy())
+            # self.P_report_loss.append(minloss)
+            # self.P_report_masked_sites.append(reportSites)
+            # self.P_report_nlinks.append(nlinks)
+            
+            # self.P_report_whole.append(P[:,:,pIdx])
+            # self.P_report_whole_score.append(whole_score)
+            # self.P_report_whole_loss.append(whole_loss)
+            
+            # #self.P_report_kmer_losses.append(losses)
+            # self.P_report_kmer_scores.append(scores)
+            
+            # # [DEBUG] track profiles
+            # self.tracking['masking'].append({'P_report_masked_sites_index': len(self.P_report_masked_sites)-1,
+            #                                  'after_epoch': None})
+            
+        else:
+            #print("Profile is an edge case, starting over")
+            logging.info("[model.profile_cleanup] >>> Profile is an edge case, starting over")
+            returnEdgeCase = True
+            self.P_report_discarded.append(Pk_logit[:,:,bestIdx])
+            if self.P_logit_init is not None:
+                # otherwise get stuck with this profile
+                self.P_logit_init[:,:,pIdx] = np.ones((self.P_logit_init.shape[0], self.P_logit_init.shape[1]), 
+                                                      dtype=np.float32) * np.min(self.P_logit_init)
+
+        # reset profiles
+        if self.P_logit_init is None:
+            self.P_logit.assign(self._getRandomProfiles()) # initially, this called self.seed_P_genome() where the genomes were sampled for seeds
+        else:
+            self.P_logit.assign(self.P_logit_init)
+            
+        return returnEdgeCase
+    
+
+
+    def get_profile_match_sites(self, ds, P, score_threshold, pIdx = None):
+        """
+        Get sites in the dataset where either all or a specific profile match according to a score threshold
+            Parameters:
+                ds: tf dataset
+                P: profile tensor, shape (k[+2s], alphabet_size, U), needs to be softmaxed! Don't pass the logits!
+                score_threshold (float or tensor): matching sites need to achieve at least this score
+                pIdx (int): optional index of a single profile, if given only matching sites of that profile are 
+                              reported
+                
+            Returns:
+                sites (tensor): tensor of shape (X, 6) where X is the number of found sites and the second dimension
+                                contains tuples with (genomeIdx, contigIdx, frameIdx, tileStartPos, tilePos, profileIdx)
+                scores (tensor): tensor of shape (X, 1) containing the scores of the found sites
+        """        
+        score_threshold = tf.convert_to_tensor(score_threshold)
+        assert score_threshold.shape in [(), (P.shape[-1])], f"{score_threshold=}, {score_threshold.shape=}"
+            
+        sites = None
+        scores = None
+        for batch in ds:
+            X_b = batch[0]        # (B, tilePerX, N, f, tileSize, alphabetSize)
+            posTrack_b = batch[1] # (B, tilePerX, N, f, 4)
+            assert len(X_b.shape) == 6, str(X_b.shape)
+            assert posTrack_b.shape != (1, 0), f"{posTrack_b.shape=} -- use batch dataset with position tracking!"
+            assert X_b.shape[0:4] == posTrack_b.shape[0:4], f"{X_b.shape} != {posTrack_b.shape}"
+            for b in range(X_b.shape[0]): # iterate samples in batch
+                # get profile match scores, i.e. the sum of the element-wise multiplication of each profile 
+                #   at each sequence position in X --> Z
+                X = X_b[b]                # (tilePerX, N, f, tileSize, alphabetSize)
+                posTrack = posTrack_b[b]  # (tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
+                _, _, Z = self.call(X, P) # (tilePerX, N, f, T-k+1, U)
+                if pIdx is not None:
+                    Z = Z[:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
+
+                # identify matches, i.e. match score >= score_threshold
+                M = tf.greater_equal(Z, score_threshold) # (tilesPerX, N, f, T-k+1, U)
+
+                # index tensor -> 2D tensor with shape (sites, 5) where each row is a match and the columns are indices:
+                I = tf.where(M)                          # (sites, <tilesPerX_idx, N_idx, f_idx, T-k+1_idx, U_idx>)
+
+                # build the sites and scores tensors (tensorflow.org/versions/r2.10/api_docs/python/tf/gather_nd)
+                _scores = tf.gather_nd(Z, I)                  # (sites, <score>)
+                _sites = tf.gather_nd(posTrack, I[:,:3])      # (sites, <g,c,f,tspos>)
+                _sites = tf.concat([_sites, I[:,3:]], axis=1) # (sites, <g,c,f,tspos,T-k+1_idx,U_idx>)
+
+                if sites is None:
+                    sites = _sites
+                    scores = _scores
+                else:
+                    sites = tf.concat([sites, _sites], axis=0)
+                    scores = tf.concat([scores, _scores], axis=0)
+
+        if sites is None:
+            return tf.constant([], dtype=tf.int32), tf.constant([], dtype=tf.float32)
+        
+        return sites, scores

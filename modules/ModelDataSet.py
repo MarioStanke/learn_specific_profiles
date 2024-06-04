@@ -4,7 +4,6 @@ import logging
 import numpy as np
 import tensorflow as tf
 
-from . import dataset
 from . import SequenceRepresentation as sr
 from . import sequtils as su
 from .typecheck import typecheck

@@ -178,7 +178,6 @@ class ProfileReport:
 class SpecificProfile(tf.keras.Model):
     def __init__(self, 
                  setup: ProfileFindingSetup.ProfileFindingTrainingSetup,
-                 data: ModelDataSet.ModelDataSet,
                  rand_seed: int = None, **kwargs):
         """
         Set up model and most metaparamters
@@ -190,7 +189,7 @@ class SpecificProfile(tf.keras.Model):
         super().__init__(**kwargs)
 
         self.setup = setup
-        self.data = data
+        self.data = setup.data
         self.opt = tf.keras.optimizers.Adam(learning_rate=self.setup.learning_rate)
 
         self.epsilon = 1e-6 # TODO: move that into setup!!
@@ -247,7 +246,7 @@ class SpecificProfile(tf.keras.Model):
 
     def _getRandomProfiles(self):
         """ Returns a random profile matrix of shape (k+(2*s), alphabet_size, U). """
-        Q1 = tf.expand_dims(self.setup.data.Q, 0)
+        Q1 = tf.expand_dims(self.data.Q, 0)
         Q2 = tf.expand_dims(Q1, -1) # shape: (1, alphabet_size, 1)
         
         P_logit_like_Q = np.log(Q2.numpy())
@@ -280,7 +279,7 @@ class SpecificProfile(tf.keras.Model):
 
     def getR(self, P):
         """ Returns R (k, alphabet_size, U). Argument `P` must be _softmaxed_, don't pass the logits! """
-        Q1 = tf.expand_dims(self.setup.data.Q, 0)
+        Q1 = tf.expand_dims(self.data.Q, 0)
         Q2 = tf.expand_dims(Q1, -1)
         # Limit the odds-ratio, to prevent problem with log(0).
         # Very bad matches of profiles are irrelevant anyways.
@@ -289,7 +288,7 @@ class SpecificProfile(tf.keras.Model):
         if tf.reduce_any(tf.math.is_nan(P)):
             logging.debug(f"[model.getR] >>> nan in P: {tf.reduce_any(tf.math.is_nan(P), axis=[0,1])} " + \
                           f"{tf.boolean_mask(P, tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), axis=2)}")
-            logging.debug(f"[model.getR] >>> Q: {self.setup.data.Q}")
+            logging.debug(f"[model.getR] >>> Q: {self.data.Q}")
             
         return R # shape: (k, alphabet_size, U)
 

@@ -263,29 +263,21 @@ class ProfileFindingTrainingSetup:
     # if t==0.0 this prior knowledge is not used
     # requires amino acid alphabet, in particular k=20
 
-
-    # do not set manually, gets calculated automatically
-    steps_per_epoch: int = None
-    initProfiles: np.ndarray = None
-    trackProfiles: list = None
-    initKmerPositions: dict = None
-    _genomes: list[list[str]] = None # A persistent copy of the genomes that can be mutated during training.
-                                     # Needed because repeated calls to data.extractSequences() would not work as
-                                     # expected since it creates a new data structure with strings that are not
-                                     # mutable and get replaced by new objects when altered, thus the underlying list of
-                                     # SequenceRepresentation.Sequence objects would not be altered and changes are lost
-                                     # after the next call to data.extractSequences().
-
     def __post_init__(self):
         genome_sizes = [sum([len(s) for s in genome]) for genome in self.data.genomes]
         steps_per_epoch = max(1, np.mean(genome_sizes) // (self.batch_size*self.tiles_per_X*self.tile_size*3))
-        if self.steps_per_epoch is not None:
-            #print(f"[WARNING] >>> Overwriting steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
-            logging.warning("[ProfileFindingSetup.ProfileFindingTrainingSetup.__post_init__] >>> Overwriting " + \
-                            f"steps_per_epoch ({self.steps_per_epoch}) with {steps_per_epoch}")
-
         self.steps_per_epoch = steps_per_epoch
-        self._genomes = self.data.extractSequences(nonePadding=True)
+        self.initProfiles: np.ndarray = None
+        self.initKmerPositions: dict = {}
+        self.trackProfiles: list[int] = []
+
+        # A persistent copy of the genomes that can be mutated during training.
+        # Needed because repeated calls to data.extractSequences() would not work as
+        # expected since it creates a new data structure with strings that are not
+        # mutable and get replaced by new objects when altered, thus the underlying list of
+        # SequenceRepresentation.Sequence objects would not be altered and changes are lost
+        # after the next call to data.extractSequences().
+        self._genomes: list[list[str]] = self.data.extractSequences(nonePadding=True)
 
 
 
@@ -338,7 +330,6 @@ class ProfileFindingTrainingSetup:
 
         kmerCount = [(k, len(kmerToOcc[k])) for k in kmerToOcc]
         kmerCount.sort(key=lambda x: x[1], reverse=True)
-        self.trackProfiles = [] 
                             
         # initialize all profiles with most frequent kmers
         if enforceU:
@@ -395,6 +386,7 @@ class ProfileFindingTrainingSetup:
         if len(self.trackProfiles) == 0:
             self.trackProfiles = list(range(len(midKmers)))
 
+        # TODO: adjust getCustomMidProfiles to work with any alphabet
         self.initProfiles = getCustomMidProfiles(midKmers, self.k+(2*self.s), self.data.Q, mid_factor=4, bg_factor=1)
         
         if self.n_best_profiles > self.initProfiles.shape[2]:

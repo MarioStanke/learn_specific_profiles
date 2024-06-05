@@ -217,7 +217,7 @@ logging.getLogger('plotting.logomaker').setLevel(logging.WARNING)
                 
 #         with open(filename, "wt") as fh:
 #             # generates a list of list of dicts of SequencRepresentation.Sequences
-#             json.dump([genome.toDict() for genome in self.genomes], fh) 
+#             json.dump([genome.toList() for genome in self.genomes], fh) 
 
 
 
@@ -256,7 +256,7 @@ class ProfileFindingTrainingSetup:
     # requires amino acid alphabet, in particular k=20
 
     def __post_init__(self):
-        genome_sizes = [sum([len(s) for s in genome]) for genome in self.data.getRawData()]
+        genome_sizes = [sum([len(s[0]) for s in genome]) for genome in self.data.getRawData()]
         # one training step: using batch_size*tiles_per_X*tile_size characters from each genome,
         # thus estimate an epoch via the mean genome size (sum of sequence lengths) and the characters used per step
         steps_per_epoch = max(1, 
@@ -268,7 +268,7 @@ class ProfileFindingTrainingSetup:
 
 
 
-    def initializeProfiles(self, enforceU = True, minU = 10, minOcc = 8, overlapTilesize = 6, plot = False):
+    def initializeProfiles_kmers(self, enforceU = True, minU = 10, minOcc = 8, overlapTilesize = 6, plot = False):
         """ Initializes the profiles with most frequent kmers in the genomes. If not enough kmers are found, additional
             random kmers are added. If enforceU is True, exactly U profiles are initialized. If enforceU is False, at
             least minU profiles are initialized, starting with the most frequent kmers that occur at least minOcc times.
@@ -331,6 +331,7 @@ class ProfileFindingTrainingSetup:
                 midKmers = [t[0] for t in kmerCount[:self.U]]
 
             assert len(midKmers) == self.U, f"[ERROR] >>> {len(midKmers)} != {self.U}"
+            self.trackProfiles = list(range(len(midKmers)))
 
         else:
             if len(kmerToOcc) < minU:
@@ -354,6 +355,8 @@ class ProfileFindingTrainingSetup:
 
                 if len(midKmers) > self.U:
                     midKmers = midKmers[:self.U]
+
+                self.trackProfiles = list(range(len(midKmers)))
         
         self.initKmerPositions = {}
         for kmer in midKmers:
@@ -386,6 +389,40 @@ class ProfileFindingTrainingSetup:
             softmaxProfiles = softmaxProfiles / np.sum(softmaxProfiles, axis=0)
             softmaxProfiles = np.transpose(softmaxProfiles, (2,0,1))    
             plotting.plotLogo(softmaxProfiles)
+    
+
+
+    def initializeProfiles_seeds(self, rand_seed: int = None):
+        """ Used to be model.seed_P_genome. Initializes the profiles with seeds from the genomes. 
+            Sets self.initProfiles. Sets self.trackProfiles to all profiles."""
+        import tensorflow as tf
+
+        flatg = []
+        for seqs in self.data.getRawData():
+            for frameseqs in seqs:
+                flatg.extend(frameseqs)
+
+        lensum = sum([len(s) for s in flatg])
+        weights = [len(s)/lensum for s in flatg]
+        weights = tf.nn.softmax(weights).numpy()
+        seqs = nprng.choice(len(flatg), self.U, replace=True, p=weights)
+        ks = self.k + (2*self.s) # trained profile width (k +- shift)
+        nprng = np.random.default_rng(rand_seed)
+
+        oneProfile_logit_like_Q = np.log(self.data.Q)
+        P_logit_init = np.zeros((ks, self.data.alphabet_size(), self.U), dtype=np.float32)
+        for j in range(self.setup.U):
+            i = seqs[j] # seq index
+            assert len(flatg[i]) > ks, str(len(flatg[i]))
+            pos = nprng.choice(len(flatg[i])-ks, 1)[0]
+            seedseq = flatg[i][pos:pos+ks]
+            OH = _oneHot(seedseq, self.data.alphabet)
+            assert OH.shape == (ks, self.data.alphabet_size()), f"{OH.shape} != {(ks, self.data.alphabet_size())}"
+            seed = self.rho * OH + oneProfile_logit_like_Q + nprng.normal(scale=self.sigma, size=OH.shape)
+            P_logit_init[:,:,j] = seed
+
+        self.initProfiles = P_logit_init
+        self.trackProfiles = list(range(self.U))
 
 
     
@@ -399,6 +436,15 @@ class ProfileFindingTrainingSetup:
 
 
 # General functions
+
+def _oneHot(seq, alphabet): # one hot encoding of a sequence
+        oh = np.zeros((len(seq), len(alphabet)))
+        for i, c in enumerate(seq):
+            if c in alphabet:
+                oh[i,alphabet.index(c)] = 1.0
+        return oh
+
+
 
 def getCustomMidProfiles(midSeqs: list[str], alphabet: list[str], k: int, Q: np.ndarray, 
                          mid_factor: float = 1, bg_factor: float = 0):
@@ -416,13 +462,6 @@ def getCustomMidProfiles(midSeqs: list[str], alphabet: list[str], k: int, Q: np.
         profiles: np.ndarray of shape (k, len(alphabet), len(midSeqs))
     """
 
-    def _oneHot(seq): # one hot encoding of a sequence
-        oh = np.zeros((len(seq), len(alphabet)))
-        for i, c in enumerate(seq):
-            if c in alphabet:
-                oh[i,alphabet.index(c)] = 1.0
-        return oh
-
     assert max([len(m) for m in midSeqs]) <= k, "[ERROR] >>> mid element lengths cannot exceed k"
     assert len(Q) == len(alphabet), f"[ERROR] >>> Q must have {len(alphabet)} elements"
     assert mid_factor > 0, "[ERROR] >>> mid_factor must be > 0"
@@ -437,7 +476,7 @@ def getCustomMidProfiles(midSeqs: list[str], alphabet: list[str], k: int, Q: np.
         midlen = len(midSeqs[u])
         lflank = (k-midlen)//2
         bgmid = np.repeat([Q], repeats=midlen, axis=0) * bg_factor # scaled background for middle positions
-        mid = _oneHot(midSeqs[u]) * mid_factor                     # scaled kmer for middle positions
+        mid = _oneHot(midSeqs[u], alphabet) * mid_factor                     # scaled kmer for middle positions
         profiles[lflank:lflank+midlen,:,u] = (mid + bgmid)
                 
     return profiles

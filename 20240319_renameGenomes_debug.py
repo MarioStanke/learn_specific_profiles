@@ -15,7 +15,7 @@ rename(all_genomes)
 rename(seGenomes)
 
 with open(os.path.join(traindir, "allGenomes_renamed.json"), "wt") as fh:
-    json.dump([g.toDict() for g in all_genomes], fh)
+    json.dump([g.toList() for g in all_genomes], fh)
 
 with open(os.path.join(traindir, "0003_singleExonGenomes_renamed.json"), "wt") as fh:
-    json.dump([g.toDict() for g in seGenomes], fh)
+    json.dump([g.toList() for g in seGenomes], fh)

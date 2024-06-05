@@ -25,9 +25,11 @@ def typecheck(obj, expected: str, die: bool = False, log_warnings: bool = True) 
         else:
             msg = f"[ERROR] >>> Expected obj of type {expected}, got {obj.classname} of type {type(obj)}"
             if die:
+                logging.debug(f"obj: {obj}")
                 raise AssertionError(msg)
             else:
                 if log_warnings:
+                    logging.debug(f"obj: {obj}")
                     logging.error(msg)
                 return False
             
@@ -60,17 +62,21 @@ def typecheck_objdict(obj: dict, expected: str, die: bool = False, log_warnings:
         else:
             msg = f"[ERROR] >>> Expected obj of type {expected}, got {obj['classname']} in obj dict"
             if die:
+                logging.debug(f"obj: {obj}")
                 raise AssertionError(msg)
             else:
                 if log_warnings:
+                    logging.debug(f"obj: {obj}")
                     logging.error(msg)
                 return False
     else:
-        msg = "[ERROR] >>> Expected obj of type {expected}, got dict without 'classname' key"
+        msg = f"[ERROR] >>> Expected obj of type {expected}, got dict without 'classname' key"
         if die:
+            logging.debug(f"obj: {obj}")
             raise AssertionError(msg)
         else:
             if log_warnings:
+                logging.debug(f"obj: {obj}")
                 logging.error(msg)
             return False
 

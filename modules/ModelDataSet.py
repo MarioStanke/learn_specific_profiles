@@ -79,7 +79,7 @@ class TileableSequence:
 
 
 
-def backgroundFreqs(sequences: list[list[list[TileableSequence]]], alphabet: list[str], verbose: bool = False):
+def backgroundFreqs(sequences: list[list[list[str]]], alphabet: list[str], verbose: bool = False):
     """
     Commpute vector of background frequencies of letters in the sequences. Letters not in the alphabet are ignored.
     
@@ -87,7 +87,7 @@ def backgroundFreqs(sequences: list[list[list[TileableSequence]]], alphabet: lis
     Returns:
         vector Q of shape len(alphabet)
     """
-    Q = np.zeros(alphabet.size(), dtype=np.float32)
+    Q = np.zeros(len(alphabet), dtype=np.float32)
     for genome in sequences:
         for seqs in genome:
             for seq in seqs:
@@ -109,7 +109,7 @@ def backgroundFreqs(sequences: list[list[list[TileableSequence]]], alphabet: lis
 
 # Use a generator to get genome batches, simplified position handling
 def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimension_size: int,
-                genomes: list[list[list[TileableSequence]]], 
+                rawgenomes: list[list[list[str]]], reverse_tiling_ids: list[int],
                 withPosTracking: bool = False):
     """ Generator function to create batches of tiles from a list of list of sequence strings. 
         Returns a tuple of (X, Y) where X is a numpy array of shape 
@@ -122,6 +122,16 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
 
         Set `withPosTracking` to true to be able to restore the position of a k-mer in the genome from the tile. """
     assert tile_size >= 1, f"[ERROR] >>> tile_size must be positive, non-zero (is: {tile_size})"
+
+    # convert rawgenomes to TileableSequence objects
+    genomes = [ 
+        [ 
+            [ TileableSequence(str(seqs[f]), tile_size, f in reverse_tiling_ids) for f in range(len(seqs)) ] \
+                for seqs in genome 
+        ] \
+        for genome in rawgenomes
+    ]
+
     N = len(genomes)
     state = []
     for seqs in genomes:
@@ -139,6 +149,8 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
             # [:,:,:,2] - frame idx,
             # [:,:,:,3] - tile start position in the sequence, -1 if exhausted
             posTrack = np.ones([ntiles, N, frame_dimension_size, 4], dtype=np.int32) *-1
+        else:
+            posTrack = np.array([])
 
         for t in range(ntiles):
             for g in range(N):
@@ -171,10 +183,7 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                         state[g]['exhausted'] = True
                         state[g]['sequence_idx'] = None
                         
-        if withPosTracking:
-            yield X, posTrack
-        else:
-            yield X, []
+        yield X, posTrack
 
 
 
@@ -196,19 +205,18 @@ class _TrainingDataWrapper:
         trainingseqs, mapping = self._extract_training_sequences()
         self._training_sequences = trainingseqs
         self._sequence_mapping = mapping
+        self.reverse_frame_ids = [1] if datamode == DataMode.DNA else [3,4,5] if datamode == DataMode.Translated else []
 
 
-    def _extract_training_sequences(self) -> tuple[list[list[list[TileableSequence]]], \
+    def _extract_training_sequences(self) -> tuple[list[list[list[str]]], \
                                                    dict[int, dict[int, dict[int, sr.Sequence|sr.TranslatedSequence]]]]:
-        """ Takes the original data and extracts the sequences as a list of lists of lists of TileableSequence objects.
+        """ Takes the original data and extracts the sequences as a list of lists of lists of strings.
          Depending on datamode, either uses the original genomic sequences and adds the respective reverse complements,
          or translates the sequences in 6 frames. Returns as second element a mapping of nested list indices to the 
          original genomic Sequence or TranslatedSequence objects in the data."""
         if self.datamode == DataMode.DNA:
             return (
-                [[[TileableSequence(s.getSequence(), self.tile_size, reverse_tiling=False), 
-                   TileableSequence(s.getSequence(rc=True), self.tile_size, reverse_tiling=True)] for s in g] \
-                    for g in self._data], 
+                [[[s.getSequence(), s.getSequence(rc=True)] for s in g] for g in self._data], 
                 {i: {j: {0: s} for j, s in enumerate(g)} for i, g in enumerate(self._data)}
             )
         else:
@@ -223,8 +231,7 @@ class _TrainingDataWrapper:
                     for frame in range(6):
                         tseq = sr.TranslatedSequence(s, frame)
                         sequence_mapping[i][j][frame] = tseq
-                        seqframes.append(TileableSequence(tseq.getSequence(), self.tile_size, 
-                                                          reverse_tiling = frame >= 3))
+                        seqframes.append(tseq.getSequence())
 
                     sequences.append(seqframes)
 
@@ -233,8 +240,8 @@ class _TrainingDataWrapper:
             return training_sequences, sequence_mapping
         
 
-    def getTrainingData(self, fromSource: bool = False) -> list[list[list[TileableSequence]]]:
-        """ Returns a list of lists of lists of TileableSequence with the (possibly translated, depends on datamode) 
+    def getTrainingData(self, fromSource: bool = False) -> list[list[list[str]]]:
+        """ Returns a list of lists of lists of str with the (possibly translated, depends on datamode) 
         training data. Outer list: genomes/species, second list: sequences, inner list: frames ([fwd, rc] for DNA data,
         6 frames for translated data). If fromSource is False (default), uses the internal copy. Otherwise, a new 
         extraction from the untouched source data is returned. """
@@ -283,7 +290,7 @@ class ModelDataSet:
         if Q is None:
             self.Q = backgroundFreqs(self.training_data.getTrainingData(), self.alphabet)
 
-        assert self.Q.shape == (self.alphabet_size()), \
+        assert self.Q.shape == (self.alphabet_size(),), \
             f"[ERROR] >>> Q-matrix must have shape ({self.alphabet_size()},), not {self.Q.shape}"
         
         self.tile_size = tile_size
@@ -297,7 +304,7 @@ class ModelDataSet:
     
 
     def frame_dimension_size(self) -> int:
-        if self.training_data.datamode == DataMode.Original:
+        if self.training_data.datamode == DataMode.DNA:
             return 2 # fwd, rc
         else:
             return 6
@@ -316,12 +323,17 @@ class ModelDataSet:
 
         second_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 4), 
                                        dtype = tf.int32) if withPosTracking \
-                            else tf.TensorSpec(shape = (0), dtype = tf.float32)
+                            else tf.TensorSpec(shape = (0,), dtype = tf.float32)
         
         ds = tf.data.Dataset.from_generator(
             createBatch,
-            args = (self.tiles_per_X, self.tile_size, self.alphabet, self.frame_dimension_size(),
-                    genomes, withPosTracking),
+            args = (self.tiles_per_X, 
+                    self.tile_size, 
+                    self.alphabet, 
+                    self.frame_dimension_size(),
+                    genomes, 
+                    self.training_data.reverse_frame_ids,
+                    withPosTracking),
             output_signature = (tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 
                                                        self.tile_size, self.alphabet_size()), 
                                               dtype = tf.float32),
@@ -340,7 +352,7 @@ class ModelDataSet:
         return ds
         
         
-    def getRawData(self, fromSource: bool = False) -> list[list[list[TileableSequence]]]:
+    def getRawData(self, fromSource: bool = False) -> list[list[list[str]]]:
         """ Returns a list of lists of lists of TileableSequence with the (possibly translated, depends on datamode) 
         training data. Outer list: genomes/species, second list: sequences, inner list: frames ([fwd, rc] for DNA data,
         6 frames for translated data). If fromSource is False (default), uses the internal copy. Otherwise, a new 
@@ -374,8 +386,8 @@ class ModelDataSet:
             logging.warning(f"[WARNING] >>> endPos {endPos} > len(tseq) {len(tseq)}")
         
         endPos = min(endPos, len(tseq))
-        rseq = tseq.seq[startPos:endPos] # return this
-        smseq = tseq.seq[:startPos] + tseq.seq[startPos:endPos].lower() + tseq.seq[endPos:]
-        tseq.seq = smseq
+        rseq = tseq[startPos:endPos] # return this
+        smseq = tseq[:startPos] + tseq[startPos:endPos].lower() + tseq[endPos:]
+        trainingData[genome_idx][sequence_idx][frame_idx] = smseq
 
         return rseq

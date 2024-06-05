@@ -190,7 +190,7 @@ class SpecificProfile(tf.keras.Model):
 
         self.setup = setup
         self.data = setup.data
-        self.opt = tf.keras.optimizers.Adam(learning_rate=self.setup.learning_rate)
+        self.opt = tf.keras.optimizers.Adam(learning_rate=float(self.setup.learning_rate))
 
         self.epsilon = 1e-6 # TODO: move that into setup!!
 
@@ -330,7 +330,7 @@ class SpecificProfile(tf.keras.Model):
     
 
 
-    def loss(self, Z, P):
+    def lossfun(self, Z, P):
         """ Returns the score (float) and the loss per profile (shape (U)).
             Scores is the max loss over all tiles and frames, summed up for all genomes and profiles.
             Loss per profile is the softmax over all positions (tiles, frames) per genome and profile, maxed for each
@@ -352,7 +352,7 @@ class SpecificProfile(tf.keras.Model):
         L2 = tf.math.divide(L2, P.shape[0])
         L2 = tf.math.multiply(L2, self.setup.l2)
         loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
-        
+
         return score, loss_by_unit
     
     
@@ -361,7 +361,7 @@ class SpecificProfile(tf.keras.Model):
     def train_step(self, X):
         with tf.GradientTape() as tape:
             S, R, Z = self.call(X, self.getP())
-            score, loss_by_unit = self.loss(Z, self.P_logit) # TODO: what P to pass to loss? In old version, this switches (otherP is usually softmaxed, but here it's the logits)
+            score, loss_by_unit = self.lossfun(Z, self.P_logit) # TODO: what P to pass to loss? In old version, this switches (otherP is usually softmaxed, but here it's the logits)
             # Mario's loss
             #loss = -score
             loss = tf.reduce_sum(loss_by_unit)
@@ -505,7 +505,7 @@ class SpecificProfile(tf.keras.Model):
             ntiles = np.prod(posTrack.shape[1:4]) # tilesPerX * N * f
             for b in range(X.shape[0]): # iterate samples in batch
                 _, _, Z = self.call(X[b], P)                 # Z: (ntiles, N, f, tile_size-k+1, U)
-                _, loss_by_unit = self.loss(Z, self.P_logit) # (U)
+                _, loss_by_unit = self.lossfun(Z, self.P_logit) # (U)
 
                 # (tilePerX, N, f) -> -1 if tile was exhausted -> False if exhausted -> 1 for valid tile, else 0
                 W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # binary mask for valid tiles, (tilePerX, N, f)
@@ -653,7 +653,7 @@ class SpecificProfile(tf.keras.Model):
                 M = tf.greater_equal(Z, score_threshold) # (tilesPerX, N, f, T-k+1, U)
 
                 # index tensor -> 2D tensor with shape (sites, 5) where each row is a match and the columns are indices:
-                I = tf.where(M)                          # (sites, <tilesPerX_idx, N_idx, f_idx, T-k+1_idx, U_idx>)
+                I = tf.cast(tf.where(M), tf.int32)       # (sites, <tilesPerX_idx, N_idx, f_idx, T-k+1_idx, U_idx>)
 
                 # build the sites and scores tensors (tensorflow.org/versions/r2.10/api_docs/python/tf/gather_nd)
                 _scores = tf.gather_nd(Z, I)                  # (sites, <score>)

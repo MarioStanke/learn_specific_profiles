@@ -267,7 +267,7 @@ def main():
 
     # store all genomes for later evaluation
     with open(os.path.join(outdir, "allGenomes.json"), 'wt') as fh:
-        json.dump([g.toDict() for g in allGenomes], fh)
+        json.dump([g.toList() for g in allGenomes], fh)
 
     # === TRAINING ===
 
@@ -287,7 +287,7 @@ def main():
         seGenomes = seGenomes[:min(len(seGenomes), genome_limit)]
         # store single-exon genomes for later evaluation
         with open(os.path.join(outdir, f"{runID}_singleExonGenomes.json"), 'wt') as fh:
-            json.dump([g.toDict() for g in seGenomes], fh)
+            json.dump([g.toList() for g in seGenomes], fh)
 
         # --- train our model ---
         logging.info(f"[main] Start training and evaluation on model for {runID}")
@@ -297,7 +297,7 @@ def main():
                                                                      tiles_per_X = 7,
                                                                      tile_size = 334,
                                                                      U = 200, n_best_profiles=1)
-        trainsetup.initializeProfiles(enforceU=False, plot=False, overlapTilesize=6)
+        trainsetup.initializeProfiles_kmers(enforceU=False, plot=False, overlapTilesize=6)
         try:
             training.trainAndEvaluate(runID, trainsetup, evaluator, 
                                       outdir, outprefix=f"{runID}_", 

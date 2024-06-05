@@ -335,7 +335,8 @@ class Sequence:
             'strand': self.strand,
             'genome_start': self.genome_start,
             'genome_end': self.genome_end,
-            'length': self.length
+            'length': self.length,
+            "classname": self.classname
         }
         if self.sequence is not None:
             objdict['sequence'] = self.sequence
@@ -501,7 +502,8 @@ class TranslatedSequence:
             'species': self.species,
             'length': self.length,
             'sequence': self.sequence,
-            'frame': self.frame
+            'frame': self.frame,
+            "classname": self.classname
         }
         
         return objdict
@@ -663,6 +665,7 @@ def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
     else:
         objdict = json.loads(jsonstring)
 
+    # logging.debug(f"Loading Sequence from {objdict}")
     assert typecheck_objdict(objdict, "Sequence", die = True), "[ERROR] >>> JSON must be a valid Sequence object."
 
     sequence = Sequence(
@@ -815,14 +818,14 @@ class Genome:
         """ Returns a list of all sequences strings in the genome. """
         return [sequence.sequence for sequence in self.sequences]
     
-    def toDict(self) -> list[dict]:
+    def toList(self) -> list[dict]:
         """ Returns a list of dictionary representations of the sequences in the genome. """
         return [sequence.toDict() for sequence in self.sequences]
     
     def toJSON(self, file: str):
         """ Write the genome to a JSON file. """
         with open(file, 'wt') as f:
-            json.dump(self.toDict(), f, indent=4)
+            json.dump(self.toList(), f, indent=4)
 
 
 
@@ -843,9 +846,11 @@ def genomeFromJSON(jsonfile: str = None, jsonstring: str = None) -> Genome:
 
 
 def loadJSONGenomeList(jsonfile: str) -> list[Genome]:
-    """ Load a list of Genome objects from a JSON file. """
+    """ Load a list of Genome objects (i.e. lists of Sequence dicts) from a JSON file. """
     assert os.path.isfile(jsonfile), f"[ERROR] >>> file `{jsonfile}` must be a valid file."
     with open(jsonfile, 'rt') as f:
         objlist = json.load(f)
+
+    assert type(objlist) == list, "[ERROR] >>> JSON file must contain a list of Sequence objects."
 
     return [genomeFromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]

@@ -334,4 +334,113 @@ class TestModelDataSite(unittest.TestCase):
                     extracted_kmer_translated = su.sequence_translation(extracted_kmer)
                     self.assertEqual(extracted_kmer_translated, kmer) # check if the extracted k-mer is correct
 
-# TODO: do above test but with smaller tiles, extract random k-mers from the tiles and check if they match with Occurrences afterwards
+
+    def test_ModelDataSet_siteConversionFromModel(self):
+        # same as above, but this time with tiling
+        for datamode in mds.DataMode:
+            tile_size = 33 # enforce that sequences are broken up in tiles -> test if tile_start is handled correctly
+            tiles_per_X = 1
+            batch_size = 1
+            N = len(self.genomes)
+            f = 6 if datamode == mds.DataMode.Translated else 2
+            alphabet = mds._TRANSLATED_ALPHABET if datamode == mds.DataMode.Translated else mds._DNA_ALPHABET
+
+            data = mds.ModelDataSet(self.genomes, datamode, tile_size=tile_size, tiles_per_X=tiles_per_X,
+                                    batch_size=batch_size)
+            k = 10
+
+            # track the tiles and how long the sequences are in them for sampling
+            tiles = [] 
+            for X, posTrack in data.getDataset(withPosTracking=True):
+                self.assertEqual(X.shape, (batch_size, tiles_per_X, N, f, tile_size, len(alphabet)))
+                self.assertEqual(posTrack.shape, (batch_size, tiles_per_X, N, f, 4))
+                self.assertEqual(X.shape[0], 1)
+                self.assertEqual(X.shape[1], 1)
+
+                tilelens = [[0 for _ in range(f)] for _ in range(N)]
+                for g in range(N):
+                    for s in range(f):
+                        if posTrack[0,0,g,s,3] == -1:
+                            continue # exhausted sequence tile
+
+                        tilelen = tile_size
+
+                        # from tile end, check how many all-0 rows there are -> length of tile up until there
+                        # (this is a bit hacky, but it's a good enough way to determine the length of the sequence in 
+                        #  the tile. If a tile ends in ambiguous or softmasked positions, the tile is wrongly assumed
+                        #  exhausted but that should be rare enough to not matter)
+                        basesum = np.sum(X[0,0,g,s,:,:], axis=1)
+                        self.assertEqual(basesum.shape, (tile_size,))
+                        i = tile_size - 1
+                        while basesum[i] == 0 and i >= 0:
+                            i -= 1
+                            tilelen -= 1
+
+                        self.assertGreaterEqual(tilelen, 0)
+                        self.assertLessEqual(tilelen, tile_size)
+                        tilelens[g][s] = tilelen
+
+                tiles.append(tilelens)
+
+            # sample k-mer sites from tiles
+            tilesites = []
+            while len(tilesites) < 100:
+                t = self.rng.choice(len(tiles), 1)[0]         # choose a tile
+                g = self.rng.choice(N, 1)[0]                  # choose a genome index
+                s = self.rng.choice(f, 1)[0]                  # random frame from that genome tile
+                tilelen = tiles[t][g][s]
+                if tilelen < k:
+                    continue
+
+                start = self.rng.integers(0, tilelen-k+1, 1)[0]
+                tilesites.append((t, g, s, start))
+                    
+            assert len(tilesites) == 100
+
+            # get k-mers from tiles
+            kmers = []
+            sites = []
+            tidx = 0
+            for X, posTrack in data.getDataset(withPosTracking=True):
+                tsites = [s for s in tilesites if s[0] == tidx]
+                for _, g, s, site_start in tsites:
+                    self.assertEqual(posTrack[0,0,g,s,0], g)
+                    self.assertEqual(posTrack[0,0,g,s,2], s)
+                    c = posTrack[0,0,g,s,1]
+                    tile_start = posTrack[0,0,g,s,3]
+
+                    tile = X.numpy()[0,0,g,s,:,:]
+                    oh_kmer = tile[site_start:site_start+k,:]
+                    kmer = []
+                    for i in range(k):
+                        if oh_kmer[i,:].sum() == 0:
+                            kmer.append(' ')
+                        else:
+                            self.assertEqual(oh_kmer[i,:].sum(), 1)
+                            cidx = np.argmax(oh_kmer[i,:])
+                            kmer.append(alphabet[cidx])
+
+                    kmer = "".join(kmer)
+                    kmers.append(kmer)
+                    sites.append((g, c, s, tile_start, site_start, 0))
+
+                tidx += 1
+            
+            sitearray = np.zeros((len(sites), 6), dtype=np.int32)
+            for i, (g,c,s,tile_start,site_start,pIdx) in enumerate(sites):
+                sitearray[i,:] = [g,c,s,tile_start,site_start,pIdx]
+
+            # get converted sites from ModelDataSet
+            occs = data.convertModelSites(sitearray, k)
+            for i, (g,c,s,tile_start,site_start,pIdx) in enumerate(sites):
+                occ = occs[i]
+                kmer = kmers[i]
+
+                if datamode == mds.DataMode.DNA:
+                    extracted_kmer_raw = occ.getSite(k)
+                    extracted_kmer = "".join([c if c in alphabet else " " for c in extracted_kmer_raw])
+                    self.assertEqual(extracted_kmer, kmer)
+                else:
+                    extracted_kmer = occ.getSite(k*3)
+                    extracted_kmer_translated = su.sequence_translation(extracted_kmer)
+                    self.assertEqual(extracted_kmer_translated, kmer)

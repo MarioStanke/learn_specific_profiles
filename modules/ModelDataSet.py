@@ -136,9 +136,9 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
         for genome in rawgenomes
     ]
 
-    logging.debug(f"[ModelDataSet.createBatch] >>> {[[[len(f) for f in seq] for seq in genome] for genome in genomes]}")
-    logging.debug(f"[ModelDataSet.createBatch] >>> {genomes[0][0][0][:min(10, len(genomes[0][0][0]))]=}")
-    logging.debug(f"[ModelDataSet.createBatch] >>> {alphabet=}")
+    #logging.debug(f"[ModelDataSet.createBatch] >>> {[[[len(f) for f in seq] for seq in genome] for genome in genomes]}")
+    #logging.debug(f"[ModelDataSet.createBatch] >>> {genomes[0][0][0][:min(10, len(genomes[0][0][0]))]=}")
+    #logging.debug(f"[ModelDataSet.createBatch] >>> {alphabet=}")
 
     N = len(genomes)
     state = []
@@ -358,8 +358,8 @@ class ModelDataSet:
         assert sitelen > 0, f"[ModelDataSet.convertModelSites] invalid {sitelen=}"
         occs = []
         for genomeIdx, contigIdx, frameIdx, tileStartPos, tilePos, profileIdx in sites:
-            logging.debug(f"[ModelDataSet.convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} " \
-                          + f"{tilePos=} {profileIdx=}")
+            #logging.debug(f"[ModelDataSet.convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} " \
+            #              + f"{tilePos=} {profileIdx=}")
             rawpos = int(tileStartPos+tilePos) # refers to the sequence at frameIdx, not necessarily the top strand!
             if self.training_data.datamode == DataMode.Translated:
                 assert frameIdx in range(6), \
@@ -390,32 +390,7 @@ class ModelDataSet:
             strand = '-' if rc else '+'
             occs.append(Links.Occurrence(sequence, pos, strand, int(profileIdx)))
 
-
-            # if self.training_data.datamode == DataMode.DNA:
-            #     sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
-            #     typecheck(sequence, "Sequence")
-            #     assert frameIdx in [0,1], f"[MOdelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
-            #     strand = '+' if frameIdx == 0 else '-'
-            #     pos = rawpos if frameIdx == 0 else len(sequence) - rawpos - sitelen
-            #     occs.append(Links.Occurrence(sequence, pos, strand, int(profileIdx)))
-
-            # else:
-            #     sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx)
-            #     typecheck(sequence, "TranslatedSequence")
-            #     assert frameIdx in range(6), \
-            #         f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
-            #     dnaseq = sequence.genomic_sequence
-            #     if frameIdx < 3:
-            #         strand = '+'
-            #         pos = pc.aa_to_dna(frameIdx, rawpos)
-            #     else:
-            #         strand = '-'
-            #         rc_pos = pc.aa_to_dna(frameIdx-3, rawpos)
-            #         pos = len(dnaseq) - rc_pos - sitelen
-                
-            #     occs.append(Links.Occurrence(dnaseq, pos, strand, int(profileIdx)))
-
-        return occs # TODO: test if this works as expected!
+        return occs
     
 
     def frame_dimension_size(self) -> int:

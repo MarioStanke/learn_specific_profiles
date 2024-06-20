@@ -42,10 +42,23 @@ class Occurrence:
         return self.tuple() == other.tuple()
     def __hash__(self):
         return hash(self.tuple()) # TODO: can probably be deprecated in the next big refactoring when Occurrences hold refs to Sequences
+    
+    def getSite(self, sitelen: int = 1) -> str:
+        """ Returns the site of length `sitelen` that the Occurrence refers to. If strand is '-', it takes the 
+            _top strand_ sequence slice [position:position+sitelen] and returns the reverse complement of that slice."""
+        if self.strand == '+':
+            site = self.sequence.getSlice(self.position, self.position+sitelen)
+        else:
+            site = self.sequence.getSlice(self.position, self.position+sitelen, rc=True)
+
+        assert site is not None and len(site) == sitelen, f"[ERROR] >>> Invalid site or length: {site=}, {sitelen=}"
+        return site        
+    
     def tuple(self):
         """ Attention: does not include the sequence reference, only the ID! """
         #return (self.genomeIdx, self.sequenceIdx, self.position, self.strand, self.profileIdx)
         return (self.sequence.id, self.position, self.strand, self.profileIdx)
+    
     def toDict(self):
         """ Returns a dictionary representation of the Occurrence, with the complete dictionary of the Sequence. """
         return {"sequence": self.sequence.toDict(), 

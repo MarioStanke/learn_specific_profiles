@@ -4,6 +4,8 @@ import logging
 import numpy as np
 import tensorflow as tf
 
+from . import Links
+from . import position_conversion as pc
 from . import SequenceRepresentation as sr
 from . import sequtils as su
 from .typecheck import typecheck
@@ -124,13 +126,19 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
     assert tile_size >= 1, f"[ERROR] >>> tile_size must be positive, non-zero (is: {tile_size})"
 
     # convert rawgenomes to TileableSequence objects
+    rawgenomes = rawgenomes.astype('U')   # convert back from bytestring to unicode, otherwise one-hot does not work!
+    alphabet = list(alphabet.astype('U')) 
     genomes = [ 
         [ 
-            [ TileableSequence(str(seqs[f]), tile_size, f in reverse_tiling_ids) for f in range(len(seqs)) ] \
+            [ TileableSequence(seqs[f], tile_size, f in reverse_tiling_ids) for f in range(len(seqs)) ] \
                 for seqs in genome 
         ] \
         for genome in rawgenomes
     ]
+
+    logging.debug(f"[ModelDataSet.createBatch] >>> {[[[len(f) for f in seq] for seq in genome] for genome in genomes]}")
+    logging.debug(f"[ModelDataSet.createBatch] >>> {genomes[0][0][0][:min(10, len(genomes[0][0][0]))]=}")
+    logging.debug(f"[ModelDataSet.createBatch] >>> {alphabet=}")
 
     N = len(genomes)
     state = []
@@ -150,7 +158,7 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
             # [:,:,:,3] - tile start position in the sequence, -1 if exhausted
             posTrack = np.ones([ntiles, N, frame_dimension_size, 4], dtype=np.int32) *-1
         else:
-            posTrack = np.array([])
+            posTrack = np.array([], dtype=np.int32)
 
         for t in range(ntiles):
             for g in range(N):
@@ -177,6 +185,14 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                         posTrack[t,g,f,2] = f
                         posTrack[t,g,f,3] = start
 
+                    # initially had a bug with strings so that one-hot did not work. Does not apply for softmasked data.
+                    if len(tileseq) > 0 and not (tileseq.lower() == tileseq):
+                        if (X[t,g,f] == 0).all(): 
+                            logging.warning(f"[ModelDataSet.createBatch] >>> {tileseq} {start} {tile_size} {len(tileseq)}")
+                            logging.warning(f"[ModelDataSet.createBatch] >>> {tileseq[:min(10, len(tileseq))]=}")
+                            logging.warning(f"[ModelDataSet.createBatch] >>> {X[t,g,f,:min(10, len(tileseq)),:]=}")
+                            raise ValueError(f"Tile {t} in genome {g} at frame {f} was not one-hot encoded")
+
                 if all([s.finished for s in sequences]):
                     state[g]['sequence_idx'] += 1
                     if state[g]['sequence_idx'] == len(genomes[g]):
@@ -196,12 +212,16 @@ class _TrainingDataWrapper:
     """ Takes care of providing the training data for a model. Depending on the datamode, the data is either used as
     genomic sequences or translated sequences. The data is stored as a list of Genomes and can be accessed as a list of
     list of list of strings (genomes[sequences[frames]]). The latter is used for training. The class also provides a 
-    mapping of the training sequences to the sr.Sequence or sr.TranslatedSequence objects. """
-    def __init__(self, data: list[sr.Genome], datamode: DataMode, tile_size: int):
+    mapping of the training sequences to the sr.Sequence or sr.TranslatedSequence objects. 
+
+    Note: data needs to be rectangular for tf, so smaller genomes are filled up with empty sequences internally
+              such that all genomes have the same number of sequences. """
+    def __init__(self, data: list[sr.Genome], datamode: DataMode, tile_size: int, replaceSpaceWithX: bool = False):
         assert datamode in DataMode, f"[ERROR] >>> datamode must be of type DataMode, not {type(datamode)}"
         self.datamode = datamode
         self._data = data
         self.tile_size = tile_size
+        self.replaceSpaceWithX = replaceSpaceWithX
         trainingseqs, mapping = self._extract_training_sequences()
         self._training_sequences = trainingseqs
         self._sequence_mapping = mapping
@@ -213,12 +233,14 @@ class _TrainingDataWrapper:
         """ Takes the original data and extracts the sequences as a list of lists of lists of strings.
          Depending on datamode, either uses the original genomic sequences and adds the respective reverse complements,
          or translates the sequences in 6 frames. Returns as second element a mapping of nested list indices to the 
-         original genomic Sequence or TranslatedSequence objects in the data."""
+         original genomic Sequence or TranslatedSequence objects in the data. 
+         Filling up smaller genomes with empty sequences for training takes place here, 
+         it is not reflected in the mapping. """
+        max_genome_len = max(len(g) for g in self._data)
         if self.datamode == DataMode.DNA:
-            return (
-                [[[s.getSequence(), s.getSequence(rc=True)] for s in g] for g in self._data], 
-                {i: {j: {0: s} for j, s in enumerate(g)} for i, g in enumerate(self._data)}
-            )
+            training_sequences = [[[s.getSequence(), s.getSequence(rc=True)] for s in g] for g in self._data]
+            sequence_mapping = {i: {j: {0: s} for j, s in enumerate(g)} for i, g in enumerate(self._data)}
+            
         else:
             training_sequences = []
             sequence_mapping = {}
@@ -229,7 +251,7 @@ class _TrainingDataWrapper:
                     seqframes = []
                     sequence_mapping[i][j] = {}
                     for frame in range(6):
-                        tseq = sr.TranslatedSequence(s, frame)
+                        tseq = sr.TranslatedSequence(s, frame, self.replaceSpaceWithX)
                         sequence_mapping[i][j][frame] = tseq
                         seqframes.append(tseq.getSequence())
 
@@ -237,7 +259,17 @@ class _TrainingDataWrapper:
 
                 training_sequences.append(sequences)
 
-            return training_sequences, sequence_mapping
+        # fill up with empty sequences as necessary
+        for g in range(len(training_sequences)):
+            if len(training_sequences[g]) < max_genome_len:
+                n = max_genome_len - len(training_sequences[g])
+                logging.debug(f"[ModelDataSet._extract_training_sequences] >>> Filling up genome {g} with {n} empty " \
+                              + f"sequences to match length of {max_genome_len}")
+                f = 2 if self.datamode == DataMode.DNA else 6
+                for _ in range(n):
+                    training_sequences[g].append([""] * f)
+            
+        return training_sequences, sequence_mapping
         
 
     def getTrainingData(self, fromSource: bool = False) -> list[list[list[str]]]:
@@ -268,8 +300,11 @@ class ModelDataSet:
     model is trained on translated sequences. Translation and position-conversion is handled by this class. """
 
     def __init__(self, data: list[sr.Genome], datamode: DataMode, Q: np.ndarray = None,
-                 tile_size: int = 334, tiles_per_X: int = 13, batch_size: int = 1, prefetch: int = 3):
+                 tile_size: int = 334, tiles_per_X: int = 13, batch_size: int = 1, prefetch: int = 3,
+                 replaceSpaceWithX: bool = False):
         """
+        Note: data needs to be rectangular for tf, so smaller genomes are filled up with empty sequences internally
+              such that all genomes have the same number of sequences. Keep this in mind when using .getRawData().
         Attributes:
             data: list of Genomes
             datamode: DataMode
@@ -279,6 +314,8 @@ class ModelDataSet:
             tiles_per_X: int -- number of tiles per X
             batch_size: int -- number of batches to be used during training
             prefetch: int -- number of batches to prefetch
+            replaceSpaceWithX: bool -- if True, replaces ' ' with 'X' in translated sequences, only needed in
+                                        translated mode!
         """
         assert datamode in DataMode, f"[ERROR] >>> datamode must be of type DataMode, not {type(datamode)}"
         assert isinstance(data, list), f"[ERROR] >>> data must be of type list, not {type(data)}"
@@ -301,6 +338,84 @@ class ModelDataSet:
 
     def alphabet_size(self) -> int:
         return len(self.alphabet)
+
+
+    def convertModelSites(self, sites: np.ndarray, sitelen: int = 1) -> list[Links.Occurrence]:
+        """ Takes the sites tensor (as numpy array) from a SpecProModel.get_profile_match_sites() and converts them to
+        a list of Links.Occurrence objects. This method takes care of position translation if DataMode.Translated.
+        Returned Occurrences denote the leftmost position of the site in top strand coordinates relative to the DNA
+        Sequence.
+        
+        Arguments:
+            sites (np.ndarray): array of shape (X, 6) where X is the number of found sites and the second dimension
+                                contains tuples with (genomeIdx, contigIdx, frameIdx, tileStartPos, tilePos, profileIdx)
+            sitelen (int): length of the site, i.e the profile width, default is 1 (single position sites)
+                                
+        Returns:
+            List of Links.Occurrences """
+        # logging.debug(f"[ModelDataSet.convertModelSites] {self.training_data._sequence_mapping=}")
+        assert len(sites.shape) == 2 and sites.shape[1] == 6, f"[ModelDataSet.convertModelSites] invalid {sites.shape=}"
+        assert sitelen > 0, f"[ModelDataSet.convertModelSites] invalid {sitelen=}"
+        occs = []
+        for genomeIdx, contigIdx, frameIdx, tileStartPos, tilePos, profileIdx in sites:
+            logging.debug(f"[ModelDataSet.convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} " \
+                          + f"{tilePos=} {profileIdx=}")
+            rawpos = int(tileStartPos+tilePos) # refers to the sequence at frameIdx, not necessarily the top strand!
+            if self.training_data.datamode == DataMode.Translated:
+                assert frameIdx in range(6), \
+                    f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
+                sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx).genomic_sequence
+                if frameIdx < 3:
+                    rc = False
+                    dnapos = pc.aa_to_dna(frameIdx, rawpos) # convert to fwd DNA pos
+                else: 
+                    # site comes from rc dna, thus aa_to_dna of one-past-last _aa_ gives the one-past-last _dna_ pos on
+                    #   rc strand. Subtract one to get the last dna pos on rc. In later conversion, this is the first
+                    #   dna pos on the fwd stran! Also see test_position_conversion.py 
+                    rc = True
+                    aa_site_end = rawpos + sitelen
+                    rc_site_end = pc.aa_to_dna(frameIdx-3, aa_site_end)
+                    dnapos = rc_site_end - 1
+            else:
+                assert frameIdx in [0,1], f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
+                sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
+                if frameIdx == 0:
+                    rc = False
+                    dnapos = rawpos
+                else:
+                    rc = True
+                    dnapos = rawpos + sitelen - 1 # site starts at the reverse end
+
+            pos = pc.rc_to_fwd(dnapos, len(sequence)) if rc else dnapos
+            strand = '-' if rc else '+'
+            occs.append(Links.Occurrence(sequence, pos, strand, int(profileIdx)))
+
+
+            # if self.training_data.datamode == DataMode.DNA:
+            #     sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
+            #     typecheck(sequence, "Sequence")
+            #     assert frameIdx in [0,1], f"[MOdelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
+            #     strand = '+' if frameIdx == 0 else '-'
+            #     pos = rawpos if frameIdx == 0 else len(sequence) - rawpos - sitelen
+            #     occs.append(Links.Occurrence(sequence, pos, strand, int(profileIdx)))
+
+            # else:
+            #     sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx)
+            #     typecheck(sequence, "TranslatedSequence")
+            #     assert frameIdx in range(6), \
+            #         f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
+            #     dnaseq = sequence.genomic_sequence
+            #     if frameIdx < 3:
+            #         strand = '+'
+            #         pos = pc.aa_to_dna(frameIdx, rawpos)
+            #     else:
+            #         strand = '-'
+            #         rc_pos = pc.aa_to_dna(frameIdx-3, rawpos)
+            #         pos = len(dnaseq) - rc_pos - sitelen
+                
+            #     occs.append(Links.Occurrence(dnaseq, pos, strand, int(profileIdx)))
+
+        return occs # TODO: test if this works as expected!
     
 
     def frame_dimension_size(self) -> int:
@@ -323,7 +438,7 @@ class ModelDataSet:
 
         second_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 4), 
                                        dtype = tf.int32) if withPosTracking \
-                            else tf.TensorSpec(shape = (0,), dtype = tf.float32)
+                            else tf.TensorSpec(shape = (0,), dtype = tf.int32)
         
         ds = tf.data.Dataset.from_generator(
             createBatch,
@@ -360,14 +475,14 @@ class ModelDataSet:
         return self.training_data.getTrainingData(fromSource=fromSource)
     
 
-    def softmask(self, genome_idx: int, sequence_idx: int, frame_idx: int, startPos: int, masklen: int) -> str:
+    def softmask(self, genome_idx: int, sequence_idx: int, frame_idx: int, start_pos: int, masklen: int) -> str:
         """ Softmask the specified part of the training data, so that it is not used for further training. Uses the 
         internal copy and leaves the original data untouched. 
         Returns the specified part of the training data as string _before_ softmaskin (i.e. conv. to lower case). If the
         specified part is (partly) out of bounds, returns a shorter or an empty string. """
         trainingData = self.training_data.getTrainingData(fromSource=False)
 
-        assert startPos >= 0, f"[ERROR] >>> startPos must be >= 0, not {startPos}"
+        assert start_pos >= 0, f"[ERROR] >>> start_pos must be >= 0, not {start_pos}"
         assert masklen > 0, f"[ERROR] >>> masklen must be > 0, not {masklen}"
         assert genome_idx in range(len(trainingData)), \
             f"[ERROR] >>> No sequence with genome index {genome_idx}"
@@ -377,17 +492,23 @@ class ModelDataSet:
             f"[ERROR] >>> No sequence with frame index {frame_idx} in sequence {sequence_idx} of genome {genome_idx}"
         
         tseq = trainingData[genome_idx][sequence_idx][frame_idx]
-        if startPos >= len(tseq):
-            logging.warning(f"[WARNING] >>> startPos {startPos} >= len(tseq) {len(tseq)}")
+        if start_pos >= len(tseq):
+            logging.warning(f"[WARNING] >>> start_pos {start_pos} >= len(tseq) {len(tseq)}")
             return ""
         
-        endPos = startPos + masklen
-        if endPos > len(tseq):
-            logging.warning(f"[WARNING] >>> endPos {endPos} > len(tseq) {len(tseq)}")
+        end_pos = start_pos + masklen
+        if end_pos > len(tseq):
+            logging.warning(f"[WARNING] >>> end_pos {end_pos} > len(tseq) {len(tseq)}")
         
-        endPos = min(endPos, len(tseq))
-        rseq = tseq[startPos:endPos] # return this
-        smseq = tseq[:startPos] + tseq[startPos:endPos].lower() + tseq[endPos:]
+        end_pos = min(end_pos, len(tseq))
+        rseq = tseq[start_pos:end_pos] # return this
+        softmasked = tseq[start_pos:end_pos].lower()
+        # remove * if Translated and softmasked contains it
+        if self.training_data.datamode == DataMode.Translated and '*' in softmasked:
+            softmasked = softmasked.replace('*', ' ') if not self.training_data.replaceSpaceWithX \
+                            else softmasked.replace('*', 'X')
+            
+        smseq = tseq[:start_pos] + softmasked + tseq[end_pos:]
         trainingData[genome_idx][sequence_idx][frame_idx] = smseq
 
         return rseq

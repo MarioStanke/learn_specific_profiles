@@ -1,7 +1,7 @@
 from Bio.Seq import Seq
 import unittest
 
-from . import SequenceRepresentation as sr
+from modules import SequenceRepresentation as sr
 
 # TODO: write much more tests!
 

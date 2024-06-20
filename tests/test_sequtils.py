@@ -1,7 +1,7 @@
 from Bio.Seq import Seq
 import unittest
 
-import sequtils as su
+from modules import sequtils as su
 
 class TestSeqUtils(unittest.TestCase):
     def test_globals(self):

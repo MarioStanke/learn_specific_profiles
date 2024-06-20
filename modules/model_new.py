@@ -61,7 +61,7 @@ class TainingHistory:
         
     def update(self, epochHist: EpochHistory, learning_rate: float, profile_losses: np.ndarray):
         """ Add the metrics of a single epoch to the history. Required shapes of profile_losses: (U,) """
-        assert profile_losses.shape == (self.U,), f"{profile_losses.shape=}"
+        assert profile_losses.shape == (self._U,), f"{profile_losses.shape=}"
         self.loss.append(np.mean(epochHist.losses))
         self.Rmin.append(epochHist.Rmin)
         self.Rmax.append(epochHist.Rmax)
@@ -89,7 +89,7 @@ class ProfileTracking:
                  masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None):
         """ Add a profile to the tracking. Required shapes:
             P: (k, alphabet_size, U'), max_scores: (U',), mean_losses: (U',), masked_sites: (n, 6), 
-            masked_sites_scores: (n, 1) where U' == len(tracking_ids). """
+            masked_sites_scores: (n,) where U' == len(tracking_ids). """
         assert P.shape == (self.P.shape[:-1]), f"{P.shape=}"
         assert max_scores.shape == (len(self.tracking_ids),), f"{max_scores.shape=}"
         assert mean_losses.shape == (len(self.tracking_ids),), f"{mean_losses.shape=}"
@@ -98,8 +98,9 @@ class ProfileTracking:
             assert masked_sites_scores is not None, f"{masked_sites_scores=}"
             assert len(masked_sites.shape) == 2, f"{masked_sites.shape=}"
             assert masked_sites.shape[1] == 6, f"{masked_sites.shape=}"
-            assert len(masked_sites_scores.shape) == 2, f"{masked_sites_scores.shape=}"
-            assert masked_sites_scores.shape[1] == 1, f"{masked_sites_scores.shape=}"
+            assert len(masked_sites_scores.shape) == 1, f"{masked_sites_scores.shape=}"
+            assert masked_sites_scores.shape[0] == masked_sites.shape[0], \
+                f"{masked_sites_scores.shape=} does not match {masked_sites.shape=}"
 
         self.epoch.append(epoch)
         self.P = np.concatenate([self.P, np.expand_dims(P, -1)], axis=3)
@@ -107,7 +108,8 @@ class ProfileTracking:
         self.mean_losses = np.concatenate([self.mean_losses, np.expand_dims(mean_losses, -1)], axis=1)
         if masked_sites is not None:
             self.masked_sites = np.concatenate([self.masked_sites, masked_sites], axis=0)
-            self.masked_sites_scores = np.concatenate([self.masked_sites_scores, masked_sites_scores], axis=0)
+            self.masked_sites_scores = np.concatenate([self.masked_sites_scores, 
+                                                       np.expand_dims(masked_sites_scores, -1)], axis=0)
             self.masked_sites_epoch = np.concatenate([self.masked_sites_epoch, 
                                                       np.ones((masked_sites.shape[0], 1), dtype=np.int32) * epoch],
                                                      axis=0)
@@ -127,9 +129,14 @@ class ProfileReport:
         self.threshold = []
         self.loss = []
         self.masked_sites = np.zeros((0, 6), dtype=np.int32)                 # (n, 6)
-        self.masked_sites_scores = np.zeros((0, 1), dtype=np.float32)        # (n, 1)
-        self.masked_sites_P_idx = np.zeros((0, 1), dtype=np.int32)           # (n, 1), assigning the sites to self.P idx
+        self.masked_sites_scores = np.zeros((0,), dtype=np.float32)          # (n,)
+        self.masked_sites_P_idx = np.zeros((0,), dtype=np.int32)             # (n,), assigning the sites to self.P idx
         self.nlinks = []
+
+
+    def __len__(self):
+        return self.P.shape[2]
+
 
     def addProfile(self, epoch: int, P: np.ndarray, index: int, threshold: float = None, loss: float = None, 
                    masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None, 
@@ -150,9 +157,10 @@ class ProfileReport:
             assert masked_sites_scores is not None, f"{masked_sites_scores=}"
             assert len(masked_sites.shape) == 2, f"{masked_sites.shape=}"
             assert masked_sites.shape[1] == 6, f"{masked_sites.shape=}"
-            assert len(masked_sites_scores.shape) == 2, f"{masked_sites_scores.shape=}"
-            assert masked_sites_scores.shape[1] == 1, f"{masked_sites_scores.shape=}"
-
+            assert len(masked_sites_scores.shape) == 1, f"{masked_sites_scores.shape=}"
+            assert masked_sites_scores.shape[0] == masked_sites.shape[0], \
+                f"{masked_sites_scores.shape=} does not match {masked_sites.shape=}"
+            
         self.epoch.append(epoch)
         self.P = np.concatenate([self.P, np.expand_dims(P, -1)], axis=2)
         P_idx = self.P.shape[2] - 1
@@ -163,7 +171,7 @@ class ProfileReport:
             self.masked_sites = np.concatenate([self.masked_sites, masked_sites], axis=0)
             self.masked_sites_scores = np.concatenate([self.masked_sites_scores, masked_sites_scores], axis=0)
             self.masked_sites_P_idx = np.concatenate([self.masked_sites_P_idx, 
-                                                      np.ones((masked_sites.shape[0], 1), dtype=np.int32) * P_idx], 
+                                                      np.ones((masked_sites.shape[0],), dtype=np.int32) * P_idx], 
                                                      axis=0)
 
         self.nlinks.append(nlinks)
@@ -236,8 +244,9 @@ class SpecificProfile(tf.keras.Model):
         # add initial profile tracking
         if len(self.setup.trackProfiles) > 0:
             Pt = tf.gather(self.getP(), self.setup.trackProfiles, axis=2)
-            scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), P = Pt), axis=1 ).numpy()
-            losses = self.get_mean_losses(self.data.getDataset(withPosTracking=True), P = Pt).numpy()
+            Pt_logit = tf.gather(self.P_logit, self.setup.trackProfiles, axis=2)
+            scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), Pt), axis=1 ).numpy()
+            losses = self.get_mean_losses(self.data.getDataset(withPosTracking=True), Pt, Pt_logit).numpy()
             sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking=True), Pt, 
                                                               self.setup.match_score_factor * scores)
             self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy())
@@ -330,11 +339,12 @@ class SpecificProfile(tf.keras.Model):
     
 
 
-    def lossfun(self, Z, P):
+    def lossfun(self, Z, P_logit):
         """ Returns the score (float) and the loss per profile (shape (U)).
             Scores is the max loss over all tiles and frames, summed up for all genomes and profiles.
             Loss per profile is the softmax over all positions (tiles, frames) per genome and profile, maxed for each
-               profile and summed over all genomes. """
+               profile and summed over all genomes. 
+            Pass P_logit _instead of softmaxed P_, as the L2 regularization is weaker with value ranges close to 0."""
         # shape of Z: ntiles x N x f x tile_size-k+1 x U 
         S = tf.reduce_max(Z, axis=[0,2,3]) # N x U
         score = tf.reduce_sum(S)
@@ -347,9 +357,9 @@ class SpecificProfile(tf.keras.Model):
         loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
             
         # L2 regularization
-        # shape of P: (k+2s, alphabet_size, U)
-        L2 = tf.reduce_sum(tf.math.square(P), axis=[0,1]) # U
-        L2 = tf.math.divide(L2, P.shape[0])
+        # shape of P_logit: (k+2s, alphabet_size, U)
+        L2 = tf.reduce_sum(tf.math.square(P_logit), axis=[0,1]) # U
+        L2 = tf.math.divide(L2, P_logit.shape[0])
         L2 = tf.math.multiply(L2, self.setup.l2)
         loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
 
@@ -406,7 +416,8 @@ class SpecificProfile(tf.keras.Model):
                 if steps >= self.setup.steps_per_epoch:
                     break
                     
-            mean_losses = self.get_mean_losses(self.data.getDataset(withPosTracking = True), self.getP()) # (U)
+            mean_losses = self.get_mean_losses(self.data.getDataset(withPosTracking = True), 
+                                               self.getP(), self.P_logit) # (U)
             best_profile = tf.argmin(mean_losses).numpy()
             best_profile_mean_loss = tf.reduce_min(mean_losses).numpy()
             
@@ -457,7 +468,8 @@ class SpecificProfile(tf.keras.Model):
             if verbose and (epoch_count % (verbose_freq) == 0 \
                             or (self.setup.n_best_profiles is None and epoch_count == self.setup.epochs-1)):
                 tnow = time()
-                losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), self.getP())
+                losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), 
+                                                    self.getP(), self.P_logit)
                 logging.info(f"[model.train] >>> epoch {epoch_count} best profile {best_profile} " \
                              + f"with mean loss {best_profile_mean_loss}")
                 logging.info(f"[model.train] >>> epoch {epoch_count:>5} sum of profile tile losses " + \
@@ -478,7 +490,7 @@ class SpecificProfile(tf.keras.Model):
             # determine if training should continue
             epoch_count += 1
             if self.setup.n_best_profiles is not None:
-                run = (len(self.P_report) < self.setup.n_best_profiles) # TODO: tracking stuff
+                run = (len(self.profile_report) < self.setup.n_best_profiles)
                 if edgecase_count > 10:
                     logging.warning("[model.train_reporting] >>> Training seems to be stuck in edge cases, aborting")
                     run = False
@@ -487,8 +499,8 @@ class SpecificProfile(tf.keras.Model):
                 
 
 
-    def get_profile_losses(self, ds, P):
-        """ Argument `P` must be _softmaxed_, don't pass the logits!
+    def get_profile_losses(self, ds, P, P_logit):
+        """ Argument `P` must be _softmaxed_, P_logit is the logits of P (i.e. before softmaxing)!
             Returns a tensor of losses for each tile of shape (U, x) where x is number_of_batches * batch_size,
             and a tensor of weights of the same shape (U, x): In each batch <x>, the weight for all profiles <U> is the
             same; the weights are 1 if all tiles in all genomes and frames are valid, or smaller if some where 
@@ -504,8 +516,8 @@ class SpecificProfile(tf.keras.Model):
             assert X.shape[0:4] == posTrack.shape[0:4], f"{X.shape=} != {posTrack.shape=}"
             ntiles = np.prod(posTrack.shape[1:4]) # tilesPerX * N * f
             for b in range(X.shape[0]): # iterate samples in batch
-                _, _, Z = self.call(X[b], P)                 # Z: (ntiles, N, f, tile_size-k+1, U)
-                _, loss_by_unit = self.lossfun(Z, self.P_logit) # (U)
+                _, _, Z = self.call(X[b], P)               # Z: (ntiles, N, f, tile_size-k+1, U)
+                _, loss_by_unit = self.lossfun(Z, P_logit) # (U)
 
                 # (tilePerX, N, f) -> -1 if tile was exhausted -> False if exhausted -> 1 for valid tile, else 0
                 W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # binary mask for valid tiles, (tilePerX, N, f)
@@ -523,10 +535,11 @@ class SpecificProfile(tf.keras.Model):
 
 
 
-    def get_mean_losses(self, ds, P):
+    def get_mean_losses(self, ds, P, P_logit):
         """ A wrapper around get_profile_losses that returns the weighted mean loss per profile. 
-            Argument `P` must be _softmaxed_, don't pass the logits! `ds` must be a dataset with position tracking. """
-        losses, weights = self.get_profile_losses(ds, P)
+            Argument `P` must be _softmaxed_, P_logit is the logits of P (i.e. before softmaxing)! 
+            Argument `ds` must be a dataset with position tracking. """
+        losses, weights = self.get_profile_losses(ds, P, P_logit)
         return tf.reduce_mean( tf.multiply(losses, weights), axis=1 ) # (U)
     
 
@@ -566,7 +579,7 @@ class SpecificProfile(tf.keras.Model):
         scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), P = Pk), axis=1 )   # (U', x) -> (U')
         bestIdx = tf.math.argmax(scores, axis=0).numpy()
         threshold = self.setup.match_score_factor * scores.numpy()[bestIdx]
-        losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), P = Pk)
+        losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), Pk, Pk_logit)
         minloss = tf.reduce_min(losses[bestIdx,:]).numpy()
         sites, sitescores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), 
                                                          Pk, threshold, bestIdx)
@@ -575,9 +588,14 @@ class SpecificProfile(tf.keras.Model):
             # report the best k-profile
             self.profile_report.addProfile(epoch, Pk[:,:,bestIdx].numpy(), pIdx, threshold, minloss, 
                                            sites.numpy(), sitescores.numpy())
-
+        
             # "remove" match sites from genomes, site: <genomeIdx, contigIdx, frameIdx, tileStartPos, T-k+1_idx, U_idx>
             for site in sites:
+                if all(site.numpy()[:4] == [-1, -1, -1, -1]):
+                    logging.warning(f"[model.profile_cleanup] >>> Attempted to mask {site=} in exhausted tile, " \
+                                    +"skipping.")
+                    continue
+
                 matchseq = self.data.softmask(genome_idx=site[0].numpy(), 
                                               sequence_idx=site[1].numpy(),
                                               frame_idx=site[2].numpy(), 
@@ -586,14 +604,15 @@ class SpecificProfile(tf.keras.Model):
                 if len(matchseq) != self.setup.k:
                     logging.warning(f"[model.profile_cleanup] >>> Match sequence has wrong length: {len(matchseq)}" \
                                     + f", expected {self.setup.k}. Site {site} seems out of bounds")
-
+                    
             # for debugging purpose, report the whole k+2s-profile as well
             whole_scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), self.getP()), axis=1 ).numpy()
-            whole_losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), self.getP())
+            whole_losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), 
+                                                      self.getP(), self.P_logit)
             self.whole_profile_report.addProfile(epoch, self.getP().numpy()[:,:,pIdx], pIdx, 
                                                  self.setup.match_score_factor * whole_scores[pIdx],
                                                  tf.reduce_min(whole_losses[pIdx,:]).numpy())
-
+            
         else:
             returnEdgeCase = True
             logging.info("[model.profile_cleanup] >>> Profile is an edge case, starting over")
@@ -603,7 +622,7 @@ class SpecificProfile(tf.keras.Model):
                 # otherwise get stuck with this profile
                 self.P_logit_init[:,:,pIdx] = np.ones((self.P_logit_init.shape[0], self.P_logit_init.shape[1]), 
                                                       dtype=np.float32) * np.min(self.P_logit_init)
-
+            
         # reset profiles
         if self.P_logit_init is None:
             self.P_logit.assign(self._getRandomProfiles()) # initially, this called self.seed_P_genome() where the genomes were sampled for seeds
@@ -629,14 +648,14 @@ class SpecificProfile(tf.keras.Model):
                                 contains tuples with (genomeIdx, contigIdx, frameIdx, tileStartPos, tilePos, profileIdx)
                 scores (tensor): tensor of shape (X, 1) containing the scores of the found sites
         """        
-        score_threshold = tf.convert_to_tensor(score_threshold)
+        score_threshold = tf.convert_to_tensor(score_threshold, dtype=tf.float32)
         assert score_threshold.shape in [(), (P.shape[-1])], f"{score_threshold=}, {score_threshold.shape=}"
             
         sites = None
         scores = None
         for batch in ds:
             X_b = batch[0]        # (B, tilePerX, N, f, tileSize, alphabetSize)
-            posTrack_b = batch[1] # (B, tilePerX, N, f, 4)
+            posTrack_b = batch[1] # (B, tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
             assert len(X_b.shape) == 6, str(X_b.shape)
             assert posTrack_b.shape != (1, 0), f"{posTrack_b.shape=} -- use batch dataset with position tracking!"
             assert X_b.shape[0:4] == posTrack_b.shape[0:4], f"{X_b.shape} != {posTrack_b.shape}"

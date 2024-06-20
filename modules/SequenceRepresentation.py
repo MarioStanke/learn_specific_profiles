@@ -256,10 +256,34 @@ class Sequence:
         else:
             return self.sequence
         
+    def getSlice(self, start, end, rc: bool = False) -> str:
+        """ Get a slice of the sequence string. Returns None if no sequence is stored or if the requested 
+            positions are not in the range of this sequence. If `rc` is True, the reverse complement of the slice
+            is returned. """
+        if self.sequence is None:
+            return None
+        else:
+            assert start <= end, "[Sequence.getSlice] >>> `start` must be less than or equal to `end`."
+            assert start >= 0, "[Sequence.getSlice] >>> `start` must be a positive integer."
+            assert end <= len(self.sequence), \
+                "[Sequence.getSlice] >>> `end` must be less than or equal to the length of the sequence."
+            seq = self.getSequence()
+            if end <= 0:
+                return None
+            if start >= self.__len__():
+                return None
+            
+            subseq = seq[start:end]
+            if rc:
+                return str(Seq(subseq).reverse_complement())
+            else:
+                return subseq
+
     def getSubsequence(self, genome_start, genome_end, rc: bool = False) -> str:
         """ Get a subsequence of the sequence object. Returns None if no sequence is stored or if the requested 
-            positions are not in the range of this sequence. If `rc` is True, the reverse complement of the subsequence
-            is returned. """
+            positions are not in the range of this sequence. If the requested range is not entirely inside this
+            sequence, only returns the overlapping part. 
+            If `rc` is True, the reverse complement of the subsequence is returned. """
         if self.sequence is None:
             return None
         else:

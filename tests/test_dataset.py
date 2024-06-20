@@ -2,8 +2,8 @@ import numpy as np
 from tqdm import tqdm
 import unittest
 
-import dataset as ds
-import sequtils as su
+from modules import dataset as ds
+from modules import sequtils as su
 
 class TestDataset(unittest.TestCase):
     def test_backGroundAAFreqs(self):

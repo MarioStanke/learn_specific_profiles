@@ -272,6 +272,11 @@ class _TrainingDataWrapper:
         return training_sequences, sequence_mapping
         
 
+    def getGenomes(self) -> list[sr.Genome]:
+        """ Returns the list of Genomes that the training data is based on. """
+        return self._data
+    
+
     def getTrainingData(self, fromSource: bool = False) -> list[list[list[str]]]:
         """ Returns a list of lists of lists of str with the (possibly translated, depends on datamode) 
         training data. Outer list: genomes/species, second list: sequences, inner list: frames ([fwd, rc] for DNA data,
@@ -376,6 +381,9 @@ class ModelDataSet:
                     aa_site_end = rawpos + sitelen
                     rc_site_end = pc.aa_to_dna(frameIdx-3, aa_site_end)
                     dnapos = rc_site_end - 1
+
+                sitelen = sitelen * 3 # convert aa-site to dna-site length
+
             else:
                 assert frameIdx in [0,1], f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
                 sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
@@ -388,7 +396,7 @@ class ModelDataSet:
 
             pos = pc.rc_to_fwd(dnapos, len(sequence)) if rc else dnapos
             strand = '-' if rc else '+'
-            occs.append(Links.Occurrence(sequence, pos, strand, int(profileIdx)))
+            occs.append(Links.Occurrence(sequence, pos, strand, sitelen, int(profileIdx)))
 
         return occs
     
@@ -487,3 +495,36 @@ class ModelDataSet:
         trainingData[genome_idx][sequence_idx][frame_idx] = smseq
 
         return rseq
+    
+
+
+def siteConversionHelper(mds: ModelDataSet, sitetuples: list[tuple], sitelen = 1) -> list[Links.Occurrence]:
+    """ Wrapper around ModelDataSet.convertModelSites(). 
+    Takes a list of tuples with sites that have to be defined by a genome index, contig index, frame and position. The
+    tuples have to have at least 4 integer elements and the order of the elements has to be genome index, contig index,
+    frame, position. The function then converts these tuples to a list of Links.Occurrence objects with the profileIdx
+    set to -1. 
+
+    Example:
+        sitetuples = [(0, 0, 3, 40), (1, 0, 1, 50)]
+        
+        this will interpret the tuples to mean:
+        - site 1: genome 0, contig 0, frame 3, position 40
+        - site 2: genome 1, contig 0, frame 1, position 50
+    """
+    
+    assert len(sitetuples) > 0, f"[ERROR] >>> No sites to convert"
+    assert all([len(t) >= 4 for t in sitetuples]), \
+        f"[ERROR] >>> Not all tuples have the required length of 4 or more"
+
+    sites = np.zeros((len(sitetuples), 6), dtype=np.int32)
+    for i, t in enumerate(sitetuples):
+        # second dim: (genomeIdx, contigIdx, frameIdx, tileStartPos, tilePos, profileIdx)
+        sites[i, 0] = t[0]
+        sites[i, 1] = t[1]
+        sites[i, 2] = t[2]
+        sites[i, 3] = 0
+        sites[i, 4] = t[3]
+        sites[i, 5] = -1
+
+    return mds.convertModelSites(sites, sitelen)

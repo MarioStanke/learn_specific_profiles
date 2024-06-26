@@ -1,6 +1,7 @@
 absl-py==2.1.0
 asttokens==2.4.1
 astunparse==1.6.3
+attrs==23.2.0
 biopython==1.83
 certifi==2024.2.2
 charset-normalizer==3.3.2
@@ -12,6 +13,7 @@ decorator==5.1.1
 dm-tree==0.1.8
 exceptiongroup==1.2.0
 executing==2.0.1
+fastjsonschema==2.19.1
 flatbuffers==24.3.7
 fonttools==4.50.0
 gast==0.5.4
@@ -22,8 +24,11 @@ idna==3.6
 ipykernel==6.29.3
 ipython==8.22.2
 jedi==0.19.1
+jsonschema==4.21.1
+jsonschema-specifications==2023.12.1
 jupyter_client==8.6.1
 jupyter_core==5.7.2
+kaleido==0.2.1
 keras==3.0.5
 kiwisolver==1.4.5
 libclang==18.1.1
@@ -36,6 +41,7 @@ matplotlib-inline==0.1.6
 mdurl==0.1.2
 ml-dtypes==0.3.2
 namex==0.0.7
+nbformat==5.10.3
 nest-asyncio==1.6.0
 numpy==1.26.4
 opencv-python==4.9.0.80
@@ -58,8 +64,10 @@ python-dateutil==2.9.0.post0
 pytz==2024.1
 Pyvolve==1.1.0
 pyzmq==25.1.2
+referencing==0.34.0
 requests==2.31.0
 rich==13.7.1
+rpds-py==0.18.0
 scipy==1.12.0
 six==1.16.0
 stack-data==0.6.3
@@ -70,6 +78,7 @@ tensorflow==2.16.1
 tensorflow-io-gcs-filesystem==0.36.0
 termcolor==2.4.0
 tornado==6.4
+tqdm==4.66.4
 traitlets==5.14.2
 typing_extensions==4.10.0
 tzdata==2024.1

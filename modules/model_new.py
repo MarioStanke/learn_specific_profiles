@@ -47,7 +47,7 @@ class EpochHistory:
         self.losses.append(loss)
 
 
-class TainingHistory:
+class TrainingHistory:
     """ Collect metrics during training. """
     def __init__(self, U): # TODO: <-- copilot code, review and adjust
         self._U: int = U
@@ -234,7 +234,7 @@ class SpecificProfile(tf.keras.Model):
                 self.A = tf.linalg.expm(Q)
 
         # initialize tracking and history
-        self.history = TainingHistory(self.setup.U)
+        self.history = TrainingHistory(self.setup.U)
         self.profile_report = ProfileReport(self.setup.k, self.data.alphabet_size())
         self.whole_profile_report = ProfileReport(self.setup.k+2*self.setup.s, self.data.alphabet_size())
         self.discarded_profile_report = ProfileReport(self.setup.k, self.data.alphabet_size())
@@ -690,3 +690,83 @@ class SpecificProfile(tf.keras.Model):
             return tf.constant([], dtype=tf.int32), tf.constant([], dtype=tf.float32)
         
         return sites, scores
+
+
+
+    # TODO: rewrite
+
+    def get_optimal_P(self, loss_threshold = 0, loss_statistics = False):
+        """ 
+        loss_threshold: only consider profiles with a loss below this threshold
+        loss_statistics: print some statistics about the loss distribution of all extracted profiles
+
+        Return a np array with profiles of length k, shape (k, alphabet_size, U*), 
+          as well as a list of scores and losses with shape (U*,) respectively.
+
+        k-profiles are extracted from "whole" (i.e. k+2*shift) profiles 
+          that have a loss below `loss_threshold` but only if they are no edge cases
+        """
+        
+        raise NotImplementedError("This function is not yet implemented. Training is always performed with reporting.")
+        
+        # # TODO: figure out if we want mean loss or full loss tensors
+
+        # #pScores = self.max_profile_scores(ds_score)
+        # #pLosses = self.min_profile_losses(self.setup.getDataset())
+        # losses = self.get_profile_losses(self.setup.getDataset(), self.getP(), self.P_logit)
+        # if loss_statistics:
+        #     logging.info(f"[model.getP_optimal] >>> overall min loss: {tf.reduce_min(losses).numpy()}")
+        #     logging.info(f"[model.getP_optimal] >>> overall max loss: {tf.reduce_max(losses).numpy()}")
+        #     logging.info(f"[model.getP_optimal] >>> overall mean loss: {tf.reduce_mean(losses).numpy()}")
+
+        # mask = tf.less_equal(pLosses, loss_threshold)
+        # P = tf.boolean_mask(self.P_logit, mask, axis=2)   # (k+2s, alphabet_size, -1)
+        # P = tf.nn.softmax(P, axis=1)
+        # U = P.shape[-1]
+        
+        # # Extract k-profiles from P
+        # P2 = tf.expand_dims(P[0:self.setup.k, :, :], -1)          # (k, alphabet_size, U, 1) 
+        # for i in tf.range(1, 1+(2*self.setup.s), dtype=tf.int32): # [0, 1, 2, ...]
+        #     P2_i = tf.expand_dims(P[i:self.setup.k+i, :, :], -1)  # (k, alphabet_size, U, 1) 
+        #     P2 = tf.concat([P2, P2_i], axis=-1)                   # (k, alphabet_size, U, 2s+1)
+            
+        # assert P2.shape == (self.setup.k, self.alphabet_size, U, 1+(2*self.setup.s)), \
+        #     f"{P2.shape} != {(self.setup.k, self.alphabet_size, U, 1+(2*self.setup.s))}"
+        # losses = self.min_profile_losses(self.setup.getDataset(), 
+        #                                  otherP = tf.reshape(P2, (self.setup.k, self.alphabet_size, -1)))
+        # scores = self.max_profile_scores(self.setup.getDataset(), 
+        #                                  otherP = tf.reshape(P2, (self.setup.k, self.alphabet_size, -1)))
+        # losses = tf.reshape(losses, (U, 1+(2*self.setup.s))) # (U, 2s+1)
+        # scores = tf.reshape(scores, (U, 1+(2*self.setup.s))) # (U, 2s+1)
+        
+        # bestShift = tf.math.argmax(scores, axis = 1)        # (U)
+        # scores = tf.gather(scores, bestShift, batch_dims=1) # (U)
+        # losses = tf.gather(losses, bestShift, batch_dims=1) # (U)            
+        # #print("[DEBUG] >>> U:", U)
+        # #print("[DEBUG] >>> bestShift shape:", bestShift.shape)
+        # #print("[DEBUG] >>> gathered scores shape:", scores.shape)
+        # #print("[DEBUG] >>> gathered losses shape:", losses.shape)
+
+        # if self.setup.s > 0:
+        #     # exclude best shifts at edges
+        #     shiftMask = tf.logical_not(tf.logical_or(tf.equal(bestShift, 0), tf.equal(bestShift, 2*self.setup.s))) 
+        # else:
+        #     # nothing to exclude
+        #     shiftMask = tf.constant(True, shape=bestShift.shape)
+
+        # #print("[DEBUG] >>> shiftMask shape:", shiftMask.shape)
+        # bestShift = tf.boolean_mask(bestShift, shiftMask, axis=0) # (U*)
+        # scores = tf.boolean_mask(scores, shiftMask, axis=0)
+        # losses = tf.boolean_mask(losses, shiftMask, axis=0)
+        # #print("[DEBUG] >>> masked bestShift shape:", bestShift.shape)
+        # #print("[DEBUG] >>> masked scores shape:", scores.shape)
+        # #print("[DEBUG] >>> masked losses shape:", losses.shape)
+        # #print("[DEBUG] >>> P2 shape:", P2.shape)
+        # P2 = tf.boolean_mask(P2, shiftMask, axis=2) 
+        # #print("[DEBUG] >>> masked P2 shape:", P2.shape)        
+        # P2 = tf.gather(tf.transpose(P2, [2,3,0,1]), indices=bestShift, batch_dims=1) # (U*, k, alphabet_size)
+        # #print("[DEBUG] >>> gathered P2 shape:", P2.shape)
+        # P2 = tf.transpose(P2, [1,2,0]) # (k, alphabet_size, U*)
+        # #print("[DEBUG] >>> transposed P2 shape:", P2.shape)
+        
+        # return P2, scores.numpy(), losses.numpy()

@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import random
 
+from . import Links
 from . import ModelDataSet
 from . import plotting
 
@@ -263,7 +264,7 @@ class ProfileFindingTrainingSetup:
                               np.mean(genome_sizes) // (self.data.batch_size*self.data.tiles_per_X*self.data.tile_size))
         self.steps_per_epoch = steps_per_epoch
         self.initProfiles: np.ndarray = None
-        self.initKmerPositions: dict = {}
+        self.initKmerPositions: dict[str, list[Links.Occurrence]] = {}
         self.trackProfiles: list[int] = []
 
 
@@ -293,7 +294,7 @@ class ProfileFindingTrainingSetup:
         alphabet = self.data.alphabet
         
         # count kmers
-        kmerToOcc = {}
+        kmerToOcc : dict[str, list[tuple]] = {}
         seenTiles = set() # store position hashes of tiles that have been seen
         for g in range(len(rawdata)):
             for c in range(len(rawdata[g])):
@@ -360,7 +361,9 @@ class ProfileFindingTrainingSetup:
         
         self.initKmerPositions = {}
         for kmer in midKmers:
-            self.initKmerPositions[kmer] = kmerToOcc[kmer]
+            occtuples = kmerToOcc[kmer]
+            kmerOccs = ModelDataSet.siteConversionHelper(self.data, occtuples, self.k)
+            self.initKmerPositions[kmer] = kmerOccs # kmerToOcc[kmer]
             
         logging.info("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: " + \
                      str(len(midKmers)))

@@ -25,7 +25,11 @@ def typecheck(obj, expected: str, die: bool = False, log_warnings: bool = True) 
         else:
             msg = f"[ERROR] >>> Expected obj of type {expected}, got {obj.classname} of type {type(obj)}"
             if die:
-                logging.debug(f"obj: {obj}")
+                try:
+                    logging.debug(f"obj: {obj}") # not always possible to call obj.__str__()
+                except:
+                    pass
+
                 raise AssertionError(msg)
             else:
                 if log_warnings:
@@ -45,10 +49,11 @@ def typecheck(obj, expected: str, die: bool = False, log_warnings: bool = True) 
 
 def typecheck_list(obj, expected: list[str], die: bool = False, log_warnings: bool = True) -> bool:
     """ Check the expected possibilities of types of an object via a `classname` string member of the object's class. 
-    See `typecheck` for more details. """
-    for ex in expected:
-        if not typecheck(obj, ex, die, log_warnings):
-            return False
+    See `typecheck` for more details. Returns True if any of the expected types is found in the object's class. """
+    if not any([typecheck(obj, ex, False, False) for ex in expected]):
+        tc = typecheck(obj, " | ".join(expected), die, log_warnings)
+        assert not tc
+        return tc
         
     return True
 
@@ -84,8 +89,14 @@ def typecheck_objdict(obj: dict, expected: str, die: bool = False, log_warnings:
 def typecheck_objdict_list(obj: dict, expected: list[str], die: bool = False, log_warnings: bool = True) -> bool:
     """ Check the expected possibilities of types of an object via a `classname` key of the object's dict 
     representation. See `typecheck_objdict` for more details. """
-    for ex in expected:
-        if not typecheck_objdict(obj, ex, die, log_warnings):
-            return False
+    # for ex in expected:
+    #     if not typecheck_objdict(obj, ex, die, log_warnings):
+    #         return False
+        
+    # return True
+    if not any([typecheck_objdict(obj, ex, False, False) for ex in expected]):
+        tc = typecheck_objdict(obj, " | ".join(expected), die, log_warnings)
+        assert not tc
+        return tc
         
     return True

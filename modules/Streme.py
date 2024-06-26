@@ -13,7 +13,7 @@ from time import time
 from xml.parsers import expat
 
 from . import Links
-from . import plotting
+from . import plotting_new as plotting
 from . import SequenceRepresentation as sr
 from . import sequtils as su
 from . import training
@@ -200,14 +200,14 @@ class Streme:
                 continue
 
             seq: sr.Sequence | sr.TranslatedSequence = data_seqdict[row.seq_ID]
-            assert typecheck(seq, ["Sequence", "TranslatedSequence"], die=True)
+            assert typecheck_list(seq, ["Sequence", "TranslatedSequence"], die=True)
 
-            # DEBUG: check that row.site_Sequence matches the sequence at the given position!
+            # DEBUG: check that row.site_Sequence matches the sequence at the given position! --------------------------
             siteseq = row.site_Sequence
             a = row.site_Start-1
             b = row.site_End
             assert seq.sequence[a:b] == siteseq, f"Sequence mismatch: {seq.sequence[a:b]} vs. {siteseq} in row {row}"
-            # -------------------------------------------------------------------------------
+            # ----------------------------------------------------------------------------------------------------------
 
             if typecheck(seq, "TranslatedSequence", die=False, log_warnings=False):
                 seq: sr.TranslatedSequence = seq # only for linting
@@ -220,13 +220,13 @@ class Streme:
                 position = su.convert_six_frame_position(aa_pos, seq.frame, seq.genomic_sequence.length, 
                                                          dna_to_aa=False)
                 
-                # DEBUG: check that the translated sequence at the converted position matches row.site_Sequence!
+                # DEBUG: check that the translated sequence at the converted position matches row.site_Sequence! -------
                 siteseq = row.site_Sequence
                 gseq = seq.genomic_sequence #genomes[genome_idxs[0]][genome_idxs[1]]
                 gsitelen = len(siteseq) * 3
                 gsiteseq = gseq.sequence[position:position+gsitelen]
                 assert su.sequence_translation(gsiteseq, seq.frame >= 3) == siteseq, f"Sequence mismatch: {su.sequence_translation(gsiteseq, seq.frame >= 3)} vs. {siteseq} in row {row}"
-                # -------------------------------------------------------------------------------
+                # ------------------------------------------------------------------------------------------------------
                 oseq = seq.genomic_sequence
 
             else: # seq: Sequence
@@ -242,6 +242,7 @@ class Streme:
             occ = Links.Occurrence(sequence = oseq,
                                    position = position, 
                                    strand = strand,
+                                   sitelen = len(row.site_Sequence),
                                    profileIdx = int(row.motif_ALT_ID.split('-')[1]) - 1) # streme starts counting at 1
             
             if row.motif_ID not in motifToOccs:
@@ -305,7 +306,7 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
             if ls is not None:
                 links.extend(ls)
 
-        return plotting.drawGeneLinks(genomes=genomes, links=links, 
+        return plotting.drawGeneLinks(links=links, genomes=genomes,
                                       imname=os.path.join(self.working_dir, self._streme_outdir, "links.png"),
                                       onlyLinkedGenes=plot_onlyLinkedSeqs,
                                       font = plot_font, **kwargs)

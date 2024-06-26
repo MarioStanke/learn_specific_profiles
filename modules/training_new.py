@@ -4,13 +4,13 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import plotly.express as px
 import tensorflow as tf
 from time import time
 
 from . import Links
+from . import ModelDataSet
 from . import model_new as model
-from . import plotting
+from . import plotting_new as plotting
 from . import ProfileFindingSetup as setup
 from . import SequenceRepresentation as sr
 from .typecheck import typecheck, typecheck_list
@@ -303,7 +303,7 @@ def trainAndEvaluate(runID,
                      trainsetup: setup.ProfileFindingTrainingSetup, 
                      evaluator: MultiTrainingEvaluation,
                      outdir: str, outprefix: str = "",
-                     trainingWithReporting: bool = True,
+                     # trainingWithReporting: bool = True,
                      rand_seed: int = None) -> None:
     """ 
     Train profiles on a given training setup and evaluate them. 
@@ -318,8 +318,8 @@ def trainAndEvaluate(runID,
             Directory to save results to.
         outprefix: str
             Prefix for output files.
-        trainingWithReporting: bool
-            If True, training is done with reporting, otherwise with classic training.
+        # trainingWithReporting: bool
+        #     If True, training is done with reporting, otherwise with classic training.
         rand_seed: int
             Random seed for reproducibility.
 
@@ -348,79 +348,103 @@ def trainAndEvaluate(runID,
     training_time = end-start
     logging.info(f"[training.trainAndEvaluate] >>> Training time: {training_time:.2f}")
 
-    assert False # try until here, plotting and evaluation still have to be adapted to the new model
-
     # evaluate model (if possible)
     try:
+        # draw training history
         fig, _ = plotting.plotHistory(specProModel.history)
         fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
         plt.close(fig)
 
-        if trainingWithReporting:
-            plh = tf.transpose(specProModel.P_report_plosshist).numpy()
-            fig, ax = plt.subplots(1,1, figsize=(2*1920/100,2*1080/100), dpi=100)
-            hm = ax.imshow(plh, interpolation = 'nearest', cmap="rainbow")
-            plt.colorbar(hm)
-            fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
-            plt.close(fig)
+        fig, _ = plotting.plotProfileLossHeatmap(specProModel.profile_tracking)
+        fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
+        plt.close(fig)
 
-            bestlosshist = [l.numpy() for l in specProModel.P_report_bestlosshist]
-            bestlosshistIdx = [i.numpy() for i in specProModel.P_report_bestlosshistIdx]
-            
-            px.scatter(x = list(range(len(bestlosshist))),
-                       y = bestlosshist, 
-                       color = bestlosshistIdx).write_image(os.path.join(outdir, 
-                                                                         outprefix+"profile_loss_history_scat.png"), 
-                                                            width=1920, height=1080)
-            
-        # draw link image and calculate accuracy
+        fig = plotting.plotBestProfileLossScatter(specProModel.profile_tracking)
+        fig.write_image(os.path.join(outdir, outprefix+"profile_loss_history_scat.png"), width=1920, height=1080)
 
-        # get match sites of profiles
-        if trainingWithReporting:
-            P, Pthresh, Ploss = specProModel.getP_report()
-            motifs = MotifWrapper(P, {'Pthresh': [float(pt) for pt in Pthresh], 
-                                      'Ploss': [float(pl) for pl in Ploss]})
-        else:
-            P, scores, losses = specProModel.getP_optimal(0, lossStatistics=True)
-            motifs = MotifWrapper(P, {'scores': scores.tolist(), 'losses': losses.tolist()}) # untested, scores and losses _should_ be numpy arrays but who knows...
+        # get match sites of profiles and create Links
 
-        thresh = Pthresh if trainingWithReporting else specProModel.setup.match_score_factor * scores
+        profile_report = specProModel.profile_report
+        motifs = MotifWrapper(profile_report.P, {'Pthresh': [float(pt) for pt in profile_report.threshold], 
+                                                 'Ploss': [float(pl) for pl in profile_report.loss]})
+        sites, sitescores = specProModel.get_profile_match_sites(trainsetup.data.getDataset(withPosTracking = True, 
+                                                                                            original_data=True),
+                                                                 profile_report.P, profile_report.threshold)
+        occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k)
 
-        onlyPid = None
-        if onlyPid is None:
-            sites, _, _ = specProModel.get_profile_match_sites(
-                specProModel.setup.getDataset(withPosTracking = True, original_data=True),
-                thresh, otherP = P)
-        else:
-            sites, _, _ = specProModel.get_profile_match_sites(
-                specProModel.setup.getDataset(withPosTracking = True, original_data=True), 
-                thresh[onlyPid], otherP = P[:,:,onlyPid:onlyPid+1])
-            
         logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
-        lfsr = Links.linksFromSites(sites, specProModel.setup.k*3, specProModel.setup.data.genomes, 1000)
-        links = lfsr.links
-        #linkProfiles = lfsr.linkProfiles
-        #skipped = lfsr.skipped
+        lfor = Links.linksFromOccurrences(occurrences, 1000)
+        links = lfor.links
         logging.debug(f"[training.trainAndEvaluate] >>> links[:{min(len(links), 2)}] {links[:min(len(links), 2)]}")
         logging.debug(f"[training.trainAndEvaluate] >>> len(links) {len(links)}")
 
-        hgGenome = [g for g in trainsetup.data.genomes if g.species == 'Homo_sapiens']
+        # add evaluation results to evaluator
+        hgGenome = [g for g in trainsetup.data.training_data.getGenomes() if g.species == 'Homo_sapiens']
         assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
         hgGenome = hgGenome[0]
         evaluator.add_result(runID, motifs, links, hgGenome, training_time)
 
-        kmerSites = []
+        # draw link image
+        kmerSites: list[Links.Occurrence] = []
         for kmer in trainsetup.initKmerPositions:
             kmerSites.extend(trainsetup.initKmerPositions[kmer])
-
-        masksides = specProModel.getMaskedSites(0)
-
-        img = plotting.drawGeneLinks(trainsetup.data.genomes, links, 
+        maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
+                                                      sitelen = trainsetup.k)
+        img = plotting.drawGeneLinks(links, 
+                                     trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
                                      imname=os.path.join(outdir, outprefix+"links.png"), 
                                      kmerSites=kmerSites, kmerCol='deeppink',
-                                     maskingSites=masksides, maskingCol='chocolate',
+                                     maskingSites=maskSites, maskingCol='chocolate',
                                      show=False)
         img.close()
+
+        # --------------------------------------------------- old vvv
+        # # get match sites of profiles
+        # if trainingWithReporting:
+        #     P, Pthresh, Ploss = specProModel.getP_report()
+        #     motifs = MotifWrapper(P, {'Pthresh': [float(pt) for pt in Pthresh], 
+        #                               'Ploss': [float(pl) for pl in Ploss]})
+        # else:
+        #     P, scores, losses = specProModel.getP_optimal(0, lossStatistics=True)
+        #     motifs = MotifWrapper(P, {'scores': scores.tolist(), 'losses': losses.tolist()}) # untested, scores and losses _should_ be numpy arrays but who knows...
+
+        # thresh = Pthresh if trainingWithReporting else specProModel.setup.match_score_factor * scores
+
+        # onlyPid = None
+        # if onlyPid is None:
+        #     sites, _, _ = specProModel.get_profile_match_sites(
+        #         specProModel.setup.getDataset(withPosTracking = True, original_data=True),
+        #         thresh, otherP = P)
+        # else:
+        #     sites, _, _ = specProModel.get_profile_match_sites(
+        #         specProModel.setup.getDataset(withPosTracking = True, original_data=True), 
+        #         thresh[onlyPid], otherP = P[:,:,onlyPid:onlyPid+1])
+            
+        # logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
+        # lfsr = Links.linksFromSites(sites, specProModel.setup.k*3, specProModel.setup.data.genomes, 1000)
+        # links = lfsr.links
+        # #linkProfiles = lfsr.linkProfiles
+        # #skipped = lfsr.skipped
+        # logging.debug(f"[training.trainAndEvaluate] >>> links[:{min(len(links), 2)}] {links[:min(len(links), 2)]}")
+        # logging.debug(f"[training.trainAndEvaluate] >>> len(links) {len(links)}")
+
+        # hgGenome = [g for g in trainsetup.data.genomes if g.species == 'Homo_sapiens']
+        # assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
+        # hgGenome = hgGenome[0]
+        # evaluator.add_result(runID, motifs, links, hgGenome, training_time)
+
+        # kmerSites = []
+        # for kmer in trainsetup.initKmerPositions:
+        #     kmerSites.extend(trainsetup.initKmerPositions[kmer])
+
+        # masksides = specProModel.getMaskedSites(0)
+
+        # img = plotting.drawGeneLinks(trainsetup.data.genomes, links, 
+        #                              imname=os.path.join(outdir, outprefix+"links.png"), 
+        #                              kmerSites=kmerSites, kmerCol='deeppink',
+        #                              maskingSites=masksides, maskingCol='chocolate',
+        #                              show=False)
+        # img.close()
         
     except Exception as e:
         logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")

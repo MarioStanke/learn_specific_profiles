@@ -809,7 +809,7 @@ class Genome:
     
     def __contains__(self, seq_or_chr: Union[Sequence, str]) -> bool:
         """ Return True if the genome contains the given sequence or chromosome name. """
-        if type(seq_or_chr) == Sequence:
+        if typecheck(seq_or_chr, "Sequence", False, False): #type(seq_or_chr) == Sequence:
             return seq_or_chr in self.sequences
         elif type(seq_or_chr) == str:
             return seq_or_chr in self._chromap

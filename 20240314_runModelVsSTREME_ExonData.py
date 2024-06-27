@@ -310,17 +310,19 @@ def main():
         streme_wd = os.path.join(outdir, f"{runID}_STREME")
         streme_runner = Streme.Streme(working_dir = streme_wd,
                                       load_streme_script= "/home/ebelm/Software/load_MEME.sh")
-        translated_seqs = []
-        for seGenome in seGenomes:
-            for sequence in seGenome:
-                for frame in range(6):
-                    translated_seqs.append(SequenceRepresentation.TranslatedSequence(sequence, frame, 
-                                                                                     replaceSpaceWithX=True))
+        data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated) # reset data
+        # translated_seqs = []
+        # for seGenome in seGenomes:
+        #     for sequence in seGenome:
+        #         for frame in range(6):
+        #             translated_seqs.append(SequenceRepresentation.TranslatedSequence(sequence, frame, 
+        #                                                                              replaceSpaceWithX=True))
                 
-        SequenceRepresentation.sequenceListToFASTA(translated_seqs, os.path.join(streme_wd, "data.fasta"))
+        # SequenceRepresentation.sequenceListToFASTA(translated_seqs, os.path.join(streme_wd, "data.fasta"))
 
         try:
-            _ = streme_runner.run(runID, translated_seqs, seGenomes, streme_evaluator, verbose=True, plot_links=True)
+            _ = streme_runner.run(runID, data, streme_evaluator, verbose=True, 
+                                  plot_links=True, plot_onlyLinkedSeqs=False)
         except Exception as e:
             logging.error(f"[main] STREME failed for homology {i}, check log for details")
             logging.error(f"[main] Error message: {e}")

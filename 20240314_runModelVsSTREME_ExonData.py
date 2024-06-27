@@ -1,7 +1,6 @@
 SEED = 42
 
 import argparse
-from datetime import datetime
 import json
 import logging
 import os
@@ -10,17 +9,18 @@ import re
 import tensorflow as tf
 from time import time
 from tqdm import tqdm
-from IPython.display import Audio
 
 if SEED is not None:
     # enable deterministic tensorflow behaviour (https://github.com/NVIDIA/framework-determinism/blob/master/doc/tensorflow.md)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(SEED)
 
+from modules import ModelDataSet
+from modules import ProfileFindingSetup
 from modules import SequenceRepresentation
 from modules import Streme
-from modules import ProfileFindingSetup
-from modules import training
+from modules import training_new as training
+from modules.utils import full_stack
 
 
 
@@ -153,7 +153,7 @@ def checkUniqueAnnotations(genomes: list[SequenceRepresentation.Genome]):
 def main():
     parser = argparse.ArgumentParser(description='Run model vs STREME on exon data')
     parser.add_argument('--datadir', help = 'Path to the exon data', required = False, type = str,
-                        default="/home/ebelm/genomegraph/data/241_species/20231123_subset150_NM_RefSeqBest/out_subset150_withEnforced_20_15_20_50_15_20_15_20_mammals/")
+                        default="/home/ebelm/genomegraph/data/241_species/20231123_subset150_NM_RefSeqBest/20240605_fixed_out_subset150_withEnforced_20_15_20_50_15_20_15_20_mammals/")
     parser.add_argument('--out', help = 'Output directory', required = True, type = str)
     parser.add_argument('--maxexons', help = 'Maximum number of exons to use', required = False, type = int)
     args = parser.parse_args()
@@ -181,7 +181,7 @@ def main():
     logging.info("[main] Getting exon list")
     for d in os.listdir(args.datadir):
         subdir = os.path.join(args.datadir, d)
-        if re.match("exon_chr.+", d) and os.path.isdir(subdir):
+        if re.match(r"exon_chr.+", d) and os.path.isdir(subdir):
             seqDataFile = os.path.join(subdir, "profile_finding_sequence_data.json")
             if not os.path.isfile(seqDataFile):
                 warnings.append(f"[main] Expected file {seqDataFile} but not found, skipping")
@@ -240,10 +240,7 @@ def main():
             # make annotations and transkripts unique
             SequenceRepresentation.makeAnnotationsUnique(seq)
             SequenceRepresentation.selectLongestTranscript(seq)
-
-            g = SequenceRepresentation.Genome()
-            g.addSequence(seq)
-            seGen.append(g)
+            seGen.append( SequenceRepresentation.Genome([seq]) )
 
         singleExonGenomes.append(seGen)
         
@@ -291,20 +288,19 @@ def main():
 
         # --- train our model ---
         logging.info(f"[main] Start training and evaluation on model for {runID}")
-        data = ProfileFindingSetup.ProfileFindingDataSetup('real')
-        data.addGenomes(seGenomes, verbose=True)
+        data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated,
+                                         tile_size=334, tiles_per_X=7)
         trainsetup = ProfileFindingSetup.ProfileFindingTrainingSetup(data,
-                                                                     tiles_per_X = 7,
-                                                                     tile_size = 334,
-                                                                     U = 200, n_best_profiles=1)
+                                                                     U = 200, n_best_profiles=2)
         trainsetup.initializeProfiles_kmers(enforceU=False, plot=False, overlapTilesize=6)
         try:
             training.trainAndEvaluate(runID, trainsetup, evaluator, 
                                       outdir, outprefix=f"{runID}_", 
-                                      trainingWithReporting=True, rand_seed=SEED)
+                                      rand_seed=SEED)
         except Exception as e:
             logging.error(f"[main] trainAndEvaluate failed for homology {i}, check log for details")
             logging.error(f"[main] Error message: {e}")
+            logging.debug(full_stack())
             continue
 
         evaluator.dump(os.path.join(outdir, "evaluator.json")) # save after each run
@@ -328,6 +324,7 @@ def main():
         except Exception as e:
             logging.error(f"[main] STREME failed for homology {i}, check log for details")
             logging.error(f"[main] Error message: {e}")
+            logging.debug(full_stack())
             continue
         
         streme_evaluator.dump(os.path.join(outdir, "streme_evaluator.json")) # save after each run

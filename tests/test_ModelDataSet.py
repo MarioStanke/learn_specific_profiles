@@ -290,7 +290,7 @@ class TestModelDataSite(unittest.TestCase):
                         exp_strand = '-'
                     self.assertEqual(occ.position, exp_pos)
                     self.assertEqual(occ.strand, exp_strand)
-                    extracted_kmer = occ.getSite(k)
+                    extracted_kmer = occ.getSite()
                     self.assertEqual(extracted_kmer, kmer)
 
                 if datamode == mds.DataMode.Translated:
@@ -330,7 +330,7 @@ class TestModelDataSite(unittest.TestCase):
 
                     # test if Occurrence object has the correct position coming from convertModelSites()
                     self.assertEqual(fwd_dna_pos, occ.position)
-                    extracted_kmer = occ.getSite(k*3)
+                    extracted_kmer = occ.getSite()
                     extracted_kmer_translated = su.sequence_translation(extracted_kmer)
                     self.assertEqual(extracted_kmer_translated, kmer) # check if the extracted k-mer is correct
 
@@ -437,10 +437,10 @@ class TestModelDataSite(unittest.TestCase):
                 kmer = kmers[i]
 
                 if datamode == mds.DataMode.DNA:
-                    extracted_kmer_raw = occ.getSite(k)
+                    extracted_kmer_raw = occ.getSite()
                     extracted_kmer = "".join([c if c in alphabet else " " for c in extracted_kmer_raw])
                     self.assertEqual(extracted_kmer, kmer)
                 else:
-                    extracted_kmer = occ.getSite(k*3)
+                    extracted_kmer = occ.getSite()
                     extracted_kmer_translated = su.sequence_translation(extracted_kmer)
                     self.assertEqual(extracted_kmer_translated, kmer)

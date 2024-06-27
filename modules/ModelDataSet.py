@@ -382,10 +382,10 @@ class ModelDataSet:
                     rc_site_end = pc.aa_to_dna(frameIdx-3, aa_site_end)
                     dnapos = rc_site_end - 1
 
-                sitelen = sitelen * 3 # convert aa-site to dna-site length
-
+                occ_sitelen = sitelen * 3 # convert aa-site to dna-site length
             else:
                 assert frameIdx in [0,1], f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
+                occ_sitelen = sitelen
                 sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
                 if frameIdx == 0:
                     rc = False
@@ -396,7 +396,7 @@ class ModelDataSet:
 
             pos = pc.rc_to_fwd(dnapos, len(sequence)) if rc else dnapos
             strand = '-' if rc else '+'
-            occs.append(Links.Occurrence(sequence, pos, strand, sitelen, int(profileIdx)))
+            occs.append(Links.Occurrence(sequence, int(pos), strand, int(occ_sitelen), int(profileIdx)))
 
         return occs
     
@@ -451,7 +451,7 @@ class ModelDataSet:
         
         
     def getRawData(self, fromSource: bool = False) -> list[list[list[str]]]:
-        """ Returns a list of lists of lists of TileableSequence with the (possibly translated, depends on datamode) 
+        """ Returns a list of lists of lists of str with the (possibly translated, depends on datamode) 
         training data. Outer list: genomes/species, second list: sequences, inner list: frames ([fwd, rc] for DNA data,
         6 frames for translated data). If fromSource is False (default), uses the internal copy. Otherwise, a new 
         extraction from the untouched source data is returned. """

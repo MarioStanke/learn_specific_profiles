@@ -772,8 +772,6 @@ class Genome:
         self._chromap = {} # chromosome map, maps chromosome names to indices in self.sequences
         if sequences is not None:
             for sequence in sequences:
-                assert sequence.classname == "Sequence", \
-                    f"[ERROR] >>> All elements in `sequences` must be of type Sequence, not {type(sequence)}."
                 self.addSequence(sequence)
 
     # https://docs.python.org/3/reference/datamodel.html#emulating-container-types
@@ -825,6 +823,7 @@ class Genome:
     
     def addSequence(self, sequence: Sequence):
         """ Adds a Sequence to the genome and performs checks to ensure that the genome is valid. """
+        assert typecheck(sequence, "Sequence", die = True), "[ERROR] >>> `sequence` must be of type Sequence."
         if self.species is None:
             self.species = sequence.species
         else:

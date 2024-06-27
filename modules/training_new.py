@@ -14,6 +14,7 @@ from . import plotting_new as plotting
 from . import ProfileFindingSetup as setup
 from . import SequenceRepresentation as sr
 from .typecheck import typecheck, typecheck_list
+from .utils import full_stack
 
 
 @dataclass
@@ -344,6 +345,7 @@ def trainAndEvaluate(runID,
         end = time()
         logging.error(f"[training.trainAndEvaluate] >>> Training failed after {end-start:.2f}.")
         logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+        logging.debug(full_stack())
         
     training_time = end-start
     logging.info(f"[training.trainAndEvaluate] >>> Training time: {training_time:.2f}")
@@ -449,3 +451,4 @@ def trainAndEvaluate(runID,
     except Exception as e:
         logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")
         logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+        logging.debug(full_stack())

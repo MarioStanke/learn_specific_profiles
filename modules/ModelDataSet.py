@@ -374,6 +374,10 @@ class ModelDataSet:
                 assert frameIdx in range(6), \
                     f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
                 sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx).genomic_sequence
+
+                # _dbg_seq = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx)
+                # logging.debug(f"[convertModelSites] {_dbg_seq.id=} {len(_dbg_seq)=}")
+
                 if frameIdx < 3:
                     rc = False
                     dnapos = pc.aa_to_dna(frameIdx, rawpos) # convert to fwd DNA pos

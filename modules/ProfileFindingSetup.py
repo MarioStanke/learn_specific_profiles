@@ -362,7 +362,7 @@ class ProfileFindingTrainingSetup:
         self.initKmerPositions = {}
         for kmer in midKmers:
             occtuples = kmerToOcc[kmer]
-            kmerOccs = ModelDataSet.siteConversionHelper(self.data, occtuples, self.k)
+            kmerOccs = ModelDataSet.siteConversionHelper(self.data, occtuples, self.midK)
             self.initKmerPositions[kmer] = kmerOccs # kmerToOcc[kmer]
             
         logging.info("[ProfileFindingSetup.ProfileFindingTrainingSetup.initializeProfiles] >>> Number of profiles: " + \

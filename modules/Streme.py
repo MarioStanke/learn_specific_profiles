@@ -187,20 +187,27 @@ class Streme:
         sitetuples = [] # store sites as tuples (genome_idx, contig_idx, frame_idx, pos)
         for row in sites.itertuples():
             assert re.match(r"STREME-\d+", row.motif_ALT_ID), f"Unexpected motif ID: {row.motif_ALT_ID}"
-            seq = data.training_data.getSequence(self._faheadToSeqidcs[fahead]['outer_idx'],
-                                                 self._faheadToSeqidcs[fahead]['inner_idx'],
-                                                 self._faheadToSeqidcs[fahead]['frame_idx'])
+            assert row.seq_ID in self._faheadToSeqidcs, f"Sequence ID {row.seq_ID} not found in sequence name mapping."
+            seq = data.training_data.getSequence(self._faheadToSeqidcs[row.seq_ID]['outer_idx'],
+                                                 self._faheadToSeqidcs[row.seq_ID]['inner_idx'],
+                                                 self._faheadToSeqidcs[row.seq_ID]['frame_idx'])
             
             if data.training_data.datamode == ModelDataSet.DataMode.Translated:
                 assert row.site_Strand == ".", f"Unexpected strand for AA sequence: {row.site_Strand}"
-                frame = self._faheadToSeqidcs[fahead]['frame_idx']
+                frame = self._faheadToSeqidcs[row.seq_ID]['frame_idx']
             else:
                 assert row.site_Strand in ["+", "-"], f"Unexpected strand for genomic sequence: {row.site_Strand}"
                 frame = 0 if row.site_Strand == "+" else 1
                 
             position = row.site_Start-1 # STREME uses 1-based positions
-            sitetuples.append((self._faheadToSeqidcs[fahead]['outer_idx'],
-                               self._faheadToSeqidcs[fahead]['inner_idx'],
+
+            # dbg msg
+            # logging.debug(f"[_getStremeOutputSites] row: {row}")
+            # logging.debug(f"[_getStremeOutputSites] {row.seq_ID=} {self._faheadToSeqidcs[row.seq_ID]=}")
+            # logging.debug(f"[_getStremeOutputSites] {seq.id=} {len(seq)=} {frame=} {position=}")
+
+            sitetuples.append((self._faheadToSeqidcs[row.seq_ID]['outer_idx'],
+                               self._faheadToSeqidcs[row.seq_ID]['inner_idx'],
                                frame, position))
             
         occurrences = ModelDataSet.siteConversionHelper(data, sitetuples, self.k_min)

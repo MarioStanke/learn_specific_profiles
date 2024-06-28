@@ -366,6 +366,10 @@ class ModelDataSet:
             #logging.debug(f"[ModelDataSet.convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} " \
             #              + f"{tilePos=} {profileIdx=}")
             rawpos = int(tileStartPos+tilePos) # refers to the sequence at frameIdx, not necessarily the top strand!
+            
+            # logging.debug(f"[convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} {tilePos=} " \
+            #               + f"{profileIdx=} {rawpos=} {sitelen=}")
+
             if self.training_data.datamode == DataMode.Translated:
                 assert frameIdx in range(6), \
                     f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
@@ -381,8 +385,12 @@ class ModelDataSet:
                     aa_site_end = rawpos + sitelen
                     rc_site_end = pc.aa_to_dna(frameIdx-3, aa_site_end)
                     dnapos = rc_site_end - 1
+                    # logging.debug(f"[convertModelSites] {aa_site_end=} {rc_site_end=}")
 
                 occ_sitelen = sitelen * 3 # convert aa-site to dna-site length
+
+                # logging.debug(f"[convertModelSites] {len(sequence)=} {rc=} {dnapos=} {occ_sitelen=}")
+
             else:
                 assert frameIdx in [0,1], f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
                 occ_sitelen = sitelen
@@ -393,6 +401,8 @@ class ModelDataSet:
                 else:
                     rc = True
                     dnapos = rawpos + sitelen - 1 # site starts at the reverse end
+
+                # logging.debug(f"[convertModelSites] [DNA] {len(sequence)=} {rc=} {dnapos=} {occ_sitelen=}")
 
             pos = pc.rc_to_fwd(dnapos, len(sequence)) if rc else dnapos
             strand = '-' if rc else '+'

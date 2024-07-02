@@ -366,9 +366,20 @@ class ModelDataSet:
             #logging.debug(f"[ModelDataSet.convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} " \
             #              + f"{tilePos=} {profileIdx=}")
             rawpos = int(tileStartPos+tilePos) # refers to the sequence at frameIdx, not necessarily the top strand!
+            rawseq = self.training_data.getSequence(genomeIdx, contigIdx, 
+                                                    0 if self.training_data.datamode == DataMode.DNA else frameIdx)
+            assert rawpos >= 0 and rawpos < len(rawseq), \
+                f"[ModelDataSet.convertModelSites] invalid {rawpos=} ({genomeIdx=} {contigIdx=} {frameIdx=} " \
+                    + f"{tileStartPos=} {tilePos=} {profileIdx=}) for {len(rawseq)=} ({rawseq.id=})"
+            # catch edge cases where site is at the end of the sequence and not whole length can be taken
+            this_sitelen = sitelen if rawpos+sitelen <= len(rawseq) else len(rawseq) - rawpos 
+            if this_sitelen != sitelen:
+                logging.warning(f"[ModelDataSet.convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} " \
+                                + f"{tileStartPos=} {tilePos=} {profileIdx=} {rawpos=} {len(rawseq)=} {sitelen=} " \
+                                + f"{this_sitelen=} -- not the whole sitelen can be taken, setting to {this_sitelen}")
             
             # logging.debug(f"[convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} {tilePos=} " \
-            #               + f"{profileIdx=} {rawpos=} {sitelen=}")
+            #               + f"{profileIdx=} {rawpos=} {sitelen=} {this_sitelen=}")
 
             if self.training_data.datamode == DataMode.Translated:
                 assert frameIdx in range(6), \
@@ -376,7 +387,8 @@ class ModelDataSet:
                 sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx).genomic_sequence
 
                 # _dbg_seq = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx)
-                # logging.debug(f"[convertModelSites] {_dbg_seq.id=} {len(_dbg_seq)=}")
+                # _dbg_site = _dbg_seq.getSequence()[max(0, min(rawpos, len(_dbg_seq))) : max(0, min(rawpos+this_sitelen, len(_dbg_seq)))]
+                # logging.debug(f"[convertModelSites] {_dbg_seq.id=} {len(_dbg_seq)=} {_dbg_site=} {len(_dbg_site)=}")
 
                 if frameIdx < 3:
                     rc = False
@@ -386,25 +398,25 @@ class ModelDataSet:
                     #   rc strand. Subtract one to get the last dna pos on rc. In later conversion, this is the first
                     #   dna pos on the fwd stran! Also see test_position_conversion.py 
                     rc = True
-                    aa_site_end = rawpos + sitelen
+                    aa_site_end = rawpos + this_sitelen
                     rc_site_end = pc.aa_to_dna(frameIdx-3, aa_site_end)
                     dnapos = rc_site_end - 1
                     # logging.debug(f"[convertModelSites] {aa_site_end=} {rc_site_end=}")
 
-                occ_sitelen = sitelen * 3 # convert aa-site to dna-site length
+                occ_sitelen = this_sitelen * 3 # convert aa-site to dna-site length
 
                 # logging.debug(f"[convertModelSites] {len(sequence)=} {rc=} {dnapos=} {occ_sitelen=}")
 
             else:
                 assert frameIdx in [0,1], f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
-                occ_sitelen = sitelen
+                occ_sitelen = this_sitelen
                 sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
                 if frameIdx == 0:
                     rc = False
                     dnapos = rawpos
                 else:
                     rc = True
-                    dnapos = rawpos + sitelen - 1 # site starts at the reverse end
+                    dnapos = rawpos + this_sitelen - 1 # site starts at the reverse end
 
                 # logging.debug(f"[convertModelSites] [DNA] {len(sequence)=} {rc=} {dnapos=} {occ_sitelen=}")
 

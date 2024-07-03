@@ -216,7 +216,7 @@ class _TrainingDataWrapper:
 
     Note: data needs to be rectangular for tf, so smaller genomes are filled up with empty sequences internally
               such that all genomes have the same number of sequences. """
-    def __init__(self, data: list[sr.Genome], datamode: DataMode, tile_size: int, replaceSpaceWithX: bool = False):
+    def __init__(self, data: list[sr.Genome], datamode: DataMode, tile_size: int, replaceSpaceWithX: bool):
         assert datamode in DataMode, f"[ERROR] >>> datamode must be of type DataMode, not {type(datamode)}"
         self.datamode = datamode
         self._data = data
@@ -304,21 +304,21 @@ class ModelDataSet:
     Data is always provided to this class as a list of Genomes, i.e. DNA-Data. It can be set via datamode that the
     model is trained on translated sequences. Translation and position-conversion is handled by this class. """
 
-    def __init__(self, data: list[sr.Genome], datamode: DataMode, Q: np.ndarray = None,
-                 tile_size: int = 334, tiles_per_X: int = 13, batch_size: int = 1, prefetch: int = 3,
-                 replaceSpaceWithX: bool = False):
+    def __init__(self, data: list[sr.Genome], datamode: DataMode,
+                 tile_size: int, tiles_per_X: int, batch_size: int, prefetch: int,
+                 Q: np.ndarray = None, replaceSpaceWithX: bool = False):
         """
         Note: data needs to be rectangular for tf, so smaller genomes are filled up with empty sequences internally
               such that all genomes have the same number of sequences. Keep this in mind when using .getRawData().
         Attributes:
             data: list of Genomes
             datamode: DataMode
-            Q: np.ndarray -- Q-vector of background frequencies for the data, must be of same length as alphabet.size().
-                             If None, it is calculated from the data
             tile_size: int -- size of the tiles during training
             tiles_per_X: int -- number of tiles per X
             batch_size: int -- number of batches to be used during training
             prefetch: int -- number of batches to prefetch
+            Q: np.ndarray -- Q-vector of background frequencies for the data, must be of same length as alphabet.size().
+                             If None, it is calculated from the data
             replaceSpaceWithX: bool -- if True, replaces ' ' with 'X' in translated sequences, only needed in
                                         translated mode!
         """
@@ -327,7 +327,7 @@ class ModelDataSet:
         assert len(data) > 1, f"[ERROR] >>> Need at least 2 genomes for training, not {len(data)}"
         assert all(typecheck(x, "Genome") for x in data), f"[ERROR] >>> data must be a list of Genomes"
 
-        self.training_data = _TrainingDataWrapper(data, datamode, tile_size)
+        self.training_data = _TrainingDataWrapper(data, datamode, tile_size, replaceSpaceWithX)
         self.alphabet = _DNA_ALPHABET if datamode == DataMode.DNA else _TRANSLATED_ALPHABET
         if Q is None:
             self.Q = backgroundFreqs(self.training_data.getTrainingData(), self.alphabet)

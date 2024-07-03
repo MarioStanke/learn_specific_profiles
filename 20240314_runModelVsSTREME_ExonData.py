@@ -1,19 +1,16 @@
-SEED = 42
+#SEED = 42
 
 import argparse
 import json
 import logging
 import os
+from pathlib import Path
 import random
 import re
 import tensorflow as tf
 from time import time
 from tqdm import tqdm
 
-if SEED is not None:
-    # enable deterministic tensorflow behaviour (https://github.com/NVIDIA/framework-determinism/blob/master/doc/tensorflow.md)
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
-    random.seed(SEED)
 
 from modules import ModelDataSet
 from modules import ProfileFindingSetup
@@ -156,7 +153,75 @@ def main():
                         default="/home/ebelm/genomegraph/data/241_species/20231123_subset150_NM_RefSeqBest/20240605_fixed_out_subset150_withEnforced_20_15_20_50_15_20_15_20_mammals/")
     parser.add_argument('--out', help = 'Output directory', required = True, type = str)
     parser.add_argument('--maxexons', help = 'Maximum number of exons to use', required = False, type = int)
+    parser.add_argument('--mode', help="Data mode, either `DNA` or `Translated`", required=True, type=str, 
+                        choices=['DNA', 'Translated'])
+    parser.add_argument('--rand-seed', help = 'Random seed for reproducibility', required = False, type = int)
+    # add arguments for model dataset and setup options
+    dataset_args = parser.add_argument_group('Dataset options')
+    dataset_args.add_argument('--tile-size', help = 'Tile size for the model', required = False, type = int, 
+                              default = 334)
+    dataset_args.add_argument('--tiles-per-X', help = 'Number of tiles per X', required = False, type = int, 
+                              default=7)
+    dataset_args.add_argument('--batch-size', help = 'Number of tiles per X', required = False, type = int,
+                              default=1)
+    dataset_args.add_argument('--prefetch', help = 'Number of batches to prefetch', required = False, type = int,
+                              default=3)
+    model_args = parser.add_argument_group('Model options')
+    model_args.add_argument('--n-best-profiles', help = 'Number of best profiles to report', required = True, 
+                            type = int, default = 2)
+    model_args.add_argument('--U', help = 'Number of profiles', required = False, type = int, default = 200)
+    model_args.add_argument('--enforceU', help = 'Enforce U in profile initialization', required = False, 
+                            action = 'store_true')
+    model_args.add_argument('--minU', help = 'Only if enforceU is False. Minimum number of profiles to initialize, ' \
+                            + 'starting with the most frequent kmers. At most U profiles are initialized.',
+                            required = False, type = int, default = 10)
+    model_args.add_argument('--minOcc', help = 'Only if enforceU is False. Minimum number of occurences of a kmer to ' \
+                            + 'be considered. Is ignored if minU would not be reached otherwise.', required = False, 
+                            type = int, default = 8)
+    model_args.add_argument('--overlapTilesize', help = 'Maximum overlap of kmers to be ignored in profile ' \
+                            + 'initialization', required = False, type = int, default = 6)
+    model_args.add_argument('--k', help = 'Length of profiles', required = False, type = int, default = 20)
+    model_args.add_argument('--midK', help = 'Length of k-mers to initialize the middle part of profiles', 
+                            required = False, type = int, default = 12)
+    model_args.add_argument('--s', help = 'Profile shift to both sides', required = False, type = int, default = 0)
+    model_args.add_argument('--gamma', help = 'Softmax scale in loss function', required = False, type = float,
+                            default = 1.0)
+    model_args.add_argument('--l2', help = 'L2 regularization factor in loss function', required = False, type = float,
+                            default = 0.01)
+    model_args.add_argument('--match-score-factor', help = 'Sites must match a profile at least this fraction of the ' \
+                            + 'best matching site to be considered a match', required = False, type = float,
+                            default = 0.7)
+    model_args.add_argument('--learning-rate', help = 'Learning rate', required = False, type = float, default = 2.0)
+    model_args.add_argument('--lr-patience', help = 'Number of epochs to wait for loss decrease before trigger ' \
+                            + 'learning rate reduction', required = False, type = int, default = 5)
+    model_args.add_argument('--lr-factor', help = 'Factor to reduce learning rate by', required = False, type = float,
+                            default = 0.75)
+    model_args.add_argument('--rho', help = 'Influence of initial sampling position on profile initialization via ' \
+                            + 'seeds', required = False, type = float, default = 0.0)
+    model_args.add_argument('--sigma', help = 'Stddev of random normal values added to profile initialization via ' \
+                            + 'seeds (mean 0)', required = False, type = float, default = 1.0)
+    model_args.add_argument('--phylo-t', help = 'Use prior knowledge on amino acid similarity. Values in [0, 250] ' \
+                            + 'are reasonable (0.0 means no prior knowledge). Time a CTMC evolves from the parameter ' \
+                            + 'profile P to the profile that is used for scoring/searching. If t==0.0 this prior ' \
+                            + 'knowledge is not used. Requires amino acid alphabet, in particular k=20',
+                            required = False, type = float, default = 0.0)
+    model_args.add_argument('--profile-plateau', help = 'number of epochs to wait for loss plateau to trigger ' \
+                            + 'profile reporting', required = False, type = int, default = 10)
+    model_args.add_argument('--profile-plateau-dev', help = 'Upper threshold for stddev of loss plateau to trigger ' \
+                            + 'profile reporting', required = False, type = float, default = 150)
     args = parser.parse_args()
+
+    # handle arguments
+
+    # https://docs.python.org/3/library/argparse.html#dest --> dest is automatically set to the (first) long option name
+    #                                                          and dashes (-) are replaced by underscores (_)
+    if args.rand_seed is not None:
+        SEED = args.rand_seed
+        os.environ['TF_DETERMINISTIC_OPS'] = '1'
+        random.seed(SEED)
+    else:
+        SEED = None
+
     assert os.path.isdir(args.datadir), f"[ERROR] >>> Data dir {args.datadir} not found"
     if args.maxexons is not None:
         assert args.maxexons > 0, f"[ERROR] >>> Maximum number of exons must be positive, not {args.maxexons}"
@@ -164,11 +229,15 @@ def main():
     else:
         MAXEXONS = None
 
-    outdir = args.out
+    datadir = Path(args.datadir)
+    outdir = Path(args.out)
     os.makedirs(outdir, exist_ok=True) # make sure that outdir exists
 
+    # store arguments in a settings dict for later reference
+    settings = vars(args)
+
     # set logfile
-    logging.basicConfig(filename = os.path.join(outdir, "logfile.txt"),
+    logging.basicConfig(filename = outdir / "logfile.txt",
                         format="%(asctime)s %(levelname)s: %(message)s", 
                         encoding='utf-8', level=logging.DEBUG)
 
@@ -179,11 +248,11 @@ def main():
     exonsetFiles = []
     warnings = []
     logging.info("[main] Getting exon list")
-    for d in os.listdir(args.datadir):
-        subdir = os.path.join(args.datadir, d)
-        if re.match(r"exon_chr.+", d) and os.path.isdir(subdir):
-            seqDataFile = os.path.join(subdir, "profile_finding_sequence_data.json")
-            if not os.path.isfile(seqDataFile):
+    for d in os.listdir(datadir):
+        subdir = datadir / d
+        if re.match(r"exon_chr.+", d) and subdir.is_dir():
+            seqDataFile = subdir / "profile_finding_sequence_data.json"
+            if not seqDataFile.is_file():
                 warnings.append(f"[main] Expected file {seqDataFile} but not found, skipping")
                 continue
                 
@@ -208,7 +277,7 @@ def main():
     singleExonGenomes: list[list[SequenceRepresentation.Genome]] = [] # run training on these
     stoi = {} # species to allGenomes list index
     for sl in exonsetFiles:
-        sequences = SequenceRepresentation.loadJSONSequenceList(sl)
+        sequences = SequenceRepresentation.loadJSONSequenceList(str(sl))
 
         # assert unique sequences and unique species (i.e. only one sequence per species)
         seqIDs = [seq.id for seq in sequences]
@@ -272,7 +341,12 @@ def main():
 
     # some global settings
     genome_limit = 50
+    settings['main.genome_limit'] = genome_limit # add to settings dict for later reference
     
+    # dump settings to file
+    with open(outdir / "settings.json", 'wt') as fh:
+        json.dump(settings, fh)
+
     # training iteration
     evaluator = training.MultiTrainingEvaluation()
     streme_evaluator = training.MultiTrainingEvaluation()
@@ -289,10 +363,25 @@ def main():
         # --- train our model ---
         logging.info(f"[main] Start training and evaluation on model for {runID}")
         data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated,
-                                         tile_size=334, tiles_per_X=7)
+                                         tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
+                                         batch_size=args.batch_size, prefetch=args.prefetch)
         trainsetup = ProfileFindingSetup.ProfileFindingTrainingSetup(data,
-                                                                     U = 200, n_best_profiles=2)
-        trainsetup.initializeProfiles_kmers(enforceU=False, plot=False, overlapTilesize=6)
+                                                                     U = args.U, k = args.k, 
+                                                                     midK = args.midK, s = args.s, 
+                                                                     epochs = 350, gamma = args.gamma, l2 = args.l2,
+                                                                     match_score_factor = args.match_score_factor,
+                                                                     learning_rate = args.learning_rate,
+                                                                     lr_patience = args.lr_patience,
+                                                                     lr_factor = args.lr_factor,
+                                                                     rho = args.rho, sigma = args.sigma,
+                                                                     profile_plateau = args.profile_plateau,
+                                                                     profile_plateau_dev = args.profile_plateau_dev,
+                                                                     n_best_profiles = args.n_best_profiles,
+                                                                     phylo_t = args.phylo_t)
+        trainsetup.initializeProfiles_kmers(enforceU=args.enforceU, 
+                                            minU=args.minU, minOcc=args.minOcc,
+                                            overlapTilesize=args.overlapTilesize,
+                                            plot=False)
         try:
             training.trainAndEvaluate(runID, trainsetup, evaluator, 
                                       outdir, outprefix=f"{runID}_", 
@@ -309,8 +398,13 @@ def main():
         logging.info(f"[main] Start training and evaluation on STREME for {runID}")
         streme_wd = os.path.join(outdir, f"{runID}_STREME")
         streme_runner = Streme.Streme(working_dir = streme_wd,
+                                      k_min = args.k, k_max = args.k,
+                                      n_best_motifs = args.n_best_profiles,
                                       load_streme_script= "/home/ebelm/Software/load_MEME.sh")
-        data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated) # reset data
+        data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated,
+                                         tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
+                                         batch_size=args.batch_size, prefetch=args.prefetch,
+                                         replaceSpaceWithX=True) # reset data
         # translated_seqs = []
         # for seGenome in seGenomes:
         #     for sequence in seGenome:

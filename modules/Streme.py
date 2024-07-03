@@ -128,9 +128,9 @@ class StremeXMLParser:
 @dataclass
 class Streme:
     working_dir: str
-    k_min: int = 20 # motif width 
-    k_max: int = 20 # motif width 
-    n_best_motifs: int = 2 # number of best motifs to report, None to let STREME decide
+    k_min: int # motif width 
+    k_max: int # motif width 
+    n_best_motifs: int # number of best motifs to report, None to let STREME decide
     streme_exe: str = "streme"
     # adjust this based on whether this is run from AppHub or brain:
     load_streme_script: str = "${HOME}/Software/load_MEME.sh"

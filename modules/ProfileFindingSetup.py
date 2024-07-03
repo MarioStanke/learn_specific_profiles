@@ -228,26 +228,25 @@ class ProfileFindingTrainingSetup:
 
     data: ModelDataSet.ModelDataSet
     
-    U: int = 200        # number of profiles to train
-    k: int = 20         # length of profiles
-    midK: int = 12      # length of kmers to intialize middle part of profiles
-    s: int = 0          # profile shift to both sides
+    U: int    # number of profiles to train
+    k: int    # length of profiles
+    midK: int # length of kmers to intialize middle part of profiles
+    s: int    # profile shift to both sides
     
-    epochs: int = 350   # number of epochs to train
-    alpha: float = 1e-6 # loss norm (deprecated, not used anymore)
-    gamma: float = 1    # softmax scale (used in 'experiment' loss function)
-    l2: float = 0.01    # L2 reg factor
-    match_score_factor: float = 0.7
-    learning_rate: float = 2 
-    lr_patience: int = 5    # number of epochs to wait for loss decrease before trigger learning rate reduction
-    lr_factor: float = 0.75 # factor to reduce learning rate by
-    rho: float = 0      # influence of initial sampling position on profile initialization via seeds
-    sigma: float = 1    # stddev of random normal values added to profile initialization via seeds (mean 0)
-    profile_plateau: int = 10        # number of epochs to wait for loss plateau to trigger profile reporting
-    profile_plateau_dev: float = 150 # upper threshold for stddev of loss plateau to trigger profile reporting
+    epochs: int  # number of epochs to train (unused so far, since always training with reporting)
+    gamma: float # softmax scale (used in 'experiment' loss function)
+    l2: float    # L2 reg factor
+    match_score_factor: float
+    learning_rate: float 
+    lr_patience: int # number of epochs to wait for loss decrease before trigger learning rate reduction
+    lr_factor: float # factor to reduce learning rate by
+    rho: float       # influence of initial sampling position on profile initialization via seeds
+    sigma: float     # stddev of random normal values added to profile initialization via seeds (mean 0)
+    profile_plateau: int       # number of epochs to wait for loss plateau to trigger profile reporting
+    profile_plateau_dev: float # upper threshold for stddev of loss plateau to trigger profile reporting
 
-    n_best_profiles: int = 2 # number of best profiles to report
-    lossStrategy: str = 'experiment' #'score' #'experiment' #'softmax'
+    n_best_profiles: int # number of best profiles to report
+    
 
     # use prior knowledge on amino acid similarity
     phylo_t = 0.0 # values in [0, 250] are reasonable (0.0 means no prior knowledge)
@@ -255,6 +254,10 @@ class ProfileFindingTrainingSetup:
     # that is used for scoring/searching
     # if t==0.0 this prior knowledge is not used
     # requires amino acid alphabet, in particular k=20
+
+    # deprecated, remove in future
+    alpha: float = 1e-6 # loss norm (deprecated, not used anymore)
+    lossStrategy: str = 'experiment' #'score' #'experiment' #'softmax' (deprecated)
 
     def __post_init__(self):
         genome_sizes = [sum([len(s[0]) for s in genome]) for genome in self.data.getRawData()]

@@ -247,9 +247,8 @@ class ProfileFindingTrainingSetup:
 
     n_best_profiles: int # number of best profiles to report
     
-
     # use prior knowledge on amino acid similarity
-    phylo_t = 0.0 # values in [0, 250] are reasonable (0.0 means no prior knowledge)
+    phylo_t: float # values in [0, 250] are reasonable (0.0 means no prior knowledge)
     # time a CTMC evolves from the parameter profile P to the profile
     # that is used for scoring/searching
     # if t==0.0 this prior knowledge is not used

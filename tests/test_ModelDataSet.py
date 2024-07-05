@@ -133,7 +133,7 @@ class TestModelDataSite(unittest.TestCase):
             # in one X
             genomes = [sr.Genome([sr.Sequence(f"{i}", "chr1", "+", 0, sequence=seq) for seq in dummydata_dna[i]])
                        for i in range(len(dummydata))]
-            data = mds.ModelDataSet(genomes, datamode, tile_size=tile_size, tiles_per_X=4, batch_size=1)
+            data = mds.ModelDataSet(genomes, datamode, tile_size=tile_size, tiles_per_X=4, batch_size=1, prefetch=1)
             for X_, _ in data.getDataset():
                 self.assertEqual(X_.shape, (1, 4, 3, f, tile_size, len(alphabet)))
                 X_ = X_[0,:,:,:,:,:] # remove batch dimension
@@ -147,7 +147,7 @@ class TestModelDataSite(unittest.TestCase):
             tile_size = 10 # shorter tiles to break up sequences
             genomes = [sr.Genome([sr.Sequence(f"{i}", "chr1", "+", 0, sequence=seq) for seq in dummydata_dna[i]])
                        for i in range(len(dummydata))]
-            data = mds.ModelDataSet(genomes, datamode, tile_size=tile_size, tiles_per_X=1, batch_size=1)
+            data = mds.ModelDataSet(genomes, datamode, tile_size=tile_size, tiles_per_X=1, batch_size=1, prefetch=1)
             restored_data = [[], [], []]
             expected_data = [[], [], []]
             for g in range(3):
@@ -210,7 +210,7 @@ class TestModelDataSite(unittest.TestCase):
             print(f"tile_size: {tile_size}, tiles_per_X: {tiles_per_X}")
 
             data = mds.ModelDataSet(self.genomes, datamode, tile_size=tile_size, tiles_per_X=tiles_per_X,
-                                    batch_size=1)
+                                    batch_size=1, prefetch=1)
             self.assertEqual(data.training_data.datamode, datamode)
             self.assertEqual(data.alphabet, alphabet)
             self.assertEqual(data.alphabet_size(), len(alphabet))
@@ -262,7 +262,7 @@ class TestModelDataSite(unittest.TestCase):
         #   Translated mode: Occurrence `occ`s site should be translated into the extracted (input) k-mer
         for datamode in mds.DataMode:
             rawSeqs = self.rawSeqs_DNA if datamode == mds.DataMode.DNA else self.rawSeqs_Translated
-            data = mds.ModelDataSet(self.genomes, datamode)
+            data = mds.ModelDataSet(self.genomes, datamode, tile_size=334, tiles_per_X=1, batch_size=1, prefetch=1)
             k = 20
             kmers, sites = self._sampleKmers(rawSeqs, k, 100)
             
@@ -346,7 +346,7 @@ class TestModelDataSite(unittest.TestCase):
             alphabet = mds._TRANSLATED_ALPHABET if datamode == mds.DataMode.Translated else mds._DNA_ALPHABET
 
             data = mds.ModelDataSet(self.genomes, datamode, tile_size=tile_size, tiles_per_X=tiles_per_X,
-                                    batch_size=batch_size)
+                                    batch_size=batch_size, prefetch=1)
             k = 10
 
             # track the tiles and how long the sequences are in them for sampling

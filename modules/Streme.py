@@ -17,7 +17,7 @@ from . import ModelDataSet
 from . import plotting_new as plotting
 from . import SequenceRepresentation as sr
 from . import sequtils as su
-from . import training
+from . import training_new as training
 from .typecheck import typecheck, typecheck_list
 from .utils import full_stack
 
@@ -161,7 +161,7 @@ class Streme:
 
 
 
-    def _getStremeOutputSites(self, data: ModelDataSet.ModelDataSet, linkThreshold: int) -> list[Links.Link]: #list[Links.MultiLink]:
+    def _getStremeOutputSites(self, data: ModelDataSet.ModelDataSet) -> list[Links.MultiLink]:
         """ Load the sites of the found motifs from the STREME output. """
         resultfile = os.path.join(self.working_dir, self._streme_outdir, "sites.tsv")
         if not os.path.exists(resultfile):
@@ -211,8 +211,7 @@ class Streme:
                                frame, position))
             
         occurrences = ModelDataSet.siteConversionHelper(data, sitetuples, self.k_min)
-        links = Links.linksFromOccurrences(occurrences, linkThreshold).links
-        # TODO: find out if MultiLinks suits better (could be the case for repeat-motifs that exceed link limit)
+        links = Links.multiLinksFromOccurrences(occurrences)
 
         return links
 
@@ -420,7 +419,7 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
 
             # load the sites of the found motifs from the STREME output
             # multilinks = self._getStremeOutputSites(data)
-            links = self._getStremeOutputSites(data, plot_linkThreshold) # TODO: maybe revert to MultiLinks if threshold is exceeded too often
+            mlinks = self._getStremeOutputSites(data)
             motifs, parser = self._getStremeOutputMotifs()
             motif_meta = {'attr': parser.motif_attributes,
                           'alphabet': parser.alphabet}
@@ -431,7 +430,7 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
             evaluator.add_result(runID, 
                                  motifs=training.MotifWrapper(motifs=motifs, metadata=motif_meta), 
                                  # links=multilinks, 
-                                 links=links,
+                                 links=mlinks,
                                  hg_genome=hgGenome,
                                  time=training_time)
 
@@ -463,6 +462,7 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                 #                            plot_linkThreshold=plot_linkThreshold,
                 #                            plot_onlyLinkedSeqs=plot_onlyLinkedSeqs,
                 #                            plot_font=plot_font, **kwargs)
+                links = Links.linksFromMultiLinks(mlinks, plot_linkThreshold)
                 plotting.drawGeneLinks(links=links, genomes=data.training_data.getGenomes(),
                                        imname=os.path.join(self.working_dir, self._streme_outdir, "links.png"),
                                        onlyLinkedGenes=plot_onlyLinkedSeqs,

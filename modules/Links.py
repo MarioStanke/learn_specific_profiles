@@ -7,7 +7,7 @@ import sys
 
 from . import SequenceRepresentation
 from . import sequtils as su
-from .typecheck import typecheck, typecheck_objdict, typecheck_objdict_list
+from .typecheck import typecheck, typecheck_list, typecheck_objdict, typecheck_objdict_list
 
 @dataclass
 class Occurrence:
@@ -204,15 +204,15 @@ class MultiLink:
         return None
     
     def nUniqueLinks(self):
-        """ Returns the number of unique links that can be created from the MultiLink. """
+        """ Returns the number of unique links that can be created from the MultiLink """
         if self._singleProfile:
-            # attention: np.prod() does not handle numeric overflow!
+            # attention: np.prod() does not handle numeric overflow! However, there is no integer overflow in Python
             nlinks = 1
             for occs in self.occs:
-                if nlinks >= (sys.maxsize / len(occs)):
-                    logging.warning(f"[MultiLink.nUniqueLinks] >>> Numeric overflow: {nlinks} * {len(occs)}, " \
-                                    + f"returning {sys.maxsize=}")
-                    return sys.maxsize
+                # if nlinks >= (sys.maxsize / len(occs)):
+                #     logging.warning(f"[MultiLink.nUniqueLinks] >>> Numeric overflow: {nlinks} * {len(occs)}, " \
+                #                     + f"returning {sys.maxsize=}")
+                #     return sys.maxsize
                 
                 nlinks *= len(occs)
                 
@@ -237,17 +237,9 @@ class MultiLink:
                 "singleProfile": self._singleProfile,
                 "classname": self.classname}
 
-    # TODO: frame information in sites array is useless, but model.get_profile_match_sites needs to be fixed before 
-    #       removing it here.
     def toLinks(self, linkThreshold: int = 100) -> list | None:
         """ Converts the MultiLink to a list of Links. If the number of Links would exceed linkThreshold,
             None is returned. """
-        # genomes = [SequenceRepresentation.Genome([occ.sequence for occ in occs]) for occs in self.occs]
-        # sites = np.array([[i, j, o.position, o.profileIdx, 0 if o.strand == '+' else 3] \
-        #                     for i, occs in enumerate(self.occs) \
-        #                         for j, o in enumerate(occs)],
-        #                  dtype=np.int32)
-        # lfsr = linksFromSites(sites, self.span, genomes, linkThreshold)
         lfor = linksFromOccurrences([occ for occs in self.occs for occ in occs], linkThreshold)
         links = lfor.links
         skipped = lfor.skipped
@@ -282,8 +274,9 @@ def _calculateUniqueLinksFromMultiprofileMultiLink(link: MultiLink) -> int:
         # very important that singleProfile is set to true, otherwise infinite recursion!
         uniqueMultiLink = MultiLink(profileToOccs[profileidx], link.span, singleProfile=True)
         nl = uniqueMultiLink.nUniqueLinks()
-        if nl == sys.maxsize or nUniqueLinks >= (sys.maxsize - nl):
-            return sys.maxsize # avoid int overflow
+        # No need: Python has no integer overflow (https://stackoverflow.com/a/48138759)
+        # if nl == sys.maxsize or nUniqueLinks >= (sys.maxsize - nl):
+        #     return sys.maxsize # avoid int overflow
         
         nUniqueLinks += nl
         
@@ -384,6 +377,9 @@ class Link:
                 "expandX": self.expandX,
                 "singleProfile": self._singleProfile,
                 "classname": self.classname}
+    
+    def toMultiLink(self) -> MultiLink:
+        return MultiLink(self.occs, self.span, singleProfile=True)
 
 
 
@@ -402,10 +398,32 @@ def linkFromDict(d: dict, genomes: list[SequenceRepresentation.Genome]) -> Link 
 
 
 
+def nLinks(links: list[Link | MultiLink]) -> int:
+    """ Returns the number of unique links in a list of Links or MultiLinks. """
+    nlinks = 0
+    for l in links:
+        typecheck_list(l, ["Link", "MultiLink"], die=True)
+        if l.classname == "MultiLink":
+            n = l.nUniqueLinks()
+            # No need: Python has no integer overflow (https://stackoverflow.com/a/48138759)
+            # if n == sys.maxsize or nlinks >= (sys.maxsize - n):
+            #     return sys.maxsize
+            
+            nlinks += n
+        else:
+            # if nlinks >= (sys.maxsize - 1):
+            #     return sys.maxsize
+            
+            nlinks += 1
+    
+    return nlinks
+
+
+
 @dataclass
 class linksFromOccurrencesResult:
     links: list[Link]
-    linkProfiles: set[tuple[int, int, str]]
+    # linkProfiles: set[tuple[int, int, str]]
     skipped: list[tuple[int, int]]
 
 
@@ -424,7 +442,7 @@ def linksFromOccurrences(occurences: list[Occurrence], linkThreshold: int = 100)
     # make single-profile links, i.e. only one occurrence per genome in each link. Skip if link threshold is exceeded.
     links: list[Link] = []
     skipped: list[tuple[int, int]] = []
-    linkProfiles = set()
+    # linkProfiles = set()
     for pIdx in profileToGenomeToOccIdx:
         if (len(profileToGenomeToOccIdx[pIdx].keys()) == 1):
             continue # no link possible, only one genome has occurrences
@@ -434,10 +452,11 @@ def linksFromOccurrences(occurences: list[Occurrence], linkThreshold: int = 100)
         # attention: nlinks = np.prod([len(og) for og in occs]) does not handle numeric overflow!
         nlinks = 1
         for og in occIdcs:
-            if nlinks >= (sys.maxsize / len(og)):
-                logging.debug(f"[Links.linksFromOccurrences] >>> Avoiding numeric overflow: {nlinks} * {len(og)}")
-                nlinks = sys.maxsize
-                break # catch overflow
+            # No need: Python has no integer overflow (https://stackoverflow.com/a/48138759)
+            # if nlinks >= (sys.maxsize / len(og)):
+            #     logging.debug(f"[Links.linksFromOccurrences] >>> Avoiding numeric overflow: {nlinks} * {len(og)}")
+            #     nlinks = sys.maxsize
+            #     break # catch overflow
 
             nlinks *= len(og)
             if nlinks > linkThreshold:
@@ -454,11 +473,44 @@ def linksFromOccurrences(occurences: list[Occurrence], linkThreshold: int = 100)
                 links.append(Link(loccs, 
                                   span=max([o.sitelen for o in loccs]))) # TODO: span not really needed anymore
                              
-            linkProfiles.add((pIdx, nlinks, 
-                              str([[occurences[i].tuple() for i in profileToGenomeToOccIdx[pIdx][g]] \
-                                   for g in profileToGenomeToOccIdx[pIdx]])))
+            # linkProfiles.add((pIdx, nlinks, 
+            #                   str([[occurences[i].tuple() for i in profileToGenomeToOccIdx[pIdx][g]] \
+            #                        for g in profileToGenomeToOccIdx[pIdx]])))
             
-    return linksFromOccurrencesResult(links, linkProfiles, skipped)
+    # return linksFromOccurrencesResult(links, linkProfiles, skipped)
+    return linksFromOccurrencesResult(links, skipped)
+
+
+
+def linksFromMultiLinks(mlinks: list[MultiLink], link_threshold: int) -> list[Link]:
+    """ Creates a list of Links from a list of MultiLinks. If a MultiLink would create more than link_threshold links,
+     it is skipped. """
+    links = []
+    for mlink in mlinks:
+        typecheck(mlink, "MultiLink", die=True)
+        ln = mlink.toLinks(link_threshold)
+        if ln is not None:
+            links.extend(ln)
+    
+    return links
+
+
+
+def multiLinksFromOccurrences(occurrences: list[Occurrence], singleProfileLinks = True) -> list[MultiLink]:
+    """ Creates a list of MultiLinks from a list of Occurrences. If `singleProfileLinks` is True (default), each
+     MultiLink is created only from Occurrences with the same profile index. Otherwise it's basically just calling
+     MultiLink(occurrences)."""
+    if singleProfileLinks:
+        profileToOccs = {}
+        for occ in occurrences:
+            if occ.profileIdx not in profileToOccs:
+                profileToOccs[occ.profileIdx] = []
+            profileToOccs[occ.profileIdx].append(occ)
+        
+        return [MultiLink(profileToOccs[p], max([o.sitelen for o in profileToOccs[p]]), True) for p in profileToOccs]
+    else:
+        singleProfile = len(set([o.profileIdx for o in occurrences])) == 1
+        return [MultiLink(occurrences, max([o.sitelen for o in occurrences]), singleProfile)]
 
 # vvv can be removed vvv
 

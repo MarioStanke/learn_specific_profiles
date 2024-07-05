@@ -167,7 +167,7 @@ def main():
     dataset_args.add_argument('--prefetch', help = 'Number of batches to prefetch', required = False, type = int,
                               default=3)
     model_args = parser.add_argument_group('Model options')
-    model_args.add_argument('--n-best-profiles', help = 'Number of best profiles to report', required = True, 
+    model_args.add_argument('--n-best-profiles', help = 'Number of best profiles to report', required = False, 
                             type = int, default = 2)
     model_args.add_argument('--U', help = 'Number of profiles', required = False, type = int, default = 200)
     model_args.add_argument('--enforceU', help = 'Enforce U in profile initialization', required = False, 
@@ -345,7 +345,7 @@ def main():
     
     # dump settings to file
     with open(outdir / "settings.json", 'wt') as fh:
-        json.dump(settings, fh)
+        json.dump(settings, fh, indent=2)
 
     # training iteration
     evaluator = training.MultiTrainingEvaluation()

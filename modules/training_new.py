@@ -86,14 +86,16 @@ class TrainingEvaluation():
     """ Class to store results of a single training evaluation. """
     runID: str # anything that lets us identify the run later
     motifs: MotifWrapper # motifs found in the training run
-    links: list[Links.Link]
+    links: list[Links.MultiLink]
     nexonsHit: int
     nhumanExons: int
     nhumanOccs: int # number of occurrences in human
     nhumanOccsThatHit: int # number of occurrences in human that hit an exon
-    nlinks: int # in case of MultiLinks, this could be the number of nUniqueLinks, thus different from len(links)
     nlinksThatHit: int
     trainingTime: float # time in seconds, TODO: put that in a history class or sth, does not really fit here
+
+    def __post_init__(self):
+        self.nlinks = Links.nLinks(self.links)
 
     def toDict(self):
         """ Returns a JSON-writable representation of the object. """
@@ -129,14 +131,14 @@ class MultiTrainingEvaluation():
 
     def add_result(self, runID, 
                    motifs: MotifWrapper,
-                   links: list[Links.Link | Links.MultiLink], 
+                   links: list[Links.MultiLink], 
                    hg_genome: sr.Genome, 
                    time: float = -1):
         """ Add results of a single exon training run to the class. 
         Parameters:
             runID: any - anything that lets us identify the run later
             motifs: np.ndarray - numpy array of motifs used in the training run
-            links: list[Links.Link | Links.MultiLink] - list of links found in the training run
+            links: list[Links.MultiLink] - list of MultiLinks found in the training run
             hg_genome: sr.Genome - Human genome used in the training run, should contain the human sequence(s) that
                                    were used in the training run
             time: float - time in seconds, -1 if not available
@@ -144,7 +146,7 @@ class MultiTrainingEvaluation():
         assert typecheck(hg_genome, 'Genome', die=True)
         assert hg_genome.species == 'Homo_sapiens'
         
-        nlinks = 0
+        # nlinks = 0
         nhumanExons = 0
         nhumanOccs = 0
         nexonsHit = 0
@@ -152,16 +154,15 @@ class MultiTrainingEvaluation():
         humanOccsThatHit = set()
         #nhumanOccsThatHit = 0
         for link in links:
-            assert typecheck_list(link, ["Link", "MultiLink"], die=True), \
-                    f"Unexpected type of link (want either 'Link' or 'MultiLink'): {type(link)}"
-            nlinks += 1 if link.classname == "Link" else int(link.nUniqueLinks())
-            if link.classname == "Link":
-                if link.getSpeciesOccurrence('Homo_sapiens') is not None:
-                    nhumanOccs += 1
-            else:
-                occs = link.getSpeciesOccurrences('Homo_sapiens')
-                if occs is not None:
-                    nhumanOccs += len(occs)
+            assert typecheck(link, "MultiLink", die=True), f"Unexpected type of link (want 'MultiLink'): {type(link)}"
+            # nlinks += 1 if link.classname == "Link" else int(link.nUniqueLinks())
+            # if link.classname == "Link":
+            #     if link.getSpeciesOccurrence('Homo_sapiens') is not None:
+            #         nhumanOccs += 1
+            # else:
+            occs = link.getSpeciesOccurrences('Homo_sapiens')
+            if occs is not None:
+                nhumanOccs += len(occs)
 
         for hg_sequence in hg_genome:
             hg_sequence: sr.Sequence = hg_sequence # for linting
@@ -170,41 +171,44 @@ class MultiTrainingEvaluation():
                 exonHit = False
                 exonStart, exonEnd = exon.getRelativePositions(hg_sequence)
                 for link in links:
-                    if link.classname == "Link":
-                        occ = link.getSpeciesOccurrence('Homo_sapiens')
-                        if (occ is not None) and (occ.sequence == hg_sequence) \
-                            and (exonStart <= occ.position + link.span - 1) and (occ.position < exonEnd):
-                            exonHit = True
-                            nlinksThatHit += 1
-                            #nhumanOccsThatHit += 1
-                            humanOccsThatHit.add(occ)
-                    else:
-                        link: Links.MultiLink = link # for linting
-                        hgoccs = link.getSpeciesOccurrences('Homo_sapiens')
-                        if hgoccs is not None:
-                            assert len(set([o.sequence.species for o in hgoccs])) == 1, \
-                                f"Not all Occurrences from {hgoccs=} have same species: {link}" # should never happen
-                            
-                            remainingOccs = [o for occs in link.occs for o in occs \
-                                             if o.sequence.species != 'Homo_sapiens']
-                            for hgocc in hgoccs:
-                                if (hgocc.sequence == hg_sequence) and (exonStart <= hgocc.position + link.span - 1) \
-                                        and (hgocc.position < exonEnd):
-                                    #nhumanOccsThatHit += 1
-                                    humanOccsThatHit.add(hgocc)
-                                    # create new MultiLink with only the one human Occurrence 
-                                    #   to see how many unique links would hit
-                                    if link.singleProfile():
+                    # if link.classname == "Link":
+                    #     occ = link.getSpeciesOccurrence('Homo_sapiens')
+                    #     if (occ is not None) and (occ.sequence == hg_sequence) \
+                    #         and (exonStart <= occ.position + link.span - 1) and (occ.position < exonEnd):
+                    #         exonHit = True
+                    #         nlinksThatHit += 1
+                    #         #nhumanOccsThatHit += 1
+                    #         humanOccsThatHit.add(occ)
+                    # else:
+                    #     link: Links.MultiLink = link # for linting
+                    hgoccs = link.getSpeciesOccurrences('Homo_sapiens')
+                    if hgoccs is not None:
+                        assert len(set([o.sequence.species for o in hgoccs])) == 1, \
+                            f"Not all Occurrences from {hgoccs=} have same species: {link}" # should never happen
+                        # determine hg-hitting links by creating new MultiLinks with only one hg occ at a time and count
+                        remainingOccs = [o for occs in link.occs for o in occs \
+                                            if o.sequence.species != 'Homo_sapiens']
+                        for hgocc in hgoccs:
+                            # only need to consider hg exon hitting occs
+                            if (hgocc.sequence == hg_sequence) and (exonStart <= hgocc.position + link.span - 1) \
+                                    and (hgocc.position < exonEnd):
+                                #nhumanOccsThatHit += 1
+                                humanOccsThatHit.add(hgocc)
+                                # create new MultiLink with only the one human Occurrence 
+                                #   to see how many unique links would hit
+                                if len(remainingOccs) == 0:
+                                    continue
+                                if link.singleProfile():
+                                    exonHit = True
+                                    mh = Links.MultiLink([hgocc]+remainingOccs, link.span, singleProfile=True)
+                                    nlinksThatHit += mh.nUniqueLinks()
+                                else:
+                                    profileoccs = [hgocc] \
+                                                    + [o for o in remainingOccs if o.profileIdx == hgocc.profileIdx]
+                                    if len(profileoccs) > 1:
                                         exonHit = True
-                                        mh = Links.MultiLink([hgocc]+remainingOccs, link.span, singleProfile=True)
+                                        mh = Links.MultiLink(profileoccs, link.span, singleProfile=True)
                                         nlinksThatHit += mh.nUniqueLinks()
-                                    else:
-                                        profileoccs = [hgocc] \
-                                                        + [o for o in remainingOccs if o.profileIdx == hgocc.profileIdx]
-                                        if len(profileoccs) > 1:
-                                            exonHit = True
-                                            mh = Links.MultiLink(profileoccs, link.span, singleProfile=True)
-                                            nlinksThatHit += mh.nUniqueLinks()
                 
                 if exonHit:
                     nexonsHit += 1
@@ -218,7 +222,7 @@ class MultiTrainingEvaluation():
                                nhumanOccs=nhumanOccs,
                                #nhumanOccsThatHit=nhumanOccsThatHit,
                                nhumanOccsThatHit=len(humanOccsThatHit),
-                               nlinks=nlinks, 
+                               #nlinks=nlinks, 
                                nlinksThatHit=nlinksThatHit, 
                                trainingTime=time)
             )
@@ -291,7 +295,7 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                                    nhumanExons=t['nhumanExons'],
                                    nhumanOccs=t['nhumanOccs'],
                                    nhumanOccsThatHit=t['nhumanOccsThatHit'],
-                                   nlinks=t['nlinks'],
+                                   #nlinks=t['nlinks'],
                                    nlinksThatHit=t['nlinksThatHit'],
                                    trainingTime=t['trainingTime'])
                 )
@@ -375,18 +379,19 @@ def trainAndEvaluate(runID,
         occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k)
 
         logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
-        lfor = Links.linksFromOccurrences(occurrences, 1000)
-        links = lfor.links
-        logging.debug(f"[training.trainAndEvaluate] >>> links[:{min(len(links), 2)}] {links[:min(len(links), 2)]}")
-        logging.debug(f"[training.trainAndEvaluate] >>> len(links) {len(links)}")
+        mlinks = Links.multiLinksFromOccurrences(occurrences)
+        logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
+        logging.debug(f"[training.trainAndEvaluate] >>> len(mlinks) {len(mlinks)}")
+        logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}")
 
         # add evaluation results to evaluator
         hgGenome = [g for g in trainsetup.data.training_data.getGenomes() if g.species == 'Homo_sapiens']
         assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
         hgGenome = hgGenome[0]
-        evaluator.add_result(runID, motifs, links, hgGenome, training_time)
+        evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
 
         # draw link image
+        links = Links.linksFromMultiLinks(mlinks, 100)
         kmerSites: list[Links.Occurrence] = []
         for kmer in trainsetup.initKmerPositions:
             kmerSites.extend(trainsetup.initKmerPositions[kmer])

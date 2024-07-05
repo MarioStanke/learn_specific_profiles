@@ -135,7 +135,7 @@ def plotBestProfileLossScatter(Ptrack: ProfileTracking):
                      color = bestidx)
     return fig            
 
-
+# TODO: drawGeneLinks using MultiLinks for prettier images that distinguish profile matches better
 
 def drawGeneLinks(links: list[Links.Link], 
                   genomes: list[SequenceRepresentation.Genome] = None, 

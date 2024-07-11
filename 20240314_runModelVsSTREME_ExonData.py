@@ -288,17 +288,21 @@ def main():
         assert species[0] == 'Homo_sapiens', f"[ERROR] >>> Homo sapiens not first in {sequences}"
 
         skip = False
-        for seq in sequences:
-            assert seq.hasHomologies(), f"[ERROR] >>> Sequence {seq} has no homologies"
-            assert len(seq.homology) == 1, f"[ERROR] >>> Sequence {seq} has not exactly one homology"
+        if len(sequences) <= 1:
+            logging.warning(f"[main] Skipping exon set {[s.id for s in sequences]} as there are not enoug sequences.")
+            skip = True
+        else:
+            for seq in sequences:
+                assert seq.hasHomologies(), f"[ERROR] >>> Sequence {seq} has no homologies"
+                assert len(seq.homology) == 1, f"[ERROR] >>> Sequence {seq} has not exactly one homology"
 
-            if seq.species == 'Homo_sapiens':
-                assert seq.elementsPossible(), f"[ERROR] >>> Sequence {seq} cannot have annotations"
-                if len(seq.genomic_elements) == 0:
-                    logging.warning(f"[main] Skipping sequence {seq} as it has no annotations")
-                    skip = True
+                if seq.species == 'Homo_sapiens':
+                    assert seq.elementsPossible(), f"[ERROR] >>> Sequence {seq} cannot have annotations"
+                    if len(seq.genomic_elements) == 0:
+                        logging.warning(f"[main] Skipping sequence {seq} as it has no annotations")
+                        skip = True
 
-                break
+                    break
 
         if skip:
             continue

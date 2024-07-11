@@ -126,6 +126,13 @@ def occurrenceFromTuple(t: tuple, seq_collection, die: bool = True) -> Occurrenc
 
     else: # always die
         raise ValueError(f"[ERROR] >>> Invalid seq_collection type: {type(seq_collection)}")
+    
+
+
+def occurrenceFromTuple_unsafe(t: tuple, s: SequenceRepresentation.Sequence) -> Occurrence:
+    """ Creates an Occurrence from a tuple that was created via Occurrence.tuple(). Omits all checks and might fail
+     or create invalid Occurrences if the input is incorrect. """
+    return Occurrence(s, t[1], t[2], t[3], t[4])
         
 
 
@@ -395,6 +402,36 @@ def linkFromDict(d: dict, genomes: list[SequenceRepresentation.Genome]) -> Link 
     else:
         occs = [occurrenceFromTuple(occ, genomes) for occs in d["occs"] for occ in occs]
         return MultiLink(occs, d["span"], d["singleProfile"])
+    
+
+def linkFromDict_unsafe(d: dict, 
+                        s: list[SequenceRepresentation.Genome|list[SequenceRepresentation.Genome]]) -> Link | MultiLink:
+    """ Creates a Link or MultiLink from a dictionary representation that was created via the toDict() member. Omits all
+     checks and might fail or create wrong links if the input is incorrect. `s` has to be the same 'shape' as d['occs'],
+     containing the correct Sequence object for each occurrence. """
+    if d["classname"] == "Link":
+        occs = [occurrenceFromTuple_unsafe(occ, s[i]) for i, occ in enumerate(d["occs"])]
+        l = Link([], 1, _singleProfile=False) # no data, omits post_init checks
+        l.occs = occs
+        l.span = d["span"]
+        l.expandMatchParameter = d["expandMatchParameter"]
+        l.expandMismatchParameter = d["expandMismatchParameter"]
+        l.expandScoreThreshold = d["expandScoreThreshold"]
+        l.expandX = d["expandX"]
+        l._singleProfile = d["singleProfile"]
+        return l
+    
+    else:
+        occs = []
+        for i, occslist in enumerate(d["occs"]):
+            occs.append([occurrenceFromTuple_unsafe(occ, s[i][j]) for j, occ in enumerate(occslist)])
+
+        l = MultiLink([], 1, singleProfile=False) # no data, omits post_init checks
+        l.occs = occs
+        l.span = d["span"]
+        l._singleProfile = d["singleProfile"]
+        l._speciesToOccListIdx = {o[0].sequence.species: i for i, o in enumerate(occs)}
+        return l
 
 
 

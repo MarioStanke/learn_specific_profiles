@@ -462,8 +462,9 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                 #                            plot_linkThreshold=plot_linkThreshold,
                 #                            plot_onlyLinkedSeqs=plot_onlyLinkedSeqs,
                 #                            plot_font=plot_font, **kwargs)
-                links = Links.linksFromMultiLinks(mlinks, plot_linkThreshold)
-                plotting.drawGeneLinks(links=links, genomes=data.training_data.getGenomes(),
+
+                # links = Links.linksFromMultiLinks(mlinks, plot_linkThreshold)
+                plotting.drawGeneLinks(links=mlinks, genomes=data.training_data.getGenomes(),
                                        imname=os.path.join(self.working_dir, self._streme_outdir, "links.png"),
                                        onlyLinkedGenes=plot_onlyLinkedSeqs,
                                        font = plot_font, **kwargs)

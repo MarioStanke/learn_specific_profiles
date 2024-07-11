@@ -257,25 +257,36 @@ class MultiTrainingEvaluation():
 
 
 
+# TODO: speed up safe loading as well with the lookup dict approach but with checks!
 def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome], 
-                                recalculate: bool = False) -> MultiTrainingEvaluation:
+                                recalculate: bool = False, unsafe: bool = False) -> MultiTrainingEvaluation:
     """ Load a MultiTrainingEvaluation object from a JSON file. `allGenomes` must contain all Sequences (as a list of
     Genome objects) that were used in the training runs. 
     If `recalculate` is True, only the links and training time are loaded per training run and the metrics are 
-    re-computed via MultiTrainingEvaluation.add_result(). This is useful if the metrics changed or were added later. """
+    re-computed via MultiTrainingEvaluation.add_result(). This is useful if the metrics changed or were added later. 
+    Use unsafe=True if you are sure that the file is safe to load, as this omits most checks and error handling but is
+    faster. """
     with open(filename, "rt") as fh:
         d = json.load(fh)
 
-    # seqIDsToGenomes = {allGenomes[gidx][sidx].id: (gidx, sidx) \
-    #                        for gidx in range(len(allGenomes)) \
-    #                        for sidx in range(len(allGenomes[gidx]))}
+    if unsafe:
+        seqidToSeq = {seq.id: seq for genome in allGenomes for seq in genome} # needed to avoid repeated nested searches
 
     mte = MultiTrainingEvaluation()
     for t in d:
         if len(t['links']) == 0:
             links = []
         else:
-            links = [Links.linkFromDict(l, allGenomes) for l in t['links']]
+            if unsafe:
+                links = []
+                for l in t['links']:
+                    if l['classname'] == 'Link':
+                        s = [seqidToSeq[occ[0]] for occ in l['occs']]
+                    else:
+                        s = [[seqidToSeq[occ[0]] for occ in occs] for occs in l['occs']]
+                    links.append(Links.linkFromDict_unsafe(l, s))
+            else:
+                links = [Links.linkFromDict(l, allGenomes) for l in t['links']]
 
         if recalculate:
             hgGenome = [g for g in allGenomes if g.species == 'Homo_sapiens']
@@ -299,7 +310,7 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                                    nlinksThatHit=t['nlinksThatHit'],
                                    trainingTime=t['trainingTime'])
                 )
-
+            
     return mte
 
 
@@ -391,13 +402,13 @@ def trainAndEvaluate(runID,
         evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
 
         # draw link image
-        links = Links.linksFromMultiLinks(mlinks, 100)
+        # links = Links.linksFromMultiLinks(mlinks, 100)
         kmerSites: list[Links.Occurrence] = []
         for kmer in trainsetup.initKmerPositions:
             kmerSites.extend(trainsetup.initKmerPositions[kmer])
         maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
                                                       sitelen = trainsetup.k)
-        img = plotting.drawGeneLinks(links, 
+        img = plotting.drawGeneLinks(mlinks, 
                                      trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
                                      imname=os.path.join(outdir, outprefix+"links.png"), 
                                      kmerSites=kmerSites, kmerCol='deeppink',

@@ -16,6 +16,7 @@ from .GeneLinkDraw import geneLinkDraw as gld
 from . import Links
 from . import SequenceRepresentation
 from .model_new import TrainingHistory, ProfileReport, ProfileTracking
+from .typecheck import typecheck_list
 
 # set logging level for logomaker to avoid debug message clutter
 logging.getLogger('logomaker').setLevel(logging.WARNING)
@@ -137,7 +138,7 @@ def plotBestProfileLossScatter(Ptrack: ProfileTracking):
 
 # TODO: drawGeneLinks using MultiLinks for prettier images that distinguish profile matches better
 
-def drawGeneLinks(links: list[Links.Link], 
+def drawGeneLinks(links: list[Links.Link | Links.MultiLink], 
                   genomes: list[SequenceRepresentation.Genome] = None, 
                   imname = None,
                   kmerSites: list[Links.Occurrence] = None, kmerCol = None, 
@@ -149,7 +150,7 @@ def drawGeneLinks(links: list[Links.Link],
     you should remember to close!
 
     Parameters:
-        links (list of Links.Link): links between sequence positions (occurrences)
+        links (list of Links.Link or Links.MulitLink): links between sequence positions (occurrences)
         genomes (list of SequenceRepresentation.Genome): genomes to draw, optional. If None, only the sequences from the
                                                          links are drawn, otherwise all sequences in genomes are drawn
         imname (str): path to image file to write the image to, set to None for no writing
@@ -170,19 +171,25 @@ def drawGeneLinks(links: list[Links.Link],
     if font is None:
         font = _font_path
 
+    for link in links:
+        typecheck_list(link, ['Link', 'MultiLink'], die=True)
+
     # if genomes is none, extract all genomes from links. Otherwise, assert that all links and sites are in genomes
     if genomes is None:
         genomes = []
         speciesToGenomeIdx = {}
         for link in links:
-            for occ in link:
+            occs = link.occs if link.classname == 'Link' else [occ for loccs in link.occs for occ in loccs]
+            for occ in occs:
                 if occ.sequence.species not in speciesToGenomeIdx:
                     speciesToGenomeIdx[occ.sequence.species] = len(genomes)
                     genomes.append(SequenceRepresentation.Genome([occ.sequence]))
                 elif occ.sequence not in genomes[speciesToGenomeIdx[occ.sequence.species]]:
                     genomes[speciesToGenomeIdx[occ.sequence.species]].addSequence(occ.sequence)
     else:
-        occs = [occ for link in links for occ in link]
+        occs = []
+        for link in links:
+            occs += link.occs if link.classname == 'Link' else [occ for loccs in link.occs for occ in loccs]
         if kmerSites is not None:
             occs.extend(kmerSites)
         if maskingSites is not None:
@@ -206,14 +213,24 @@ def drawGeneLinks(links: list[Links.Link],
     # create links to draw
     drawLinks = []
     for link in links:
-        lgenes = []
-        lpos = []
-        for occ in link:
-            dgid = seqidToDrawGeneId[occ.sequence.id]
-            lgenes.append(dgid)
-            lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the center of the site
-            
-        drawLinks.append(gld.Link(lgenes, lpos))
+        if link.classname == 'Link':
+            lgenes = []
+            lpos = []
+            for occ in link:
+                dgid = seqidToDrawGeneId[occ.sequence.id]
+                lgenes.append(dgid)
+                lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the center of the site
+                
+            drawLinks.append(gld.Link(lgenes, lpos))
+        else:
+            lgenes = []
+            lpos = []
+            for goccs in link.occs:
+                # in MultiLink, all occs from a sub-list are on the same gene
+                lgenes.append( seqidToDrawGeneId[goccs[0].sequence.id] )
+                lpos.append( [occ.position + (occ.sitelen//2) for occ in goccs] )
+
+            drawLinks.append(gld.Link(lgenes, lpos, compressed=True))
 
     # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
     def createAdditionalSites(sites: list[Links.Occurrence], col):

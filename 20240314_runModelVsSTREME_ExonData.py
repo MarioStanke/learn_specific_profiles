@@ -155,6 +155,8 @@ def main():
     parser.add_argument('--maxexons', help = 'Maximum number of exons to use', required = False, type = int)
     parser.add_argument('--mode', help="Data mode, either `DNA` or `Translated`", required=True, type=str, 
                         choices=['DNA', 'Translated'])
+    parser.add_argument('--no-softmasking', help = 'Removes softmasking from sequences before training', 
+                        required = False, action = 'store_true')
     parser.add_argument('--rand-seed', help = 'Random seed for reproducibility', required = False, type = int)
     # add arguments for model dataset and setup options
     dataset_args = parser.add_argument_group('Dataset options')
@@ -243,6 +245,9 @@ def main():
 
     logging.info("TensorFlow version: "+str(tf.__version__))
 
+    datamode = ModelDataSet.DataMode.DNA if args.mode == 'DNA' else ModelDataSet.DataMode.Translated
+    logging.info(f"[main] Data mode: {datamode}")
+
     # === LOAD DATA ===
 
     exonsetFiles = []
@@ -313,6 +318,9 @@ def main():
             # make annotations and transkripts unique
             SequenceRepresentation.makeAnnotationsUnique(seq)
             SequenceRepresentation.selectLongestTranscript(seq)
+            if args.no_softmasking:
+                seq.removeSoftmasking()
+
             seGen.append( SequenceRepresentation.Genome([seq]) )
 
         singleExonGenomes.append(seGen)
@@ -366,7 +374,7 @@ def main():
 
         # --- train our model ---
         logging.info(f"[main] Start training and evaluation on model for {runID}")
-        data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated,
+        data = ModelDataSet.ModelDataSet(seGenomes, datamode,
                                          tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
                                          batch_size=args.batch_size, prefetch=args.prefetch)
         trainsetup = ProfileFindingSetup.ProfileFindingTrainingSetup(data,
@@ -405,19 +413,10 @@ def main():
                                       k_min = args.k, k_max = args.k,
                                       n_best_motifs = args.n_best_profiles,
                                       load_streme_script= "/home/ebelm/Software/load_MEME.sh")
-        data = ModelDataSet.ModelDataSet(seGenomes, ModelDataSet.DataMode.Translated,
+        data = ModelDataSet.ModelDataSet(seGenomes, datamode,
                                          tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
                                          batch_size=args.batch_size, prefetch=args.prefetch,
                                          replaceSpaceWithX=True) # reset data
-        # translated_seqs = []
-        # for seGenome in seGenomes:
-        #     for sequence in seGenome:
-        #         for frame in range(6):
-        #             translated_seqs.append(SequenceRepresentation.TranslatedSequence(sequence, frame, 
-        #                                                                              replaceSpaceWithX=True))
-                
-        # SequenceRepresentation.sequenceListToFASTA(translated_seqs, os.path.join(streme_wd, "data.fasta"))
-
         try:
             _ = streme_runner.run(runID, data, streme_evaluator, verbose=True, 
                                   plot_links=True, plot_onlyLinkedSeqs=False)

@@ -41,8 +41,9 @@ class Sequence:
     # custom way for instance type check as isinstance() is unstable when imports are named differently across modules
     classname = "Sequence"
     
-    def __init__(self, species, chromosome, strand, genome_start, genome_end = None, length = None, sequence = None,
-                 seqtype = 'sequence', source = None, no_homology = False, no_elements = False) -> None:
+    def __init__(self, species: str, chromosome: str, strand: str, genome_start: int, genome_end: int = None, 
+                 length: int = None, sequence: str = None, seqtype: str = 'sequence', source = None, 
+                 no_homology: bool = False, no_elements: bool = False) -> None:
         """ Initialize a sequence object. 
             Positions are 0-based, i.e. the first position is 0. The end position is not included in the sequence.
             Example: We have a "chromosome" `AAATTTAAA` and want to store the sequence `TTT`. Then we have to set
@@ -316,6 +317,14 @@ class Sequence:
         _ = typecheck(parent, "Sequence", die = True)
         return _sequencesOverlap(self, parent) and self.genome_start >= parent.genome_start \
             and self.genome_end <= parent.genome_end
+
+    def removeSoftmasking(self):
+        """ Converts the internal sequence string to all upper-case, effectively removing softmasking. Always issues a
+            warning that can be ignored if this call was intentional. """
+        if self.sequence is not None:
+            self.sequence = self.sequence.upper()
+            logging.warning(f"[SequenceRepresentation.removeSoftmasking] >>> Removed softmasking from sequence " \
+                            + f"{self.id} (length = {self.length:,}) (ignore if this was intentional)")
 
     def stripSequence(self, amount, from_start = True):
         """ Remove `amount` positions from the sequence object. Discards genomic elements that no longer overlap 

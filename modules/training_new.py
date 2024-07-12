@@ -259,34 +259,44 @@ class MultiTrainingEvaluation():
 
 # TODO: speed up safe loading as well with the lookup dict approach but with checks!
 def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome], 
-                                recalculate: bool = False, unsafe: bool = False) -> MultiTrainingEvaluation:
+                                recalculate: bool = False) -> MultiTrainingEvaluation:
     """ Load a MultiTrainingEvaluation object from a JSON file. `allGenomes` must contain all Sequences (as a list of
     Genome objects) that were used in the training runs. 
     If `recalculate` is True, only the links and training time are loaded per training run and the metrics are 
-    re-computed via MultiTrainingEvaluation.add_result(). This is useful if the metrics changed or were added later. 
-    Use unsafe=True if you are sure that the file is safe to load, as this omits most checks and error handling but is
-    faster. """
+    re-computed via MultiTrainingEvaluation.add_result(). This is useful if the metrics changed or were added later. """
     with open(filename, "rt") as fh:
         d = json.load(fh)
 
-    if unsafe:
-        seqidToSeq = {seq.id: seq for genome in allGenomes for seq in genome} # needed to avoid repeated nested searches
+    all_ids = [s.id for g in allGenomes for s in g]
+    if len(all_ids) != len(set(all_ids)):
+        idcount = {id: 0 for id in all_ids}
+        for id in all_ids:
+            idcount[id] += 1
+        logging.warning("[loadMultiTrainingEvaluation] >>> Duplicate sequence IDs found in allGenomes: " \
+                        + ", ".join([f"{id} ({count}x)" for id, count in idcount.items() if count > 1]))
+
+    seqidToSeq = {seq.id: seq for genome in allGenomes for seq in genome} # needed to avoid repeated nested searches
+    for t in d:
+        for l in t['links']:
+            if l['classname'] == 'Link':
+                for occ in l['occs']:
+                    assert occ[0] in seqidToSeq, f"[ERROR] >>> Sequence {occ[0]} not found in allGenomes."
+            else:
+                for occs in l['occs']:
+                    for occ in occs:
+                        assert occ[0] in seqidToSeq, f"[ERROR] >>> Sequence {occ[0]} not found in allGenomes."
 
     mte = MultiTrainingEvaluation()
     for t in d:
-        if len(t['links']) == 0:
-            links = []
-        else:
-            if unsafe:
-                links = []
-                for l in t['links']:
-                    if l['classname'] == 'Link':
-                        s = [seqidToSeq[occ[0]] for occ in l['occs']]
-                    else:
-                        s = [[seqidToSeq[occ[0]] for occ in occs] for occs in l['occs']]
-                    links.append(Links.linkFromDict_unsafe(l, s))
-            else:
-                links = [Links.linkFromDict(l, allGenomes) for l in t['links']]
+        links = []
+        if len(t['links']) > 0:
+            for l in t['links']:
+                if l['classname'] == 'Link':
+                    s = [seqidToSeq[occ[0]] for occ in l['occs']]
+                else:
+                    s = [[seqidToSeq[occ[0]] for occ in occs] for occs in l['occs']]
+
+                links.append(Links.linkFromDict_fast(l, s))
 
         if recalculate:
             hgGenome = [g for g in allGenomes if g.species == 'Homo_sapiens']

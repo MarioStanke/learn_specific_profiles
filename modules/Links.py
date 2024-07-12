@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 import sys
 
-from . import SequenceRepresentation
+from . import SequenceRepresentation as sr
 from . import sequtils as su
 from .typecheck import typecheck, typecheck_list, typecheck_objdict, typecheck_objdict_list
 
@@ -15,7 +15,7 @@ class Occurrence:
      even if the referred-to genomic element is on the bottom strand. Such information is stored in the strand 
      attribute (strand can be either '+' or '-'). `sitelen` must be at least 1, `profileIdx` must be >= 0 or -1 if no
      profile is associated with the occurrence. """
-    sequence: SequenceRepresentation.Sequence
+    sequence: sr.Sequence
     position: int
     strand: str
     sitelen: int = 1
@@ -129,17 +129,17 @@ def occurrenceFromTuple(t: tuple, seq_collection, die: bool = True) -> Occurrenc
     
 
 
-def occurrenceFromTuple_unsafe(t: tuple, s: SequenceRepresentation.Sequence) -> Occurrence:
-    """ Creates an Occurrence from a tuple that was created via Occurrence.tuple(). Omits all checks and might fail
-     or create invalid Occurrences if the input is incorrect. """
-    return Occurrence(s, t[1], t[2], t[3], t[4])
+# def occurrenceFromTuple_unsafe(t: tuple, s: sr.Sequence) -> Occurrence:
+#     """ Creates an Occurrence from a tuple that was created via Occurrence.tuple(). Omits all checks and might fail
+#      or create invalid Occurrences if the input is incorrect. """
+#     return Occurrence(s, t[1], t[2], t[3], t[4])
         
 
 
 def occurrenceFromDict(d: dict) -> Occurrence:
     """ Creates an Occurrence from a dictionary that was created via Occurrence.toDict(). """
     assert typecheck_objdict(d, "Occurrence", die=True)
-    sequence = SequenceRepresentation.sequenceFromJSON(jsonstring=json.dumps(d["sequence"]))
+    sequence = sr.sequenceFromJSON(jsonstring=json.dumps(d["sequence"]))
     return Occurrence(sequence, d["position"], d["strand"], d['sitelen'], d["profileIdx"])
 
 
@@ -348,7 +348,7 @@ class Link:
         for occ in self.occs:
             seq = occ.sequence.getSequence()[occ.position:occ.position+self.span]
             if occ.strand == '-':
-                seq = SequenceRepresentation.Sequence("", "", "-", 0, sequence=seq).getSequence(rc = True)
+                seq = sr.Sequence("", "", "-", 0, sequence=seq).getSequence(rc = True)
                 
             if aa:
                 seq = su.sequence_translation(seq)
@@ -390,7 +390,7 @@ class Link:
 
 
 
-def linkFromDict(d: dict, genomes: list[SequenceRepresentation.Genome]) -> Link | MultiLink:
+def linkFromDict(d: dict, genomes: list[sr.Genome]) -> Link | MultiLink:
     """ Creates a Link from a dictionary representation that was created via the toDict() member. Returns either a 
      Link or a MultiLink, depending on the inputs `classname` tag. """
     assert typecheck_objdict_list(d, ["Link", "MultiLink"], die=True)
@@ -402,36 +402,61 @@ def linkFromDict(d: dict, genomes: list[SequenceRepresentation.Genome]) -> Link 
     else:
         occs = [occurrenceFromTuple(occ, genomes) for occs in d["occs"] for occ in occs]
         return MultiLink(occs, d["span"], d["singleProfile"])
-    
 
-def linkFromDict_unsafe(d: dict, 
-                        s: list[SequenceRepresentation.Genome|list[SequenceRepresentation.Genome]]) -> Link | MultiLink:
-    """ Creates a Link or MultiLink from a dictionary representation that was created via the toDict() member. Omits all
-     checks and might fail or create wrong links if the input is incorrect. `s` has to be the same 'shape' as d['occs'],
-     containing the correct Sequence object for each occurrence. """
+
+def linkFromDict_fast(d: dict, s: list[sr.Sequence | list[sr.Sequence]]) -> Link | MultiLink:
+    """ Creates a Link from a dictionary representation that was created via the toDict() member. Returns either a 
+     Link or a MultiLink, depending on the inputs `classname` tag. `occs` has to be the same 'shape' as d['occs'],
+     containing the correct Sequence object for each occurrence tuple. """
+    assert typecheck_objdict_list(d, ["Link", "MultiLink"], die=True)
+    assert len(s) == len(d['occs']), f"[ERROR] >>> Occurrence list length mismatch: {len(s)} != {len(d['occs'])}"
     if d["classname"] == "Link":
-        occs = [occurrenceFromTuple_unsafe(occ, s[i]) for i, occ in enumerate(d["occs"])]
-        l = Link([], 1, _singleProfile=False) # no data, omits post_init checks
-        l.occs = occs
-        l.span = d["span"]
-        l.expandMatchParameter = d["expandMatchParameter"]
-        l.expandMismatchParameter = d["expandMismatchParameter"]
-        l.expandScoreThreshold = d["expandScoreThreshold"]
-        l.expandX = d["expandX"]
-        l._singleProfile = d["singleProfile"]
-        return l
-    
+        assert all([s[i].id() == d['occs'][i][0] for i in range(len(s))]), \
+            f"[ERROR] >>> Occurrence Sequence mismatch in Link: {[seq.id for seq in s]} != {d['occs']}"
     else:
-        occs = []
-        for i, occslist in enumerate(d["occs"]):
-            occs.append([occurrenceFromTuple_unsafe(occ, s[i][j]) for j, occ in enumerate(occslist)])
+        assert all(len(s[i]) == len(d['occs'][i]) for i in range(len(s))), "[ERROR] >>> Occurrence list length " \
+            + f"mismatch in MultiLink: {[seq.id for ss in s for seq in ss]} != {d['occs']}"
+        assert all([s[i][j].id == d['occs'][i][j][0] for i in range(len(s)) for j in range(len(s[i]))]), \
+           f"[ERROR] >>> Occurrence Sequence mismatch in MultiLink: {[seq.id for ss in s for seq in ss]} != {d['occs']}"
+        
+    if d["classname"] == "Link":
+        occs = [occurrenceFromTuple(occ, s[i]) for i, occ in enumerate(d["occs"])]
+        return Link(occs, d["span"], d["expandMatchParameter"], d["expandMismatchParameter"],
+                    d["expandScoreThreshold"], d["expandX"], d["singleProfile"])
+    else:
+        occs = [occurrenceFromTuple(occ, s[i][j]) for i, occslist in enumerate(d["occs"]) \
+                    for j, occ in enumerate(occslist)] # flattened list for MutliLink construcor
+        return MultiLink(occs, d["span"], d["singleProfile"])
+    
 
-        l = MultiLink([], 1, singleProfile=False) # no data, omits post_init checks
-        l.occs = occs
-        l.span = d["span"]
-        l._singleProfile = d["singleProfile"]
-        l._speciesToOccListIdx = {o[0].sequence.species: i for i, o in enumerate(occs)}
-        return l
+# def linkFromDict_unsafe(d: dict, 
+#                         s: list[sr.Sequence | list[sr.Sequence]]) -> Link | MultiLink:
+#     """ Creates a Link or MultiLink from a dictionary representation that was created via the toDict() member. Omits all
+#      checks and might fail or create wrong links if the input is incorrect. `s` has to be the same 'shape' as d['occs'],
+#      containing the correct Sequence object for each occurrence. """
+#     if d["classname"] == "Link":
+#         occs = [occurrenceFromTuple_unsafe(occ, s[i]) for i, occ in enumerate(d["occs"])]
+#         l = Link([], 1, _singleProfile=False) # no data, omits post_init checks
+#         l.occs = occs
+#         l.span = d["span"]
+#         l.expandMatchParameter = d["expandMatchParameter"]
+#         l.expandMismatchParameter = d["expandMismatchParameter"]
+#         l.expandScoreThreshold = d["expandScoreThreshold"]
+#         l.expandX = d["expandX"]
+#         l._singleProfile = d["singleProfile"]
+#         return l
+    
+#     else:
+#         occs = []
+#         for i, occslist in enumerate(d["occs"]):
+#             occs.append([occurrenceFromTuple_unsafe(occ, s[i][j]) for j, occ in enumerate(occslist)])
+
+#         l = MultiLink([], 1, singleProfile=False) # no data, omits post_init checks
+#         l.occs = occs
+#         l.span = d["span"]
+#         l._singleProfile = d["singleProfile"]
+#         l._speciesToOccListIdx = {o[0].sequence.species: i for i, o in enumerate(occs)}
+#         return l
 
 
 

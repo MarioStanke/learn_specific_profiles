@@ -4,7 +4,6 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import plotly.express as px
 import tensorflow as tf
 from time import time
 
@@ -13,8 +12,8 @@ from . import model
 from . import plotting
 from . import ProfileFindingSetup as setup
 from . import SequenceRepresentation as sr
-from . import sequtils as su
 from .typecheck import typecheck, typecheck_list
+from .utils import full_stack
 
 
 @dataclass
@@ -86,14 +85,16 @@ class TrainingEvaluation():
     """ Class to store results of a single training evaluation. """
     runID: str # anything that lets us identify the run later
     motifs: MotifWrapper # motifs found in the training run
-    links: list[Links.Link]
+    links: list[Links.MultiLink]
     nexonsHit: int
     nhumanExons: int
     nhumanOccs: int # number of occurrences in human
     nhumanOccsThatHit: int # number of occurrences in human that hit an exon
-    nlinks: int # in case of MultiLinks, this could be the number of nUniqueLinks, thus different from len(links)
     nlinksThatHit: int
     trainingTime: float # time in seconds, TODO: put that in a history class or sth, does not really fit here
+
+    def __post_init__(self):
+        self.nlinks = Links.nLinks(self.links)
 
     def toDict(self):
         """ Returns a JSON-writable representation of the object. """
@@ -129,14 +130,14 @@ class MultiTrainingEvaluation():
 
     def add_result(self, runID, 
                    motifs: MotifWrapper,
-                   links: list[Links.Link | Links.MultiLink], 
+                   links: list[Links.MultiLink], 
                    hg_genome: sr.Genome, 
                    time: float = -1):
         """ Add results of a single exon training run to the class. 
         Parameters:
             runID: any - anything that lets us identify the run later
             motifs: np.ndarray - numpy array of motifs used in the training run
-            links: list[Links.Link | Links.MultiLink] - list of links found in the training run
+            links: list[Links.MultiLink] - list of MultiLinks found in the training run
             hg_genome: sr.Genome - Human genome used in the training run, should contain the human sequence(s) that
                                    were used in the training run
             time: float - time in seconds, -1 if not available
@@ -144,7 +145,7 @@ class MultiTrainingEvaluation():
         assert typecheck(hg_genome, 'Genome', die=True)
         assert hg_genome.species == 'Homo_sapiens'
         
-        nlinks = 0
+        # nlinks = 0
         nhumanExons = 0
         nhumanOccs = 0
         nexonsHit = 0
@@ -152,16 +153,15 @@ class MultiTrainingEvaluation():
         humanOccsThatHit = set()
         #nhumanOccsThatHit = 0
         for link in links:
-            assert typecheck_list(link, ["Link", "MultiLink"], die=True), \
-                    f"Unexpected type of link (want either 'Link' or 'MultiLink'): {type(link)}"
-            nlinks += 1 if link.classname == "Link" else int(link.nUniqueLinks())
-            if link.classname == "Link":
-                if link.getSpeciesOccurrence('Homo_sapiens') is not None:
-                    nhumanOccs += 1
-            else:
-                occs = link.getSpeciesOccurrences('Homo_sapiens')
-                if occs is not None:
-                    nhumanOccs += len(occs)
+            assert typecheck(link, "MultiLink", die=True), f"Unexpected type of link (want 'MultiLink'): {type(link)}"
+            # nlinks += 1 if link.classname == "Link" else int(link.nUniqueLinks())
+            # if link.classname == "Link":
+            #     if link.getSpeciesOccurrence('Homo_sapiens') is not None:
+            #         nhumanOccs += 1
+            # else:
+            occs = link.getSpeciesOccurrences('Homo_sapiens')
+            if occs is not None:
+                nhumanOccs += len(occs)
 
         for hg_sequence in hg_genome:
             hg_sequence: sr.Sequence = hg_sequence # for linting
@@ -170,41 +170,44 @@ class MultiTrainingEvaluation():
                 exonHit = False
                 exonStart, exonEnd = exon.getRelativePositions(hg_sequence)
                 for link in links:
-                    if link.classname == "Link":
-                        occ = link.getSpeciesOccurrence('Homo_sapiens')
-                        if (occ is not None) and (occ.sequence == hg_sequence) \
-                            and (exonStart <= occ.position + link.span - 1) and (occ.position < exonEnd):
-                            exonHit = True
-                            nlinksThatHit += 1
-                            #nhumanOccsThatHit += 1
-                            humanOccsThatHit.add(occ)
-                    else:
-                        link: Links.MultiLink = link # for linting
-                        hgoccs = link.getSpeciesOccurrences('Homo_sapiens')
-                        if hgoccs is not None:
-                            assert len(set([o.sequence.species for o in hgoccs])) == 1, \
-                                f"Not all Occurrences from {hgoccs=} have same species: {link}" # should never happen
-                            
-                            remainingOccs = [o for occs in link.occs for o in occs \
-                                             if o.sequence.species != 'Homo_sapiens']
-                            for hgocc in hgoccs:
-                                if (hgocc.sequence == hg_sequence) and (exonStart <= hgocc.position + link.span - 1) \
-                                        and (hgocc.position < exonEnd):
-                                    #nhumanOccsThatHit += 1
-                                    humanOccsThatHit.add(hgocc)
-                                    # create new MultiLink with only the one human Occurrence 
-                                    #   to see how many unique links would hit
-                                    if link.singleProfile():
+                    # if link.classname == "Link":
+                    #     occ = link.getSpeciesOccurrence('Homo_sapiens')
+                    #     if (occ is not None) and (occ.sequence == hg_sequence) \
+                    #         and (exonStart <= occ.position + link.span - 1) and (occ.position < exonEnd):
+                    #         exonHit = True
+                    #         nlinksThatHit += 1
+                    #         #nhumanOccsThatHit += 1
+                    #         humanOccsThatHit.add(occ)
+                    # else:
+                    #     link: Links.MultiLink = link # for linting
+                    hgoccs = link.getSpeciesOccurrences('Homo_sapiens')
+                    if hgoccs is not None:
+                        assert len(set([o.sequence.species for o in hgoccs])) == 1, \
+                            f"Not all Occurrences from {hgoccs=} have same species: {link}" # should never happen
+                        # determine hg-hitting links by creating new MultiLinks with only one hg occ at a time and count
+                        remainingOccs = [o for occs in link.occs for o in occs \
+                                            if o.sequence.species != 'Homo_sapiens']
+                        for hgocc in hgoccs:
+                            # only need to consider hg exon hitting occs
+                            if (hgocc.sequence == hg_sequence) and (exonStart <= hgocc.position + link.span - 1) \
+                                    and (hgocc.position < exonEnd):
+                                #nhumanOccsThatHit += 1
+                                humanOccsThatHit.add(hgocc)
+                                # create new MultiLink with only the one human Occurrence 
+                                #   to see how many unique links would hit
+                                if len(remainingOccs) == 0:
+                                    continue
+                                if link.singleProfile():
+                                    exonHit = True
+                                    mh = Links.MultiLink([hgocc]+remainingOccs, link.span, singleProfile=True)
+                                    nlinksThatHit += mh.nUniqueLinks()
+                                else:
+                                    profileoccs = [hgocc] \
+                                                    + [o for o in remainingOccs if o.profileIdx == hgocc.profileIdx]
+                                    if len(profileoccs) > 1:
                                         exonHit = True
-                                        mh = Links.MultiLink([hgocc]+remainingOccs, link.span, singleProfile=True)
+                                        mh = Links.MultiLink(profileoccs, link.span, singleProfile=True)
                                         nlinksThatHit += mh.nUniqueLinks()
-                                    else:
-                                        profileoccs = [hgocc] \
-                                                        + [o for o in remainingOccs if o.profileIdx == hgocc.profileIdx]
-                                        if len(profileoccs) > 1:
-                                            exonHit = True
-                                            mh = Links.MultiLink(profileoccs, link.span, singleProfile=True)
-                                            nlinksThatHit += mh.nUniqueLinks()
                 
                 if exonHit:
                     nexonsHit += 1
@@ -218,7 +221,7 @@ class MultiTrainingEvaluation():
                                nhumanOccs=nhumanOccs,
                                #nhumanOccsThatHit=nhumanOccsThatHit,
                                nhumanOccsThatHit=len(humanOccsThatHit),
-                               nlinks=nlinks, 
+                               #nlinks=nlinks, 
                                nlinksThatHit=nlinksThatHit, 
                                trainingTime=time)
             )
@@ -262,16 +265,36 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
     with open(filename, "rt") as fh:
         d = json.load(fh)
 
-    # seqIDsToGenomes = {allGenomes[gidx][sidx].id: (gidx, sidx) \
-    #                        for gidx in range(len(allGenomes)) \
-    #                        for sidx in range(len(allGenomes[gidx]))}
+    all_ids = [s.id for g in allGenomes for s in g]
+    if len(all_ids) != len(set(all_ids)):
+        idcount = {id: 0 for id in all_ids}
+        for id in all_ids:
+            idcount[id] += 1
+        logging.warning("[loadMultiTrainingEvaluation] >>> Duplicate sequence IDs found in allGenomes: " \
+                        + ", ".join([f"{id} ({count}x)" for id, count in idcount.items() if count > 1]))
+
+    seqidToSeq = {seq.id: seq for genome in allGenomes for seq in genome} # needed to avoid repeated nested searches
+    for t in d:
+        for l in t['links']:
+            if l['classname'] == 'Link':
+                for occ in l['occs']:
+                    assert occ[0] in seqidToSeq, f"[ERROR] >>> Sequence {occ[0]} not found in allGenomes."
+            else:
+                for occs in l['occs']:
+                    for occ in occs:
+                        assert occ[0] in seqidToSeq, f"[ERROR] >>> Sequence {occ[0]} not found in allGenomes."
 
     mte = MultiTrainingEvaluation()
     for t in d:
-        if len(t['links']) == 0:
-            links = []
-        else:
-            links = [Links.linkFromDict(l, allGenomes) for l in t['links']]
+        links = []
+        if len(t['links']) > 0:
+            for l in t['links']:
+                if l['classname'] == 'Link':
+                    s = [seqidToSeq[occ[0]] for occ in l['occs']]
+                else:
+                    s = [[seqidToSeq[occ[0]] for occ in occs] for occs in l['occs']]
+
+                links.append(Links.linkFromDict_fast(l, s))
 
         if recalculate:
             hgGenome = [g for g in allGenomes if g.species == 'Homo_sapiens']
@@ -291,11 +314,11 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                                    nhumanExons=t['nhumanExons'],
                                    nhumanOccs=t['nhumanOccs'],
                                    nhumanOccsThatHit=t['nhumanOccsThatHit'],
-                                   nlinks=t['nlinks'],
+                                   #nlinks=t['nlinks'],
                                    nlinksThatHit=t['nlinksThatHit'],
                                    trainingTime=t['trainingTime'])
                 )
-
+            
     return mte
 
 
@@ -304,7 +327,7 @@ def trainAndEvaluate(runID,
                      trainsetup: setup.ProfileFindingTrainingSetup, 
                      evaluator: MultiTrainingEvaluation,
                      outdir: str, outprefix: str = "",
-                     trainingWithReporting: bool = True,
+                     # trainingWithReporting: bool = True,
                      rand_seed: int = None) -> None:
     """ 
     Train profiles on a given training setup and evaluate them. 
@@ -319,8 +342,8 @@ def trainAndEvaluate(runID,
             Directory to save results to.
         outprefix: str
             Prefix for output files.
-        trainingWithReporting: bool
-            If True, training is done with reporting, otherwise with classic training.
+        # trainingWithReporting: bool
+        #     If True, training is done with reporting, otherwise with classic training.
         rand_seed: int
             Random seed for reproducibility.
 
@@ -329,106 +352,127 @@ def trainAndEvaluate(runID,
         [DEPRECATED] tuple[float, float]: (sensitivity, specificity) or None, None if something went wrong.
     """
 
+    assert trainsetup.initProfiles is not None, "[ERROR] >>> No seed profiles found in trainsetup."
+
     # build and randomly initialize profile model
     tf.keras.backend.clear_session() # avoid memory cluttering by remains of old models
     specProModel = model.SpecificProfile(setup = trainsetup,
-                                         alphabet_size = su.aa_alphabet_size, 
                                          rand_seed = rand_seed)
-
-    # initialize profile model with seed profiles if not happened yet
-    if trainsetup.initProfiles is None:
-        P_logit_init = specProModel.seed_P_genome(trainsetup.data.genomes)
-        specProModel.setP_logit(P_logit_init)
 
     # start training
     start = time()
     try:
-        if trainingWithReporting:
-            specProModel.train_reporting(verbose_freq=10)
-        else:
-            specProModel.train_classic(trainsetup.getDataset(repeat=True))
-
+        specProModel.train(verbose_freq=10)
         end = time()
     except Exception as e:
         end = time()
         logging.error(f"[training.trainAndEvaluate] >>> Training failed after {end-start:.2f}.")
         logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+        logging.debug(full_stack())
         
     training_time = end-start
     logging.info(f"[training.trainAndEvaluate] >>> Training time: {training_time:.2f}")
 
     # evaluate model (if possible)
     try:
+        # draw training history
         fig, _ = plotting.plotHistory(specProModel.history)
         fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
         plt.close(fig)
 
-        if trainingWithReporting:
-            plh = tf.transpose(specProModel.P_report_plosshist).numpy()
-            fig, ax = plt.subplots(1,1, figsize=(2*1920/100,2*1080/100), dpi=100)
-            hm = ax.imshow(plh, interpolation = 'nearest', cmap="rainbow")
-            plt.colorbar(hm)
-            fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
-            plt.close(fig)
+        fig, _ = plotting.plotProfileLossHeatmap(specProModel.profile_tracking)
+        fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
+        plt.close(fig)
 
-            bestlosshist = [l.numpy() for l in specProModel.P_report_bestlosshist]
-            bestlosshistIdx = [i.numpy() for i in specProModel.P_report_bestlosshistIdx]
-            
-            px.scatter(x = list(range(len(bestlosshist))),
-                       y = bestlosshist, 
-                       color = bestlosshistIdx).write_image(os.path.join(outdir, 
-                                                                         outprefix+"profile_loss_history_scat.png"), 
-                                                            width=1920, height=1080)
-            
-        # draw link image and calculate accuracy
+        fig = plotting.plotBestProfileLossScatter(specProModel.profile_tracking)
+        fig.write_image(os.path.join(outdir, outprefix+"profile_loss_history_scat.png"), width=1920, height=1080)
 
-        # get match sites of profiles
-        if trainingWithReporting:
-            P, Pthresh, Ploss = specProModel.getP_report()
-            motifs = MotifWrapper(P, {'Pthresh': [float(pt) for pt in Pthresh], 
-                                      'Ploss': [float(pl) for pl in Ploss]})
-        else:
-            P, scores, losses = specProModel.getP_optimal(0, lossStatistics=True)
-            motifs = MotifWrapper(P, {'scores': scores.tolist(), 'losses': losses.tolist()}) # untested, scores and losses _should_ be numpy arrays but who knows...
+        # get match sites of profiles and create Links
 
-        thresh = Pthresh if trainingWithReporting else specProModel.setup.match_score_factor * scores
+        profile_report = specProModel.profile_report
+        motifs = MotifWrapper(profile_report.P, {'Pthresh': [float(pt) for pt in profile_report.threshold], 
+                                                 'Ploss': [float(pl) for pl in profile_report.loss]})
+        sites, sitescores = specProModel.get_profile_match_sites(trainsetup.data.getDataset(withPosTracking = True, 
+                                                                                            original_data=True),
+                                                                 profile_report.P, profile_report.threshold)
+        occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k)
 
-        onlyPid = None
-        if onlyPid is None:
-            sites, _, _ = specProModel.get_profile_match_sites(
-                specProModel.setup.getDataset(withPosTracking = True, original_data=True),
-                thresh, otherP = P)
-        else:
-            sites, _, _ = specProModel.get_profile_match_sites(
-                specProModel.setup.getDataset(withPosTracking = True, original_data=True), 
-                thresh[onlyPid], otherP = P[:,:,onlyPid:onlyPid+1])
-            
         logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
-        lfsr = Links.linksFromSites(sites, specProModel.setup.k*3, specProModel.setup.data.genomes, 1000)
-        links = lfsr.links
-        #linkProfiles = lfsr.linkProfiles
-        #skipped = lfsr.skipped
-        logging.debug(f"[training.trainAndEvaluate] >>> links[:{min(len(links), 2)}] {links[:min(len(links), 2)]}")
-        logging.debug(f"[training.trainAndEvaluate] >>> len(links) {len(links)}")
+        mlinks = Links.multiLinksFromOccurrences(occurrences)
+        logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
+        logging.debug(f"[training.trainAndEvaluate] >>> len(mlinks) {len(mlinks)}")
+        logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}")
 
-        hgGenome = [g for g in trainsetup.data.genomes if g.species == 'Homo_sapiens']
+        # add evaluation results to evaluator
+        hgGenome = [g for g in trainsetup.data.training_data.getGenomes() if g.species == 'Homo_sapiens']
         assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
         hgGenome = hgGenome[0]
-        evaluator.add_result(runID, motifs, links, hgGenome, training_time)
+        evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
 
-        kmerSites = []
+        # draw link image
+        # links = Links.linksFromMultiLinks(mlinks, 100)
+        kmerSites: list[Links.Occurrence] = []
         for kmer in trainsetup.initKmerPositions:
             kmerSites.extend(trainsetup.initKmerPositions[kmer])
-
-        masksides = specProModel.getMaskedSites(0)
-
-        img = plotting.drawGeneLinks(trainsetup.data.genomes, links, 
+        maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
+                                                      sitelen = trainsetup.k)
+        img = plotting.drawGeneLinks(mlinks, 
+                                     trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
                                      imname=os.path.join(outdir, outprefix+"links.png"), 
                                      kmerSites=kmerSites, kmerCol='deeppink',
-                                     maskingSites=masksides, maskingCol='chocolate',
+                                     maskingSites=maskSites, maskingCol='chocolate',
                                      show=False)
         img.close()
+
+        # --------------------------------------------------- old vvv
+        # # get match sites of profiles
+        # if trainingWithReporting:
+        #     P, Pthresh, Ploss = specProModel.getP_report()
+        #     motifs = MotifWrapper(P, {'Pthresh': [float(pt) for pt in Pthresh], 
+        #                               'Ploss': [float(pl) for pl in Ploss]})
+        # else:
+        #     P, scores, losses = specProModel.getP_optimal(0, lossStatistics=True)
+        #     motifs = MotifWrapper(P, {'scores': scores.tolist(), 'losses': losses.tolist()}) # untested, scores and losses _should_ be numpy arrays but who knows...
+
+        # thresh = Pthresh if trainingWithReporting else specProModel.setup.match_score_factor * scores
+
+        # onlyPid = None
+        # if onlyPid is None:
+        #     sites, _, _ = specProModel.get_profile_match_sites(
+        #         specProModel.setup.getDataset(withPosTracking = True, original_data=True),
+        #         thresh, otherP = P)
+        # else:
+        #     sites, _, _ = specProModel.get_profile_match_sites(
+        #         specProModel.setup.getDataset(withPosTracking = True, original_data=True), 
+        #         thresh[onlyPid], otherP = P[:,:,onlyPid:onlyPid+1])
+            
+        # logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
+        # lfsr = Links.linksFromSites(sites, specProModel.setup.k*3, specProModel.setup.data.genomes, 1000)
+        # links = lfsr.links
+        # #linkProfiles = lfsr.linkProfiles
+        # #skipped = lfsr.skipped
+        # logging.debug(f"[training.trainAndEvaluate] >>> links[:{min(len(links), 2)}] {links[:min(len(links), 2)]}")
+        # logging.debug(f"[training.trainAndEvaluate] >>> len(links) {len(links)}")
+
+        # hgGenome = [g for g in trainsetup.data.genomes if g.species == 'Homo_sapiens']
+        # assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
+        # hgGenome = hgGenome[0]
+        # evaluator.add_result(runID, motifs, links, hgGenome, training_time)
+
+        # kmerSites = []
+        # for kmer in trainsetup.initKmerPositions:
+        #     kmerSites.extend(trainsetup.initKmerPositions[kmer])
+
+        # masksides = specProModel.getMaskedSites(0)
+
+        # img = plotting.drawGeneLinks(trainsetup.data.genomes, links, 
+        #                              imname=os.path.join(outdir, outprefix+"links.png"), 
+        #                              kmerSites=kmerSites, kmerCol='deeppink',
+        #                              maskingSites=masksides, maskingCol='chocolate',
+        #                              show=False)
+        # img.close()
         
     except Exception as e:
         logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")
         logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+        logging.debug(full_stack())

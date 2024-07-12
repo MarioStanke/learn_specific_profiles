@@ -13,7 +13,7 @@ import os
 import re
 from typing import Union
 
-from . import sequtils as su
+from . import utils
 from .typecheck import typecheck, typecheck_objdict
 
 class Sequence:
@@ -433,7 +433,7 @@ class TranslatedSequence:
         self.genomic_sequence = genomic_sequence
         self.id = genomic_sequence.id + f":f{frame}"
         self.species = genomic_sequence.species
-        self.sequence = su.six_frame_translation(genomic_sequence.sequence)[frame]
+        self.sequence = utils.six_frame_translation(genomic_sequence.sequence)[frame]
         if replaceSpaceWithX:
             assert 'X' not in self.sequence, "[ERROR] >>> Did not expect any ambiguous codons in the translation."
             # six_frame_translation adds spaces for softmasked or ambiguous codons, replace with 'unknown' AA-code X    

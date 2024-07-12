@@ -7,13 +7,14 @@ import tensorflow as tf
 from . import Links
 from . import position_conversion as pc
 from . import SequenceRepresentation as sr
-from . import sequtils as su
 from .typecheck import typecheck
 
 
 
 _DNA_ALPHABET = ['A', 'C', 'G', 'T']
-_TRANSLATED_ALPHABET = su.aa_alphabet[1:] # does not contain missing AA (' ')
+_TRANSLATED_ALPHABET = ['C', 'K', 'E', 'W', 'T', 'G', 'Y', 'A', 'I', 'N', # 20 regular
+                        'V', 'H', 'S', 'D', 'F', 'M', 'R', 'L', 'P', 'Q', # amino acids
+                        '*'] # stop codon
 
 
 

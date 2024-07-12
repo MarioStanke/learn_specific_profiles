@@ -6,7 +6,7 @@ import numpy as np
 import sys
 
 from . import SequenceRepresentation as sr
-from . import sequtils as su
+from . import utils
 from .typecheck import typecheck, typecheck_list, typecheck_objdict, typecheck_objdict_list
 
 @dataclass
@@ -351,7 +351,7 @@ class Link:
                 seq = sr.Sequence("", "", "-", 0, sequence=seq).getSequence(rc = True)
                 
             if aa:
-                seq = su.sequence_translation(seq)
+                seq = utils.sequence_translation(seq)
 
             print(seq, "-", occ.sequence.id, f"at {occ.position}:{occ.position+self.span}")
     

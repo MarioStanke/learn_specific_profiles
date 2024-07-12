@@ -1,21 +1,22 @@
 # functions for plotting and visualization
 
 import cv2
-import itertools
-import json
 import logging
 import logomaker
 import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
+import plotly.express as px
 import plotly.graph_objects as go
 
 from .GeneLinkDraw import geneLinkDraw as gld
 from . import Links
 from . import SequenceRepresentation
-from . import sequtils as su
+from .model import TrainingHistory, ProfileReport, ProfileTracking
+from .typecheck import typecheck_list
 
 # set logging level for logomaker to avoid debug message clutter
 logging.getLogger('logomaker').setLevel(logging.WARNING)
@@ -33,33 +34,28 @@ except Exception as e:
                     +"Falling back on {_font_path}")
 
 
-def plotHistory(history):
+def plotHistory(history: TrainingHistory):
     """ 
     Plot the training history as loss and accuracy curves 
     
     Parameters
-        history (dict): History dict from trained model
+        history (model.TrainingHistory): History object from trained model
 
     Returns
         fig, ax: matplotlib figure and axes objects
     """
 
-    loss = history['loss']
-    Rmax = history['Rmax']
-    Rmin = history['Rmin']
-    Smax = history['Smax']
-    Smin = history['Smin']
-    epochs = range(1, len(loss) + 1)
+    epochs = range(1, len(history.loss) + 1)
 
     fig, ax = plt.subplots(ncols = 2, figsize = (15, 6))
-    ax[0].plot(epochs, loss, 'bo', label = 'Training loss')
+    ax[0].plot(epochs, history.loss, 'bo', label = 'Training loss')
     ax[0].set_title('Training loss')
     ax[0].legend()
 
-    ax[1].plot(epochs, Rmax, 'bo', label = 'Rmax')
-    ax[1].plot(epochs, Rmin, 'b+', label = 'Rmin')
-    ax[1].plot(epochs, Smax, 'go', label = 'Smax')
-    ax[1].plot(epochs, Smin, 'g+', label = 'Smin')
+    ax[1].plot(epochs, history.Rmax, 'bo', label = 'Rmax')
+    ax[1].plot(epochs, history.Rmin, 'b+', label = 'Rmin')
+    ax[1].plot(epochs, history.Smax, 'go', label = 'Smax')
+    ax[1].plot(epochs, history.Smin, 'g+', label = 'Smin')
     ax[1].set_title('Training R and S')
     ax[1].legend()
     
@@ -67,15 +63,15 @@ def plotHistory(history):
 
 
 
-def plotLogo(P: np.ndarray, alphabet:list[str] = su.aa_alphabet[1:],
-             idxarray = None, pNames = None, pScores = None, pLosses = None, max_print=5, ax=None,
-             **kwargs):
+def plotLogo(P: np.ndarray, alphabet: list[str], drop:list[str] = ['*'],
+             idxarray = None, pNames = None, pScores = None, pLosses = None, max_print=5, ax=None):
     """
     Create logo(s) from profile(s)
 
     Parameters
-        P (tf.Tensor): tensor of shape (k, alphabet_size, U)
-        alphabet (list of str): list of characters for the columns of the DataFrames. Default: sequtils.aa_alphabet[1:]
+        P (np.ndarray | tf.Tensor): tensor of shape (k, alphabet_size, U)
+        alphabet (list of str): list of characters for the logo
+        drop (list[str]): list of characters to drop from the alphabet. Default: ['*']
         idxarray (list of int): optional list of indices in P's third axis to plot only certain profiles
         pNames (list): optional list of names to assign for each profile in P (if None, index of profile will be 
                        displayed)
@@ -83,12 +79,25 @@ def plotLogo(P: np.ndarray, alphabet:list[str] = su.aa_alphabet[1:],
         pLosses (list of float): optional list of losses for each profile in P
         max_print (int): print up to this many logos
         ax (list of matplotlib axes): optional axes from a matplotlib Figure to plot on, one axes for each plot
-        **kwargs: named arguments forwarded to sequtils.makeDFs()
     """
-    if type(P) is not np.ndarray: # catch tf.Tensor
-        P = P.numpy()
 
-    dfs = su.makeDFs(P, alphabet=alphabet, **kwargs)
+    if hasattr(P, 'numpy'): # catch tf.Tensor
+        P = P.numpy()
+    
+    assert P.shape[1] == len(alphabet), \
+        f"[plotting.plotLogo] alphabet size {len(alphabet)} does not match profile matrix shape {P.shape}"
+    # dfs = su.makeDFs(P, alphabet=alphabet, **kwargs)
+    dfs = []
+    for j in range(P.shape[2]): # U
+        profile_matrix = P[:,:,j]
+        df = pd.DataFrame(profile_matrix)
+        df.columns = alphabet
+        for dc in drop:
+            if dc in df.columns:
+                df = df.drop([dc], axis=1)
+        
+        dfs.append(df)
+
     for i in range(min(P.shape[2], max_print)):
         j = idxarray[i] if idxarray is not None else i
         profile_df = dfs[j]
@@ -106,10 +115,32 @@ def plotLogo(P: np.ndarray, alphabet:list[str] = su.aa_alphabet[1:],
 
 
 
-def drawGeneLinks(genomes: list[SequenceRepresentation.Genome], 
-                  links: list[Links.Link], imname,
-                  kmerSites = None, kmerCol = None, 
-                  maskingSites = None, maskingCol = 'darkred',
+def plotProfileLossHeatmap(Ptrack: ProfileTracking, figsize=(2*1920/100,2*1080/100), dpi=100):
+    """ Plot a heatmap of each profile's loss over training epochs """
+    losses = Ptrack.mean_losses #np.transpose(Ptrack.mean_losses)
+    fig, ax = plt.subplots(1,1, figsize=figsize, dpi=dpi)
+    hm = ax.imshow(losses, interpolation = 'nearest', cmap="rainbow")
+    plt.colorbar(hm)
+    return fig, ax
+
+
+
+def plotBestProfileLossScatter(Ptrack: ProfileTracking):
+    """ Plot a scatter plot of the resp. best profile loss over training epochs """
+    bestloss = list(np.min(Ptrack.mean_losses, axis=0))   # (U, n_epochs) -> (n_epochs,)
+    bestidx = list(np.argmin(Ptrack.mean_losses, axis=0))
+    fig = px.scatter(x = list(range(len(bestloss))),
+                     y = bestloss, 
+                     color = bestidx)
+    return fig            
+
+# TODO: drawGeneLinks using MultiLinks for prettier images that distinguish profile matches better
+
+def drawGeneLinks(links: list[Links.Link | Links.MultiLink], 
+                  genomes: list[SequenceRepresentation.Genome] = None, 
+                  imname = None,
+                  kmerSites: list[Links.Occurrence] = None, kmerCol = None, 
+                  maskingSites: list[Links.Occurrence] = None, maskingCol = 'darkred',
                   onlyLinkedGenes = False,
                   font = None, **kwargs) -> Image.Image:
     """
@@ -117,16 +148,17 @@ def drawGeneLinks(genomes: list[SequenceRepresentation.Genome],
     you should remember to close!
 
     Parameters:
-        genomes (list of SequenceRepresentation.Genome): genomes to draw
-        links (list of Links.Link): links between sequence positions (occurrences)
+        links (list of Links.Link or Links.MulitLink): links between sequence positions (occurrences)
+        genomes (list of SequenceRepresentation.Genome): genomes to draw, optional. If None, only the sequences from the
+                                                         links are drawn, otherwise all sequences in genomes are drawn
         imname (str): path to image file to write the image to, set to None for no writing
-        kmerSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of initial kmer 
-                                    positions. If given, these occurrences are drawn as small dots on the genes
+        kmerSites (list of Links.Occurrence): Optional list of tuples Links.Occurrences of initial kmer positions. 
+                                              If given, these occurrences are drawn as small dots on the genes
         kmerCol (str or tuple of RGB values): Optional color used when drawing initial kmer positions. If None and
                                               kmerSites are given, color is determined automatically. Use gld.Palette
                                               class to get some color names
-        maskingSites (list of tuples): Optional list of tuples of format (genomeID, contigID, pos) of sites where DNA
-                                       was softmasked during training
+        maskingSites (list of Links.Occurrence): Optional list of tuples of Links.Occurrences of sites where DNA was
+                                                 softmasked during training
         maskingCol (str or tuple of RGB values): Optional color used when drawing masking sites. Defaults to darkred. If
                                                  None and maskingSites are given, color is determined automatically. Use
                                                  gld.Palette class to get some color names
@@ -137,7 +169,34 @@ def drawGeneLinks(genomes: list[SequenceRepresentation.Genome],
     if font is None:
         font = _font_path
 
+    for link in links:
+        typecheck_list(link, ['Link', 'MultiLink'], die=True)
+
+    # if genomes is none, extract all genomes from links. Otherwise, assert that all links and sites are in genomes
+    if genomes is None:
+        genomes = []
+        speciesToGenomeIdx = {}
+        for link in links:
+            occs = link.occs if link.classname == 'Link' else [occ for loccs in link.occs for occ in loccs]
+            for occ in occs:
+                if occ.sequence.species not in speciesToGenomeIdx:
+                    speciesToGenomeIdx[occ.sequence.species] = len(genomes)
+                    genomes.append(SequenceRepresentation.Genome([occ.sequence]))
+                elif occ.sequence not in genomes[speciesToGenomeIdx[occ.sequence.species]]:
+                    genomes[speciesToGenomeIdx[occ.sequence.species]].addSequence(occ.sequence)
+    else:
+        occs = []
+        for link in links:
+            occs += link.occs if link.classname == 'Link' else [occ for loccs in link.occs for occ in loccs]
+        if kmerSites is not None:
+            occs.extend(kmerSites)
+        if maskingSites is not None:
+            occs.extend(maskingSites)
+        for occ in occs:
+            assert any([occ.sequence in g for g in genomes]), f"Sequence {occ.sequence.id} not found in genomes"
+
     drawGenes = []
+    seqidToDrawGeneId = {}
     for genome in genomes:
         for sequence in genome:
             dg = gld.Gene(sequence.id, sequence.species, sequence.length, sequence.strand)
@@ -146,51 +205,54 @@ def drawGeneLinks(genomes: list[SequenceRepresentation.Genome],
                 dg.addElement(element.type, start, end-1) # TODO: refactor gld to also use exclusive end positions!
 
             drawGenes.append(dg)
+            assert sequence.id not in seqidToDrawGeneId, f"Duplicate sequence id {sequence.id}"
+            seqidToDrawGeneId[sequence.id] = dg.id
 
-    # for some assertions
-    geneids = []
-    for dg in drawGenes:
-        geneids.append(dg.id)
-    geneids = sorted(geneids)
-    assert len(geneids) == len(set(geneids)), "[ERROR] >>> Duplicate gene ids in "+str(geneids)
-        
     # create links to draw
     drawLinks = []
     for link in links:
-        lgenes = []
-        lpos = []
-        for occ in link:
-            gid = genomes[int(occ.genomeIdx)][int(occ.sequenceIdx)].id
-            assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {occ} not found in {geneids}"
-            lgenes.append(gid)
-            lpos.append(occ.position)
-            
-        drawLinks.append(gld.Link(lgenes, lpos))
+        if link.classname == 'Link':
+            lgenes = []
+            lpos = []
+            for occ in link:
+                dgid = seqidToDrawGeneId[occ.sequence.id]
+                lgenes.append(dgid)
+                lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the center of the site
+                
+            drawLinks.append(gld.Link(lgenes, lpos))
+        else:
+            lgenes = []
+            lpos = []
+            for goccs in link.occs:
+                # in MultiLink, all occs from a sub-list are on the same gene
+                lgenes.append( seqidToDrawGeneId[goccs[0].sequence.id] )
+                lpos.append( [occ.position + (occ.sitelen//2) for occ in goccs] )
+
+            drawLinks.append(gld.Link(lgenes, lpos, compressed=True))
 
     # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
-    def createAdditionalSites(sites, col):
-        occDict = {}
-        for site in sites:
-            gid = genomes[int(site[0])][int(site[1])].id
-            assert gid in geneids, f"[ERROR] >>> gene id {gid} from occurrence {site} not found in {geneids}"
-            if gid not in occDict:
-                occDict[gid] = []
+    def createAdditionalSites(sites: list[Links.Occurrence], col):
+        drawgeneidToOccs = {}
+        for occ in sites:
+            dgid = seqidToDrawGeneId[occ.sequence.id]
+            if dgid not in drawgeneidToOccs:
+                drawgeneidToOccs[dgid] = []
 
-            occDict[gid].append(site[2])
+            drawgeneidToOccs[dgid].append(occ.position + (occ.sitelen//2))
 
-        if len(occDict.keys()) >= 2:
+        if len(drawgeneidToOccs.keys()) >= 2:
             # no links possible if less than two genomes
             lgenes = []
             lpos = []
-            for gid in geneids:
-                if gid in occDict:
-                    lgenes.append(gid)
-                    lpos.append(occDict[gid])
+            for gid in drawgeneidToOccs.keys():
+                lgenes.append(gid)
+                lpos.append(drawgeneidToOccs[gid])
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
         else:
             logging.warning("[plotting.drawGeneLinks.createAdditionalSites] >>> Could not "+\
                             "create kmer sites or masking sites because less than 2 genes are involved")
+        
 
     if kmerSites is not None:
         createAdditionalSites(kmerSites, kmerCol)

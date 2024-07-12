@@ -16,7 +16,7 @@ from modules import ModelDataSet
 from modules import ProfileFindingSetup
 from modules import SequenceRepresentation
 from modules import Streme
-from modules import training_new as training
+from modules import training
 from modules.utils import full_stack
 
 

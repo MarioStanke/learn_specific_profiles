@@ -14,10 +14,9 @@ from xml.parsers import expat
 
 from . import Links
 from . import ModelDataSet
-from . import plotting_new as plotting
+from . import plotting
 from . import SequenceRepresentation as sr
-from . import sequtils as su
-from . import training_new as training
+from . import training
 from .typecheck import typecheck, typecheck_list
 from .utils import full_stack
 

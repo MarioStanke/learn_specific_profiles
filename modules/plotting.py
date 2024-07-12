@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 from .GeneLinkDraw import geneLinkDraw as gld
 from . import Links
 from . import SequenceRepresentation
-from .model import TrainingHistory, ProfileReport, ProfileTracking
+#from .model import TrainingHistory, ProfileTracking
 from .typecheck import typecheck_list
 
 # set logging level for logomaker to avoid debug message clutter
@@ -34,7 +34,8 @@ except Exception as e:
                     +"Falling back on {_font_path}")
 
 
-def plotHistory(history: TrainingHistory):
+#def plotHistory(history: TrainingHistory):
+def plotHistory(history):
     """ 
     Plot the training history as loss and accuracy curves 
     
@@ -86,7 +87,7 @@ def plotLogo(P: np.ndarray, alphabet: list[str], drop:list[str] = ['*'],
     
     assert P.shape[1] == len(alphabet), \
         f"[plotting.plotLogo] alphabet size {len(alphabet)} does not match profile matrix shape {P.shape}"
-    # dfs = su.makeDFs(P, alphabet=alphabet, **kwargs)
+    
     dfs = []
     for j in range(P.shape[2]): # U
         profile_matrix = P[:,:,j]
@@ -115,7 +116,8 @@ def plotLogo(P: np.ndarray, alphabet: list[str], drop:list[str] = ['*'],
 
 
 
-def plotProfileLossHeatmap(Ptrack: ProfileTracking, figsize=(2*1920/100,2*1080/100), dpi=100):
+#def plotProfileLossHeatmap(Ptrack: ProfileTracking, figsize=(2*1920/100,2*1080/100), dpi=100):
+def plotProfileLossHeatmap(Ptrack, figsize=(2*1920/100,2*1080/100), dpi=100):
     """ Plot a heatmap of each profile's loss over training epochs """
     losses = Ptrack.mean_losses #np.transpose(Ptrack.mean_losses)
     fig, ax = plt.subplots(1,1, figsize=figsize, dpi=dpi)
@@ -125,7 +127,8 @@ def plotProfileLossHeatmap(Ptrack: ProfileTracking, figsize=(2*1920/100,2*1080/1
 
 
 
-def plotBestProfileLossScatter(Ptrack: ProfileTracking):
+#def plotBestProfileLossScatter(Ptrack: ProfileTracking):
+def plotBestProfileLossScatter(Ptrack):
     """ Plot a scatter plot of the resp. best profile loss over training epochs """
     bestloss = list(np.min(Ptrack.mean_losses, axis=0))   # (U, n_epochs) -> (n_epochs,)
     bestidx = list(np.argmin(Ptrack.mean_losses, axis=0))
@@ -134,7 +137,7 @@ def plotBestProfileLossScatter(Ptrack: ProfileTracking):
                      color = bestidx)
     return fig            
 
-# TODO: drawGeneLinks using MultiLinks for prettier images that distinguish profile matches better
+
 
 def drawGeneLinks(links: list[Links.Link | Links.MultiLink], 
                   genomes: list[SequenceRepresentation.Genome] = None, 
@@ -217,7 +220,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             for occ in link:
                 dgid = seqidToDrawGeneId[occ.sequence.id]
                 lgenes.append(dgid)
-                lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the center of the site
+                lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the site center
                 
             drawLinks.append(gld.Link(lgenes, lpos))
         else:
@@ -277,7 +280,6 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     if imname:
         img.save(imname)
 
-    #img.close()
     return img
 
 

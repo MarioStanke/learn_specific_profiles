@@ -7,7 +7,7 @@ logger.setLevel(logging.DEBUG)
 
 from modules import position_conversion as pc
 from modules import SequenceRepresentation as sr
-from modules import sequtils as su
+from modules import utils
 
 class TestModelDataSite(unittest.TestCase):
     def setUp(self):
@@ -75,8 +75,8 @@ class TestModelDataSite(unittest.TestCase):
             seqstr_trans = seq_trans.getSequence()
 
             triplet = seqstr[i:i+3]
-            assert triplet in su.genetic_code
-            aa = su.genetic_code[triplet]
+            assert triplet in utils._genetic_code
+            aa = utils._genetic_code[triplet]
 
             # dna -> aa pos
             f, aa_pos = pc.dna_to_aa(i)
@@ -94,8 +94,8 @@ class TestModelDataSite(unittest.TestCase):
             seqstr_rc_trans = seq_rc_trans.getSequence()
 
             triplet = seqstr_rc[i:i+3]
-            assert triplet in su.genetic_code
-            aa = su.genetic_code[triplet]
+            assert triplet in utils._genetic_code
+            aa = utils._genetic_code[triplet]
 
             # dna -> aa pos
             f, aa_pos = pc.dna_to_aa(i)
@@ -144,7 +144,7 @@ class TestModelDataSite(unittest.TestCase):
         self.assertEqual(a_f0, 2)
         self.assertEqual(t0_seq.getSequence()[a_f0:a_f0+6], "FQQCAR")
         self.assertEqual(pc.aa_to_dna(f0, a_f0), a)
-        self.assertEqual(su.sequence_translation(fwd_seq[pc.aa_to_dna(f0, a_f0) : pc.aa_to_dna(f0, a_f0) + k_dna]),
+        self.assertEqual(utils.sequence_translation(fwd_seq[pc.aa_to_dna(f0, a_f0) : pc.aa_to_dna(f0, a_f0) + k_dna]),
                          "FQQCAR")
 
         f1, a_f1 = pc.dna_to_aa(a+1)
@@ -152,7 +152,7 @@ class TestModelDataSite(unittest.TestCase):
         self.assertEqual(a_f1, 2)
         self.assertEqual(t1_seq.getSequence()[a_f1:a_f1+5], "FNNVH")
         self.assertEqual(pc.aa_to_dna(f1, a_f1), a+1)
-        self.assertEqual(su.sequence_translation(fwd_seq[pc.aa_to_dna(f1, a_f1) : pc.aa_to_dna(f1, a_f1) + k_dna-1]),
+        self.assertEqual(utils.sequence_translation(fwd_seq[pc.aa_to_dna(f1, a_f1) : pc.aa_to_dna(f1, a_f1) + k_dna-1]),
                          "FNNVH")
 
         f2, a_f2 = pc.dna_to_aa(a+2)
@@ -160,7 +160,7 @@ class TestModelDataSite(unittest.TestCase):
         self.assertEqual(a_f2, 2)
         self.assertEqual(t2_seq.getSequence()[a_f2:a_f2+5], "STMCT")
         self.assertEqual(pc.aa_to_dna(f2, a_f2), a+2)
-        self.assertEqual(su.sequence_translation(fwd_seq[pc.aa_to_dna(f2, a_f2) : pc.aa_to_dna(f2, a_f2) + k_dna-2]),
+        self.assertEqual(utils.sequence_translation(fwd_seq[pc.aa_to_dna(f2, a_f2) : pc.aa_to_dna(f2, a_f2) + k_dna-2]),
                          "STMCT")
 
         f3, a_f3 = pc.dna_to_aa(a_rc)
@@ -180,7 +180,7 @@ class TestModelDataSite(unittest.TestCase):
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f3, a_f3), len(fwd_seq)), 23)
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f3, a_f3+k_f3)-1, len(fwd_seq)), a)
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f3, a_f3+k_f3)-1, len(fwd_seq)), 6)
-        self.assertEqual(su.sequence_translation(
+        self.assertEqual(utils.sequence_translation(
                             fwd_seq[pc.rc_to_fwd(pc.aa_to_dna(f3, a_f3+k_f3)-1, len(fwd_seq)) 
                                     : pc.rc_to_fwd(pc.aa_to_dna(f3, a_f3), len(fwd_seq))+1], rc=True),
                          "SCTLLK")
@@ -203,7 +203,7 @@ class TestModelDataSite(unittest.TestCase):
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f4, a_f4), len(fwd_seq)), 22)
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f4, a_f4+k_f4)-1, len(fwd_seq)), a+2)
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f4, a_f4+k_f4)-1, len(fwd_seq)), 8)
-        self.assertEqual(su.sequence_translation(
+        self.assertEqual(utils.sequence_translation(
                             fwd_seq[pc.rc_to_fwd(pc.aa_to_dna(f4, a_f4+k_f4)-1, len(fwd_seq)) 
                                     : pc.rc_to_fwd(pc.aa_to_dna(f4, a_f4), len(fwd_seq))+1], rc=True),
                          "RAHC*")
@@ -225,7 +225,7 @@ class TestModelDataSite(unittest.TestCase):
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f5, a_f5), len(fwd_seq)), 21)
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f5, a_f5+k_f5)-1, len(fwd_seq)), a+1)
         self.assertEqual(pc.rc_to_fwd(pc.aa_to_dna(f5, a_f5+k_f5)-1, len(fwd_seq)), 7)
-        self.assertEqual(su.sequence_translation(
+        self.assertEqual(utils.sequence_translation(
                             fwd_seq[pc.rc_to_fwd(pc.aa_to_dna(f5, a_f5+k_f5)-1, len(fwd_seq)) 
                                     : pc.rc_to_fwd(pc.aa_to_dna(f5, a_f5), len(fwd_seq))+1], rc=True),
                          "VHIVE")

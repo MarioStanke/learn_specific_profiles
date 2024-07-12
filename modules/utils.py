@@ -1,5 +1,7 @@
 # general useful stuff
 
+import numpy as np
+
 def full_stack():
     """ Call this in an exception clause to output the full stack trace of an exception. """
     import traceback, sys
@@ -73,3 +75,13 @@ def sequence_translation(S: str, rc = False):
             prot += _genetic_code[codon]
             
     return prot
+
+
+# more stuff
+
+def oneHot(seq, alphabet): # one hot encoding of a sequence
+    oh = np.zeros((len(seq), len(alphabet)))
+    for i, c in enumerate(seq):
+        if c in alphabet:
+            oh[i,alphabet.index(c)] = 1.0
+    return oh

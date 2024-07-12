@@ -7,8 +7,7 @@ logger.setLevel(logging.DEBUG)
 
 from modules import ModelDataSet as mds
 from modules import SequenceRepresentation as sr
-from modules import sequtils as su
-from modules.ProfileFindingSetup import _oneHot
+from modules import utils
 
 class TestModelDataSite(unittest.TestCase):
     def setUp(self):
@@ -121,13 +120,13 @@ class TestModelDataSite(unittest.TestCase):
             tile_size = len(dummydata[2][0]) # longest seq
 
             X = np.zeros((4, 3, 2, tile_size, len(alphabet)), dtype=np.float32) # (ntiles, N, frame_dim, ...)
-            X[0,0,0,:len(dummydata[0][0]),:] = _oneHot(dummydata[0][0], alphabet)
-            X[1,0,0,:len(dummydata[0][1]),:] = _oneHot(dummydata[0][1], alphabet)
-            X[0,1,0,:len(dummydata[1][0]),:] = _oneHot(dummydata[1][0], alphabet)
-            X[1,1,0,:len(dummydata[1][1]),:] = _oneHot(dummydata[1][1], alphabet)
-            X[2,1,0,:len(dummydata[1][2]),:] = _oneHot(dummydata[1][2], alphabet)
-            X[3,1,0,:len(dummydata[1][3]),:] = _oneHot(dummydata[1][3], alphabet)
-            X[0,2,0,:len(dummydata[2][0]),:] = _oneHot(dummydata[2][0], alphabet)
+            X[0,0,0,:len(dummydata[0][0]),:] = utils.oneHot(dummydata[0][0], alphabet)
+            X[1,0,0,:len(dummydata[0][1]),:] = utils.oneHot(dummydata[0][1], alphabet)
+            X[0,1,0,:len(dummydata[1][0]),:] = utils.oneHot(dummydata[1][0], alphabet)
+            X[1,1,0,:len(dummydata[1][1]),:] = utils.oneHot(dummydata[1][1], alphabet)
+            X[2,1,0,:len(dummydata[1][2]),:] = utils.oneHot(dummydata[1][2], alphabet)
+            X[3,1,0,:len(dummydata[1][3]),:] = utils.oneHot(dummydata[1][3], alphabet)
+            X[0,2,0,:len(dummydata[2][0]),:] = utils.oneHot(dummydata[2][0], alphabet)
             
             # data set with tiles big enough to fit all sequences in one tile, and enough tiles to fit all sequences
             # in one X
@@ -301,24 +300,24 @@ class TestModelDataSite(unittest.TestCase):
                     # do the conversion manually for clarity
                     fwd_dna_seq = data.training_data.getSequence(g,s,f).genomic_sequence.getSequence()
                     if f == 0:
-                        tseq = su.sequence_translation(fwd_dna_seq)
+                        tseq = utils.sequence_translation(fwd_dna_seq)
                         fwd_dna_pos = start_pos*3
                     elif f == 1:
-                        tseq = su.sequence_translation(fwd_dna_seq[1:])
+                        tseq = utils.sequence_translation(fwd_dna_seq[1:])
                         fwd_dna_pos = start_pos*3 + 1
                     elif f == 2:
-                        tseq = su.sequence_translation(fwd_dna_seq[2:])
+                        tseq = utils.sequence_translation(fwd_dna_seq[2:])
                         fwd_dna_pos = start_pos*3 + 2
                     elif f == 3:
-                        tseq = su.sequence_translation(fwd_dna_seq, rc=True)
+                        tseq = utils.sequence_translation(fwd_dna_seq, rc=True)
                         rc_dna_pos = (start_pos*3) + k*3 - 1
                         fwd_dna_pos = len(fwd_dna_seq) - rc_dna_pos - 1
                     elif f == 4:
-                        tseq = su.sequence_translation(fwd_dna_seq[:-1], rc=True)
+                        tseq = utils.sequence_translation(fwd_dna_seq[:-1], rc=True)
                         rc_dna_pos =  (start_pos*3 + 1) + k*3 - 1
                         fwd_dna_pos = len(fwd_dna_seq) - rc_dna_pos - 1
                     elif f == 5:
-                        tseq = su.sequence_translation(fwd_dna_seq[:-2], rc=True)
+                        tseq = utils.sequence_translation(fwd_dna_seq[:-2], rc=True)
                         rc_dna_pos =  (start_pos*3 + 2) + k*3 - 1
                         fwd_dna_pos = len(fwd_dna_seq) - rc_dna_pos - 1
 
@@ -326,12 +325,12 @@ class TestModelDataSite(unittest.TestCase):
                     self.assertEqual(tseq[start_pos:start_pos+k], kmer)
 
                     fwd_dna_kmer = fwd_dna_seq[fwd_dna_pos:fwd_dna_pos+(3*k)]
-                    self.assertEqual(su.sequence_translation(fwd_dna_kmer, (f >= 3)), kmer)
+                    self.assertEqual(utils.sequence_translation(fwd_dna_kmer, (f >= 3)), kmer)
 
                     # test if Occurrence object has the correct position coming from convertModelSites()
                     self.assertEqual(fwd_dna_pos, occ.position)
                     extracted_kmer = occ.getSite()
-                    extracted_kmer_translated = su.sequence_translation(extracted_kmer)
+                    extracted_kmer_translated = utils.sequence_translation(extracted_kmer)
                     self.assertEqual(extracted_kmer_translated, kmer) # check if the extracted k-mer is correct
 
 
@@ -442,5 +441,5 @@ class TestModelDataSite(unittest.TestCase):
                     self.assertEqual(extracted_kmer, kmer)
                 else:
                     extracted_kmer = occ.getSite()
-                    extracted_kmer_translated = su.sequence_translation(extracted_kmer)
+                    extracted_kmer_translated = utils.sequence_translation(extracted_kmer)
                     self.assertEqual(extracted_kmer_translated, kmer)

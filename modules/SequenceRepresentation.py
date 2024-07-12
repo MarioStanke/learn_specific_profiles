@@ -83,8 +83,6 @@ class Sequence:
         try:
             json.dumps(source)
         except TypeError:
-            #print("[WARNING] >>> `source` is not serializable to JSON. This might cause problems when saving the " \
-            #      + "sequence to a JSON file.")
             logging.warning("[SequenceRepresentation.Sequence.__init__] >>> `source` is not serializable to JSON. " + \
                             "This might cause problems when saving the sequence to a JSON file.")
 
@@ -175,8 +173,7 @@ class Sequence:
     def _regenerateID(self, recursive: bool = False):
         """ Regenerate the sequence ID. Does not need to be called manually. 
             If recursive is True, also rename all elements and homologies and their elements (use with caution!). """
-        self.id = f"{self.species}:{self.chromosome}:{self.genome_start:,}-{self.genome_end:,}" #\
-                    #+ f":s{self.strand}:{self.type}"
+        self.id = f"{self.species}:{self.chromosome}:{self.genome_start:,}-{self.genome_end:,}"
         if recursive:
             if hasattr(self, 'genomic_elements'):
                 for element in self.genomic_elements:
@@ -743,9 +740,7 @@ def sequenceListToFASTA(sequences: list[Sequence|TranslatedSequence], file: str)
         seqRecords.append(SeqRecord(Seq(sequence.sequence),
                                     id = sequence.id,
                                     name = "", description = "")) # only print the ID as fasta header
-                                    #description = f"{sequence.species} {sequence.chromosome} {sequence.strand} " \
-                                    #              + f" {sequence.genome_start} {sequence.genome_end} {sequence.type}"))
-
+                                    
     SeqIO.write(seqRecords, file, "fasta")
 
 

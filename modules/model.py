@@ -5,11 +5,10 @@ import numpy as np
 import tensorflow as tf
 from time import time
 
-from . import ModelDataSet
 from . import ProfileFindingSetup
 
 
-# Helper Classes for Tracking, Training History and Reporting
+# === Helper Classes for Tracking, Training History and Reporting ======================================================
 
 class ProfilePerformanceCache:
     """ Track the best profiles found in the last cache_size epochs, needed for reporting during training. """
@@ -177,11 +176,7 @@ class ProfileReport:
         self.nlinks.append(nlinks)
 
 
-# ======================================================================================================================
-
-# Model Class
-
-# TODO: Rewrite ProfileFindingSetup to work with ModelDataSet (should be simpler)
+# === Model Class ======================================================================================================
 
 class SpecificProfile(tf.keras.Model):
     def __init__(self, 
@@ -625,7 +620,7 @@ class SpecificProfile(tf.keras.Model):
             
         # reset profiles
         if self.P_logit_init is None:
-            self.P_logit.assign(self._getRandomProfiles()) # initially, this called self.seed_P_genome() where the genomes were sampled for seeds
+            self.P_logit.assign(self._getRandomProfiles())
         else:
             self.P_logit.assign(self.P_logit_init)
             

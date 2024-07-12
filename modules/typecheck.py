@@ -89,11 +89,6 @@ def typecheck_objdict(obj: dict, expected: str, die: bool = False, log_warnings:
 def typecheck_objdict_list(obj: dict, expected: list[str], die: bool = False, log_warnings: bool = True) -> bool:
     """ Check the expected possibilities of types of an object via a `classname` key of the object's dict 
     representation. See `typecheck_objdict` for more details. """
-    # for ex in expected:
-    #     if not typecheck_objdict(obj, ex, die, log_warnings):
-    #         return False
-        
-    # return True
     if not any([typecheck_objdict(obj, ex, False, False) for ex in expected]):
         tc = typecheck_objdict(obj, " | ".join(expected), die, log_warnings)
         assert not tc

@@ -328,7 +328,8 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
             assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
             hgGenome = hgGenome[0]
             evaluator.add_result(runID, 
-                                 motifs=training.MotifWrapper(motifs=motifs, metadata=motif_meta), 
+                                 motifs=training.MotifWrapper(motifs=motifs, alphabet=parser.alphabet, 
+                                                              metadata=motif_meta), 
                                  # links=multilinks, 
                                  links=mlinks,
                                  hg_genome=hgGenome,

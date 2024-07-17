@@ -20,7 +20,13 @@ from .utils import full_stack
 class MotifWrapper():
     """ Bascially store the motifs np.ndarray together with any metadata. TODO: do this properly """
     motifs: np.ndarray
+    alphabet: list[str]
     metadata: str = None # can be anything for now, just make sure it is JSON-serializable
+
+    def __post__init__(self):
+        assert len(self.motifs.shape) == 3, f"Expected 3D array, got {self.motifs.shape}."
+        assert len(self.alphabet) == self.motifs.shape[1], \
+            f"Alphabet of length {len(self.alphabet)} does not match motif shape {self.motifs.shape}."
 
     def toDict(self) -> dict:
         # catch tensors, try to convert them to numpy first
@@ -60,10 +66,14 @@ class MotifWrapper():
         logging.debug(f"[MotifWrapper.toDict] Checking if motifs can be json-dumped")
         _ = json.dumps(motifs) # dies if not possible
 
+        logging.debug(f"[MotifWrapper.toDict] Checking if alphabet can be json-dumped")
+        _ = json.dumps(self.alphabet) # dies if not possible
+
         try:
             _ = json.dumps(self.metadata)
             return {
                 'motifs': motifs,
+                'alphabet': self.alphabet,
                 'metadata': self.metadata
             }
         except Exception as e:
@@ -71,12 +81,14 @@ class MotifWrapper():
             logging.error(f"[MotifWrapper.toDict] Exception:\n{e}")
             logging.info("[MotifWrapper.toDict] Not returning metadata")
             return {
-                'motifs': motifs
+                'motifs': motifs,
+                'alphabet': self.alphabet,
+                'metadata': None
             }
 
 
 def loadMotifWrapperFromDict(d: dict) -> MotifWrapper:
-    return MotifWrapper(np.asarray(d['motifs']), d['metadata'])
+    return MotifWrapper(np.asarray(d['motifs']), d['alphabet'], d['metadata'])
 
 
 
@@ -369,8 +381,9 @@ def trainAndEvaluate(runID,
         # get match sites of profiles and create Links
 
         profile_report = specProModel.profile_report
-        motifs = MotifWrapper(profile_report.P, {'Pthresh': [float(pt) for pt in profile_report.threshold], 
-                                                 'Ploss': [float(pl) for pl in profile_report.loss]})
+        motifs = MotifWrapper(profile_report.P, trainsetup.data.alphabet,
+                              {'Pthresh': [float(pt) for pt in profile_report.threshold], 
+                               'Ploss': [float(pl) for pl in profile_report.loss]})
         sites, sitescores = specProModel.get_profile_match_sites(trainsetup.data.getDataset(withPosTracking = True, 
                                                                                             original_data=True),
                                                                  profile_report.P, profile_report.threshold)

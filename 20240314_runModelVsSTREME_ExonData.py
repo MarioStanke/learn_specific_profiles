@@ -245,7 +245,16 @@ def main():
 
     logging.info("TensorFlow version: "+str(tf.__version__))
 
-    datamode = ModelDataSet.DataMode.DNA if args.mode == 'DNA' else ModelDataSet.DataMode.Translated
+    if args.mode == 'DNA':
+        datamode = ModelDataSet.DataMode.DNA
+    else:
+        if args.phylo_t == 0:
+            datamode = ModelDataSet.DataMode.Translated
+        else:
+            logging.warning("[main] Phylo_t is not 0.0 and data mode is set to 'Translated'. Setting data mode to " \
+                            + "'Translated_noStop', using only 20-letter aa alphabet without stop codon.")
+            datamode = ModelDataSet.DataMode.Translated_noStop
+            
     logging.info(f"[main] Data mode: {datamode}")
 
     # === LOAD DATA ===

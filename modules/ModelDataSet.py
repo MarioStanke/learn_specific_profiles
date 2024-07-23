@@ -207,6 +207,7 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
 class DataMode(Enum):
     DNA = 1
     Translated = 2
+    Translated_noStop = 3 # needed for phylo_t stuff, need a 20-letter alphabet without stop codon for this
 
 
 class _TrainingDataWrapper:
@@ -226,7 +227,8 @@ class _TrainingDataWrapper:
         trainingseqs, mapping = self._extract_training_sequences()
         self._training_sequences = trainingseqs
         self._sequence_mapping = mapping
-        self.reverse_frame_ids = [1] if datamode == DataMode.DNA else [3,4,5] if datamode == DataMode.Translated else []
+        self.reverse_frame_ids = [1] if datamode == DataMode.DNA \
+                                 else [3,4,5] if datamode in [DataMode.Translated, DataMode.Translated_noStop] else []
 
 
     def _extract_training_sequences(self) -> tuple[list[list[list[str]]], \
@@ -329,7 +331,13 @@ class ModelDataSet:
         assert all(typecheck(x, "Genome") for x in data), f"[ERROR] >>> data must be a list of Genomes"
 
         self.training_data = _TrainingDataWrapper(data, datamode, tile_size, replaceSpaceWithX)
-        self.alphabet = _DNA_ALPHABET if datamode == DataMode.DNA else _TRANSLATED_ALPHABET
+        if datamode == DataMode.DNA:
+            self.alphabet = _DNA_ALPHABET
+        elif datamode == DataMode.Translated:
+            self.alphabet = _TRANSLATED_ALPHABET
+        else:
+            self.alphabet = _TRANSLATED_ALPHABET[:-1] # remove stop codon
+
         if Q is None:
             self.Q = backgroundFreqs(self.training_data.getTrainingData(), self.alphabet)
 
@@ -382,7 +390,7 @@ class ModelDataSet:
             # logging.debug(f"[convertModelSites] {genomeIdx=} {contigIdx=} {frameIdx=} {tileStartPos=} {tilePos=} " \
             #               + f"{profileIdx=} {rawpos=} {sitelen=} {this_sitelen=}")
 
-            if self.training_data.datamode == DataMode.Translated:
+            if self.training_data.datamode in [DataMode.Translated, DataMode.Translated_noStop]:
                 assert frameIdx in range(6), \
                     f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
                 sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx).genomic_sequence

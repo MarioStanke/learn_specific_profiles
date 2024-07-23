@@ -6,6 +6,7 @@ import tensorflow as tf
 from time import time
 
 from . import ProfileFindingSetup
+from . import utils
 
 
 # === Helper Classes for Tracking, Training History and Reporting ======================================================
@@ -220,13 +221,15 @@ class SpecificProfile(tf.keras.Model):
                                 f"not {self.setup.k}")
                 self.A = None
             else:
-                Q = self.setup.phylo_t * tf.eye(20) # TODO: placeholder
+                # Q = self.setup.phylo_t * tf.eye(20) # placeholder
+                PAM1, _ = utils.read_pam(self.data.alphabet)
+                PAM1 = self.setup.phylo_t * PAM1
                 # above unit matrix should be replaced with the PAM1 rate matrix
                 # read from a file, make sure the amino acid order is corrected for
                 # tip: use the code from Felix at
                 # https://github.com/Gaius-Augustus/learnMSA/blob/e0c283eb749f6307100ccb73dd371a3d2660baf9/learnMSA/msa_hmm/AncProbsLayer.py#L291
-                # but check that the result is consistent with the literature
-                self.A = tf.linalg.expm(Q)
+                # TODO: but check that the result is consistent with the literature
+                self.A = tf.linalg.expm(PAM1)
 
         # initialize tracking and history
         self.history = TrainingHistory(self.setup.U)
@@ -386,7 +389,7 @@ class SpecificProfile(tf.keras.Model):
             logging.debug(f"[model.train.setLR] >>> Setting learning rate to {learning_rate}")
             self.opt.learning_rate.assign(learning_rate)
 
-        max_epochs = None if self.setup.n_best_profiles is None else self.setup.epochs
+        max_epochs = self.setup.epochs
         learning_rate = self.setup.learning_rate # gets altered during training
         setLR(learning_rate) # reset learning rate to initial value for safety
 
@@ -395,6 +398,7 @@ class SpecificProfile(tf.keras.Model):
         epoch_count = 0
         profilePerfCache = ProfilePerformanceCache(self.setup.profile_plateau)
         edgecase_count = 0
+        lr_reduction_cooldown = 0
         run = True
         while run:
             # run an epoch
@@ -447,7 +451,7 @@ class SpecificProfile(tf.keras.Model):
                     setLR(learning_rate)
 
             # if no profile has been found for too long, force report the current best
-            elif max_epochs is not None and profilePerfCache.epoch_count > max_epochs:
+            if profilePerfCache.epoch_count > max_epochs:
                 logging.warning("[model.train] >>> Could not find a good profile in time, " + \
                                 f"force report of profile {best_profile}")
                 edgecase = self.profile_cleanup(best_profile, epoch_count)
@@ -473,7 +477,8 @@ class SpecificProfile(tf.keras.Model):
                              f" time: {tnow-training_start_time:.2f}s") 
 
             # check if learning rate should decrease
-            if len(self.history.loss) > self.setup.lr_patience:
+            lr_reduction_cooldown -= 1
+            if lr_reduction_cooldown <= 0 and len(self.history.loss) > self.setup.lr_patience:
                 lastmin = self.history.loss[-(self.setup.lr_patience+1)] # loss before the last lr_patience epochs
                 if not any([l < lastmin for l in self.history.loss[-self.setup.lr_patience:]]):
                     logging.info("[model.train_reporting.reduceLR] >>> Loss did not decrease for " + \
@@ -481,6 +486,7 @@ class SpecificProfile(tf.keras.Model):
                                  f"{self.setup.lr_factor*learning_rate}")
                     learning_rate *= self.setup.lr_factor
                     setLR(learning_rate)
+                    lr_reduction_cooldown = self.setup.lr_patience # do not immediately reduce again after a reduction
 
             # determine if training should continue
             epoch_count += 1
@@ -490,7 +496,7 @@ class SpecificProfile(tf.keras.Model):
                     logging.warning("[model.train_reporting] >>> Training seems to be stuck in edge cases, aborting")
                     run = False
             else:
-                run = (epoch_count < self.setup.epochs)
+                run = (epoch_count < max_epochs)
                 
 
 

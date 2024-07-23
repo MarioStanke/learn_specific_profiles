@@ -189,7 +189,8 @@ class Streme:
                                                  self._faheadToSeqidcs[row.seq_ID]['inner_idx'],
                                                  self._faheadToSeqidcs[row.seq_ID]['frame_idx'])
             
-            if data.training_data.datamode == ModelDataSet.DataMode.Translated:
+            if data.training_data.datamode in [ModelDataSet.DataMode.Translated, 
+                                               ModelDataSet.DataMode.Translated_noStop]:
                 assert row.site_Strand == ".", f"Unexpected strand for AA sequence: {row.site_Strand}"
                 frame = self._faheadToSeqidcs[row.seq_ID]['frame_idx']
             else:
@@ -287,7 +288,8 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                     sequence.id = alias # set simple ID
                     flat_seqs.append(sequence)
 
-                    frame = frame_idx if data.training_data.datamode == ModelDataSet.DataMode.Translated else 0
+                    frame = frame_idx if data.training_data.datamode in [ModelDataSet.DataMode.Translated, 
+                                                                         ModelDataSet.DataMode.Translated_noStop] else 0
                     self._faheadToSeqidcs[alias] = {
                         'outer_idx': outer_idx,
                         'inner_idx': inner_idx,

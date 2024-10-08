@@ -62,7 +62,7 @@ class TrainingHistory:
     def update(self, epochHist: EpochHistory, learning_rate: float, profile_losses: np.ndarray):
         """ Add the metrics of a single epoch to the history. Required shapes of profile_losses: (U,) """
         assert profile_losses.shape == (self._U,), f"{profile_losses.shape=}"
-        self.loss.append(np.mean(epochHist.losses))
+        self.loss.append(np.mean(epochHist.losses)) # type: ignore
         self.Rmin.append(epochHist.Rmin)
         self.Rmax.append(epochHist.Rmax)
         self.Smin.append(epochHist.Smin)
@@ -86,7 +86,7 @@ class ProfileTracking:
 
 
     def addEpoch(self, epoch: int, P: np.ndarray, max_scores: np.ndarray, mean_losses: np.ndarray, 
-                 masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None):
+                 masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None): # type: ignore
         """ Add a profile to the tracking. Required shapes:
             P: (k, alphabet_size, U'), max_scores: (U',), mean_losses: (U',), masked_sites: (n, 6), 
             masked_sites_scores: (n,) where U' == len(tracking_ids). """
@@ -138,9 +138,9 @@ class ProfileReport:
         return self.P.shape[2]
 
 
-    def addProfile(self, epoch: int, P: np.ndarray, index: int, threshold: float = None, loss: float = None, 
-                   masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None, 
-                   nlinks: int = None):
+    def addProfile(self, epoch: int, P: np.ndarray, index: int, threshold: float = None, loss: float = None,  # type: ignore
+                   masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None,  # type: ignore
+                   nlinks: int = None): # type: ignore
         """ Add a profile to the report.
             Parameters:
                 epoch: epoch when the profile was reported
@@ -179,10 +179,10 @@ class ProfileReport:
 
 # === Model Class ======================================================================================================
 
-class SpecificProfile(tf.keras.Model):
+class SpecificProfile(tf.keras.Model): # type: ignore
     def __init__(self, 
                  setup: ProfileFindingSetup.ProfileFindingTrainingSetup,
-                 rand_seed: int = None, **kwargs):
+                 rand_seed: int = None, **kwargs): # type: ignore
         """
         Set up model and most metaparamters
             Parameters:
@@ -194,7 +194,7 @@ class SpecificProfile(tf.keras.Model):
 
         self.setup = setup
         self.data = setup.data
-        self.opt = tf.keras.optimizers.Adam(learning_rate=float(self.setup.learning_rate))
+        self.opt = tf.keras.optimizers.Adam(learning_rate=float(self.setup.learning_rate)) # type: ignore
 
         self.epsilon = 1e-6 # TODO: move that into setup!!
 
@@ -222,7 +222,7 @@ class SpecificProfile(tf.keras.Model):
                 self.A = None
             else:
                 # Q = self.setup.phylo_t * tf.eye(20) # placeholder
-                PAM1, _ = utils.read_pam(self.data.alphabet)
+                PAM1, _ = utils.read_pam(self.data.alphabet) # type: ignore
                 PAM1 = self.setup.phylo_t * PAM1
                 # above unit matrix should be replaced with the PAM1 rate matrix
                 # read from a file, make sure the amino acid order is corrected for
@@ -247,7 +247,7 @@ class SpecificProfile(tf.keras.Model):
             losses = self.get_mean_losses(self.data.getDataset(withPosTracking=True), Pt, Pt_logit).numpy()
             sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking=True), Pt, 
                                                               self.setup.match_score_factor * scores)
-            self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy())
+            self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy()) # type: ignore
 
     
 
@@ -405,10 +405,10 @@ class SpecificProfile(tf.keras.Model):
             steps = 0
             ds_train = self.data.getDataset(repeat = True)
             epochHist = EpochHistory()
-            for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
+            for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size) # type: ignore
                 for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size)
                     assert len(X.shape) == 5, str(X.shape)
-                    S, R, loss = self.train_step(X)
+                    S, R, loss = self.train_step(X) # type: ignore
                     epochHist.update(S, R, loss.numpy())
                     
                 steps += 1
@@ -430,7 +430,7 @@ class SpecificProfile(tf.keras.Model):
                 sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), Pt, 
                                                                   self.setup.match_score_factor * scores)
                 self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses, 
-                                               sites.numpy(), site_scores.numpy())
+                                               sites.numpy(), site_scores.numpy()) # type: ignore
 
             # check if a profile can be reported and report it
             if profilePerfCache.epoch_count >= self.setup.profile_plateau \
@@ -569,7 +569,7 @@ class SpecificProfile(tf.keras.Model):
         """ Add profile at pIdx to report profiles, mask match sites, and get newly initialized profiles """
         # get k+2s-mer, extract all k-mers, temporarily set k-mers as new profiles
         P = self.P_logit # shape: (k+2s, alphabet_size, U)
-        b = P[:,:,pIdx].numpy()
+        b = P[:,:,pIdx].numpy() # type: ignore
         Pk_logit = np.empty(shape=(self.setup.k, self.data.alphabet_size(), (2*self.setup.s)+1), dtype=np.float32)
         for s in range(b.shape[0]-self.setup.k+1):
             Pk_logit[:,:,s] = b[s:(s+self.setup.k),:]
@@ -581,17 +581,17 @@ class SpecificProfile(tf.keras.Model):
         bestIdx = tf.math.argmax(scores, axis=0).numpy()
         threshold = self.setup.match_score_factor * scores.numpy()[bestIdx]
         losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), Pk, Pk_logit)
-        minloss = tf.reduce_min(losses[bestIdx,:]).numpy()
+        minloss = tf.reduce_min(losses[bestIdx,:]).numpy() # type: ignore
         sites, sitescores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), 
                                                          Pk, threshold, bestIdx)
-        if bestIdx not in [0, Pk.shape[2]-1] or self.setup.s == 0:
+        if bestIdx not in [0, Pk.shape[2]-1] or self.setup.s == 0: # type: ignore
             returnEdgeCase = False
             # report the best k-profile
-            self.profile_report.addProfile(epoch, Pk[:,:,bestIdx].numpy(), pIdx, threshold, minloss, 
-                                           sites.numpy(), sitescores.numpy())
+            self.profile_report.addProfile(epoch, Pk[:,:,bestIdx].numpy(), pIdx, threshold, minloss,  # type: ignore
+                                           sites.numpy(), sitescores.numpy()) # type: ignore
         
             # "remove" match sites from genomes, site: <genomeIdx, contigIdx, frameIdx, tileStartPos, T-k+1_idx, U_idx>
-            for site in sites:
+            for site in sites: # type: ignore
                 if all(site.numpy()[:4] == [-1, -1, -1, -1]):
                     logging.warning(f"[model.profile_cleanup] >>> Attempted to mask {site=} in exhausted tile, " \
                                     +"skipping.")
@@ -610,15 +610,15 @@ class SpecificProfile(tf.keras.Model):
             whole_scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), self.getP()), axis=1 ).numpy()
             whole_losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), 
                                                       self.getP(), self.P_logit)
-            self.whole_profile_report.addProfile(epoch, self.getP().numpy()[:,:,pIdx], pIdx, 
+            self.whole_profile_report.addProfile(epoch, self.getP().numpy()[:,:,pIdx], pIdx,  # type: ignore
                                                  self.setup.match_score_factor * whole_scores[pIdx],
-                                                 tf.reduce_min(whole_losses[pIdx,:]).numpy())
+                                                 tf.reduce_min(whole_losses[pIdx,:]).numpy()) # type: ignore
             
         else:
             returnEdgeCase = True
             logging.info("[model.profile_cleanup] >>> Profile is an edge case, starting over")
-            self.discarded_profile_report.addProfile(epoch, Pk[:,:,bestIdx].numpy(), pIdx, threshold, minloss, 
-                                                     sites.numpy(), sitescores.numpy())
+            self.discarded_profile_report.addProfile(epoch, Pk[:,:,bestIdx].numpy(), pIdx, threshold, minloss,  # type: ignore
+                                                     sites.numpy(), sitescores.numpy()) # type: ignore
             if self.P_logit_init is not None:
                 # otherwise get stuck with this profile
                 self.P_logit_init[:,:,pIdx] = np.ones((self.P_logit_init.shape[0], self.P_logit_init.shape[1]), 
@@ -634,7 +634,7 @@ class SpecificProfile(tf.keras.Model):
     
 
 
-    def get_profile_match_sites(self, ds, P, score_threshold, pIdx: int = None):
+    def get_profile_match_sites(self, ds, P, score_threshold, pIdx: int = None): # type: ignore
         """
         Get sites in the dataset where either all or a specific profile match according to a score threshold
             Parameters:
@@ -677,8 +677,8 @@ class SpecificProfile(tf.keras.Model):
 
                 # build the sites and scores tensors (tensorflow.org/versions/r2.10/api_docs/python/tf/gather_nd)
                 _scores = tf.gather_nd(Z, I)                  # (sites, <score>)
-                _sites = tf.gather_nd(posTrack, I[:,:3])      # (sites, <g,c,f,tspos>)
-                _sites = tf.concat([_sites, I[:,3:]], axis=1) # (sites, <g,c,f,tspos,T-k+1_idx,U_idx>)
+                _sites = tf.gather_nd(posTrack, I[:,:3])      # (sites, <g,c,f,tspos>) # type: ignore
+                _sites = tf.concat([_sites, I[:,3:]], axis=1) # (sites, <g,c,f,tspos,T-k+1_idx,U_idx>) # type: ignore
 
                 if sites is None:
                     sites = _sites

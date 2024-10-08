@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import random
 import re
+import sys
 import tensorflow as tf
 from time import time
 from tqdm import tqdm
@@ -152,9 +153,14 @@ def main():
     parser.add_argument('--datadir', help = 'Path to the exon data', required = False, type = str,
                         default="/home/ebelm/genomegraph/data/241_species/20231123_subset150_NM_RefSeqBest/20240605_fixed_out_subset150_withEnforced_20_15_20_50_15_20_15_20_mammals/")
     parser.add_argument('--out', help = 'Output directory', required = True, type = str)
+    parser.add_argument('--mode', help="Data mode, either `DNA` or `Translated`", required = True, type = str, 
+                        choices = ['DNA', 'Translated'])
+    parser.add_argument('--config', help = 'Path to JSON object with training configuration. Allowed keys are all ' \
+                        + 'arguments in parsed form, i.e. no leading dashes and inner dashes (-) must be replaced by ' \
+                        + 'underscores (_) (e.g. `tile_size` instead of `--tile-size`). Given command line arguments ' \
+                        + 'overwrite the values in the config file. For arguments neither supplied via command line ' \
+                        + 'call nor the config file, the default values are used.', required = False, type = str)
     parser.add_argument('--maxexons', help = 'Maximum number of exons to use', required = False, type = int)
-    parser.add_argument('--mode', help="Data mode, either `DNA` or `Translated`", required=True, type=str, 
-                        choices=['DNA', 'Translated'])
     parser.add_argument('--no-softmasking', help = 'Removes softmasking from sequences before training', 
                         required = False, action = 'store_true')
     parser.add_argument('--rand-seed', help = 'Random seed for reproducibility', required = False, type = int)
@@ -217,26 +223,9 @@ def main():
 
     # https://docs.python.org/3/library/argparse.html#dest --> dest is automatically set to the (first) long option name
     #                                                          and dashes (-) are replaced by underscores (_)
-    if args.rand_seed is not None:
-        SEED = args.rand_seed
-        os.environ['TF_DETERMINISTIC_OPS'] = '1'
-        random.seed(SEED)
-    else:
-        SEED = None
 
-    assert os.path.isdir(args.datadir), f"[ERROR] >>> Data dir {args.datadir} not found"
-    if args.maxexons is not None:
-        assert args.maxexons > 0, f"[ERROR] >>> Maximum number of exons must be positive, not {args.maxexons}"
-        MAXEXONS = args.maxexons
-    else:
-        MAXEXONS = None
-
-    datadir = Path(args.datadir)
-    outdir = Path(args.out)
+    outdir = Path(args.out) # required, thus always set and cannot be changed by config file
     os.makedirs(outdir, exist_ok=True) # make sure that outdir exists
-
-    # store arguments in a settings dict for later reference
-    settings = vars(args)
 
     # set logfile
     logging.basicConfig(filename = outdir / "logfile.txt",
@@ -244,6 +233,45 @@ def main():
                         encoding='utf-8', level=logging.DEBUG)
 
     logging.info("TensorFlow version: "+str(tf.__version__))
+
+    # load config file if given and overwrite default values
+    if args.config is not None: # drawback: no type checking on config file values
+        conffile = Path(args.config)
+        assert conffile.is_file(), f"[ERROR] >>> Config file {conffile} not found"
+        with open(conffile, 'rt') as fh:
+            config = json.load(fh)
+
+        # overwrite default values with config values, keeping command line values if given
+        for key in config:
+            if key in vars(args):
+                arg = "--"+key.replace("_", "-")
+                if arg in sys.argv:
+                    logging.warning(f"[main] Argument '{arg}' is set via command line and config file, using command " \
+                                    + f"line value {vars(args)[key]}")
+                else:
+                    logging.info(f"[main] Set argument '{arg}' to value {config[key]} from config file")
+                    setattr(args, key, config[key])
+            else:
+                logging.warning(f"[main] Unknown key '{key}' in config file, ignoring")
+
+    # store arguments in a settings dict for later reference
+    settings = vars(args)
+
+    # handle arguments
+    if args.rand_seed is not None:
+        SEED = args.rand_seed
+        os.environ['TF_DETERMINISTIC_OPS'] = '1'
+        random.seed(SEED)
+    else:
+        SEED = None
+
+    datadir = Path(args.datadir)
+    assert datadir.is_dir(), f"[ERROR] >>> Data dir {datadir} not found"
+    if args.maxexons is not None:
+        assert args.maxexons > 0, f"[ERROR] >>> Maximum number of exons must be positive, not {args.maxexons}"
+        MAXEXONS = args.maxexons
+    else:
+        MAXEXONS = None
 
     if args.mode == 'DNA':
         datamode = ModelDataSet.DataMode.DNA
@@ -405,8 +433,8 @@ def main():
                                             plot=False)
         try:
             training.trainAndEvaluate(runID, trainsetup, evaluator, 
-                                      outdir, outprefix=f"{runID}_", 
-                                      rand_seed=SEED)
+                                      outdir, outprefix=f"{runID}_",  # type: ignore
+                                      rand_seed=SEED) # type: ignore
         except Exception as e:
             logging.error(f"[main] trainAndEvaluate failed for homology {i}, check log for details")
             logging.error(f"[main] Error message: {e}")

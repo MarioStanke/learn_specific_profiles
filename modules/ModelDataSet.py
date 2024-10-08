@@ -126,9 +126,10 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
         Set `withPosTracking` to true to be able to restore the position of a k-mer in the genome from the tile. """
     assert tile_size >= 1, f"[ERROR] >>> tile_size must be positive, non-zero (is: {tile_size})"
 
+    # convert back from bytestring to unicode, otherwise one-hot does not work!
+    rawgenomes = rawgenomes.astype('U')   # type: ignore
+    alphabet = list(alphabet.astype('U'))  # type: ignore
     # convert rawgenomes to TileableSequence objects
-    rawgenomes = rawgenomes.astype('U')   # convert back from bytestring to unicode, otherwise one-hot does not work!
-    alphabet = list(alphabet.astype('U')) 
     genomes = [ 
         [ 
             [ TileableSequence(seqs[f], tile_size, f in reverse_tiling_ids) for f in range(len(seqs)) ] \
@@ -272,7 +273,7 @@ class _TrainingDataWrapper:
                 for _ in range(n):
                     training_sequences[g].append([""] * f)
             
-        return training_sequences, sequence_mapping
+        return training_sequences, sequence_mapping # type: ignore
         
 
     def getGenomes(self) -> list[sr.Genome]:
@@ -309,7 +310,7 @@ class ModelDataSet:
 
     def __init__(self, data: list[sr.Genome], datamode: DataMode,
                  tile_size: int, tiles_per_X: int, batch_size: int, prefetch: int,
-                 Q: np.ndarray = None, replaceSpaceWithX: bool = False):
+                 Q: np.ndarray = None, replaceSpaceWithX: bool = False): # type: ignore
         """
         Note: data needs to be rectangular for tf, so smaller genomes are filled up with empty sequences internally
               such that all genomes have the same number of sequences. Keep this in mind when using .getRawData().
@@ -393,7 +394,7 @@ class ModelDataSet:
             if self.training_data.datamode in [DataMode.Translated, DataMode.Translated_noStop]:
                 assert frameIdx in range(6), \
                     f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for Translated DataMode"
-                sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx).genomic_sequence
+                sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx).genomic_sequence # type: ignore
 
                 # _dbg_seq = self.training_data.getSequence(genomeIdx, contigIdx, frameIdx)
                 # _dbg_site = _dbg_seq.getSequence()[max(0, min(rawpos, len(_dbg_seq))) : max(0, min(rawpos+this_sitelen, len(_dbg_seq)))]
@@ -419,7 +420,7 @@ class ModelDataSet:
             else:
                 assert frameIdx in [0,1], f"[ModelDataSet.convertModelSites] invalid {frameIdx=} for DNA DataMode"
                 occ_sitelen = this_sitelen
-                sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0)
+                sequence: sr.Sequence = self.training_data.getSequence(genomeIdx, contigIdx, 0) # type: ignore
                 if frameIdx == 0:
                     rc = False
                     dnapos = rawpos
@@ -454,9 +455,10 @@ class ModelDataSet:
         """ Returns a tensorflow dataset that yields batches of tiles from the given genomes. """
         genomes = self.training_data.getTrainingData(fromSource=original_data)
 
-        second_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 4), 
-                                       dtype = tf.int32) if withPosTracking \
-                            else tf.TensorSpec(shape = (0,), dtype = tf.int32)
+        second_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 4),  # type: ignore
+                                       dtype = tf.int32  # type: ignore
+                                       ) if withPosTracking \
+                            else tf.TensorSpec(shape = (0,), dtype = tf.int32)  # type: ignore
         
         ds = tf.data.Dataset.from_generator(
             createBatch,
@@ -467,9 +469,9 @@ class ModelDataSet:
                     genomes, 
                     self.training_data.reverse_frame_ids,
                     withPosTracking),
-            output_signature = (tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 
+            output_signature = (tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(),  # type: ignore
                                                        self.tile_size, self.alphabet_size()), 
-                                              dtype = tf.float32),
+                                              dtype = tf.float32),  # type: ignore
                                 second_out_sig)
         )
         

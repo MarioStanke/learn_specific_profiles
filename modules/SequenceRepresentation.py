@@ -10,6 +10,7 @@ from Bio.SeqRecord import SeqRecord
 import json
 import logging
 import os
+from pathlib import Path
 import re
 from typing import Union
 
@@ -41,8 +42,8 @@ class Sequence:
     # custom way for instance type check as isinstance() is unstable when imports are named differently across modules
     classname = "Sequence"
     
-    def __init__(self, species: str, chromosome: str, strand: str, genome_start: int, genome_end: int = None, 
-                 length: int = None, sequence: str = None, seqtype: str = 'sequence', source = None, 
+    def __init__(self, species: str, chromosome: str, strand: str, genome_start: int, genome_end: int = None,   # type: ignore
+                 length: int = None, sequence: str = None, seqtype: str = 'sequence', source = None,  # type: ignore
                  no_homology: bool = False, no_elements: bool = False) -> None:
         """ Initialize a sequence object. 
             Positions are 0-based, i.e. the first position is 0. The end position is not included in the sequence.
@@ -187,7 +188,7 @@ class Sequence:
         """ Add a genomic element to the sequence. """
         _addElementToSequence(element, self)
 
-    def addSubsequenceAsElement(self, start: int, end: int, seqtype: str, strand: str = None, source = None,
+    def addSubsequenceAsElement(self, start: int, end: int, seqtype: str, strand: str = None, source = None,  # type: ignore
                                 genomic_positions: bool = False, **kwargs):
         """ Define a subsequence of the sequence and add it as a genomic element. 
             Args:
@@ -248,7 +249,7 @@ class Sequence:
         """ Get the sequence of the sequence object. Returns None if no sequence is stored. If `rc` is True, the
             reverse complement of the sequence is returned. """
         if self.sequence is None:
-            return None
+            return None  # type: ignore
         elif rc:
             return str(Seq(self.sequence).reverse_complement())
         else:
@@ -259,7 +260,7 @@ class Sequence:
             positions are not in the range of this sequence. If `rc` is True, the reverse complement of the slice
             is returned. """
         if self.sequence is None:
-            return None
+            return None  # type: ignore
         else:
             assert start <= end, "[Sequence.getSlice] >>> `start` must be less than or equal to `end`."
             assert start >= 0, "[Sequence.getSlice] >>> `start` must be a positive integer."
@@ -267,9 +268,9 @@ class Sequence:
                 "[Sequence.getSlice] >>> `end` must be less than or equal to the length of the sequence."
             seq = self.getSequence()
             if end <= 0:
-                return None
+                return None  # type: ignore
             if start >= self.__len__():
-                return None
+                return None  # type: ignore
             
             subseq = seq[start:end]
             if rc:
@@ -283,13 +284,13 @@ class Sequence:
             sequence, only returns the overlapping part. 
             If `rc` is True, the reverse complement of the subsequence is returned. """
         if self.sequence is None:
-            return None
+            return None  # type: ignore
         else:
             seq = self.getSequence()
             if genome_end <= self.genome_start:
-                return None
+                return None  # type: ignore
             if genome_start >= self.genome_end:
-                return None
+                return None  # type: ignore
             
             start = max(0, genome_start - self.genome_start)
             end = min(genome_end - self.genome_start, len(self.sequence))
@@ -683,7 +684,7 @@ def selectLongestTranscript(sequence: Sequence) -> None:
 
 
 # create a Sequence object from a JSON file or string
-def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:
+def sequenceFromJSON(jsonfile: str = None, jsonstring: str = None) -> Sequence:  # type: ignore
     """ Create a Sequence object from a JSON file or a JSON string. 
         If both arguments are provided, the file will be used. """
     assert not (jsonfile is None and jsonstring is None), \
@@ -741,6 +742,24 @@ def loadJSONSequenceList(jsonfile: str) -> list[Sequence]:
     return [sequenceFromJSON(jsonstring = json.dumps(objdict)) for objdict in objlist]
 
 
+def loadFasta_agnostic(fastafile: Path) -> list[Sequence]:
+    """ Loads contents of a fasta file as a list of Sequence objects. Only works with DNA sequences. Agnostic means
+     that no assumption is made about the fasta headers containing relevant information, i.e.: the headers are used as
+     species names, chromosome is always set to 0, strand is always set to '+', genome_start is always set to 0. """
+    
+    assert fastafile.is_file(), f"[ERROR] >>> file `{fastafile}` must be a valid file."
+    seqRecords = list(SeqIO.parse(str(fastafile), "fasta"))
+    
+    sequences = []
+    for seqRecord in seqRecords:
+        sequence = Sequence(species = seqRecord.id, chromosome = "0", strand = "+", genome_start = 0, 
+                            sequence = str(seqRecord.seq), source = str(fastafile))
+        assert set(sequence.getSequence()).issubset(set(utils._dna_alphabet)), \
+            f"[ERROR] >>> Sequence {sequence.id} contains non-DNA characters."
+        sequences.append(sequence)
+        
+    return sequences
+
 
 def sequenceListToFASTA(sequences: list[Sequence|TranslatedSequence], file: str):
     """ Write a list of Sequence objects to a FASTA file. """
@@ -768,11 +787,11 @@ class Genome:
     # custom way for instance type check as isinstance() is unstable when imports are named differently across modules
     classname = "Genome"
 
-    def __init__(self, sequences: list[Sequence] = None):
+    def __init__(self, sequences: list[Sequence] = None):  # type: ignore
         assert sequences is None or type(sequences) == list, "[ERROR] >>> `sequences` must be None or a list of " \
                                                                            + f"Sequence objects, not {type(sequences)}."
         self.sequences: list[Sequence] = []
-        self.species: str = None
+        self.species: str = None  # type: ignore
         self._chromap = {} # chromosome map, maps chromosome names to indices in self.sequences
         if sequences is not None:
             for sequence in sequences:
@@ -807,7 +826,7 @@ class Genome:
         return iter(self.sequences)
     
     def __reversed__(self) -> list[Sequence]:
-        return reversed(self.sequences)
+        return reversed(self.sequences)  # type: ignore
     
     def __contains__(self, seq_or_chr: Union[Sequence, str]) -> bool:
         """ Return True if the genome contains the given sequence or chromosome name. """
@@ -843,7 +862,7 @@ class Genome:
 
     def getSequenceStrings(self) -> list[str]:
         """ Returns a list of all sequences strings in the genome. """
-        return [sequence.sequence for sequence in self.sequences]
+        return [sequence.sequence for sequence in self.sequences]  # type: ignore
     
     def toList(self) -> list[dict]:
         """ Returns a list of dictionary representations of the sequences in the genome. """
@@ -856,7 +875,7 @@ class Genome:
 
 
 
-def genomeFromJSON(jsonfile: str = None, jsonstring: str = None) -> Genome:
+def genomeFromJSON(jsonfile: str = None, jsonstring: str = None) -> Genome:  # type: ignore
     """ Create a Genome object from a JSON file or a JSON string.
         If both arguments are provided, the file will be used. """
     assert not (jsonfile is None and jsonstring is None), \

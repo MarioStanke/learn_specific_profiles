@@ -23,7 +23,7 @@ class ProfileFindingTrainingSetup:
     midK: int # length of kmers to intialize middle part of profiles
     s: int    # profile shift to both sides
     
-    epochs: int  # number of epochs to train (unused so far, since always training with reporting)
+    epochs: int  # max number of epochs to train until force report
     gamma: float # softmax scale (used in 'experiment' loss function)
     l2: float    # L2 reg factor
     match_score_factor: float
@@ -49,13 +49,21 @@ class ProfileFindingTrainingSetup:
     lossStrategy: str = 'experiment' #'score' #'experiment' #'softmax' (deprecated)
 
     def __post_init__(self):
+        assert self.U > 0, f"[ERROR] >>> {self.U=} must be > 0"
+        assert self.k > 0, f"[ERROR] >>> {self.k=} must be > 0"
+        assert self.midK > 0, f"[ERROR] >>> {self.midK=} must be > 0"
+        assert self.k >= self.midK, f"[ERROR] >>> {self.k=} must be >= {self.midK=}"
+        assert self.s >= 0, f"[ERROR] >>> {self.s=} must be >= 0"
+        assert self.epochs > 0, f"[ERROR] >>> {self.epochs=} must be > 0"
+        assert self.n_best_profiles > 0, f"[ERROR] >>> {self.n_best_profiles=} must be > 0"
+
         genome_sizes = [sum([len(s[0]) for s in genome]) for genome in self.data.getRawData()]
         # one training step: using batch_size*tiles_per_X*tile_size characters from each genome,
         # thus estimate an epoch via the mean genome size (sum of sequence lengths) and the characters used per step
         steps_per_epoch = max(1, 
                               np.mean(genome_sizes) // (self.data.batch_size*self.data.tiles_per_X*self.data.tile_size))
         self.steps_per_epoch = steps_per_epoch
-        self.initProfiles: np.ndarray = None
+        self.initProfiles: np.ndarray = None # type: ignore
         self.initKmerPositions: dict[str, list[Links.Occurrence]] = {}
         self.trackProfiles: list[int] = []
 
@@ -183,11 +191,11 @@ class ProfileFindingTrainingSetup:
             softmaxProfiles = np.transpose(np.exp(self.initProfiles), (1,2,0)) # axis one needs to become 0 for softmax
             softmaxProfiles = softmaxProfiles / np.sum(softmaxProfiles, axis=0)
             softmaxProfiles = np.transpose(softmaxProfiles, (2,0,1))    
-            plotting.plotLogo(softmaxProfiles)
+            plotting.plotLogo(softmaxProfiles, alphabet)
     
 
 
-    def initializeProfiles_seeds(self, rand_seed: int = None):
+    def initializeProfiles_seeds(self, rand_seed: int = None): # type: ignore
         """ Used to be model.seed_P_genome. Initializes the profiles with seeds from the genomes. 
             Sets self.initProfiles. Sets self.trackProfiles to all profiles."""
         import tensorflow as tf
@@ -199,14 +207,14 @@ class ProfileFindingTrainingSetup:
 
         lensum = sum([len(s) for s in flatg])
         weights = [len(s)/lensum for s in flatg]
-        weights = tf.nn.softmax(weights).numpy()
+        weights = tf.nn.softmax(weights).numpy() # type: ignore
+        nprng = np.random.default_rng(rand_seed)
         seqs = nprng.choice(len(flatg), self.U, replace=True, p=weights)
         ks = self.k + (2*self.s) # trained profile width (k +- shift)
-        nprng = np.random.default_rng(rand_seed)
 
         oneProfile_logit_like_Q = np.log(self.data.Q)
         P_logit_init = np.zeros((ks, self.data.alphabet_size(), self.U), dtype=np.float32)
-        for j in range(self.setup.U):
+        for j in range(self.U):
             i = seqs[j] # seq index
             assert len(flatg[i]) > ks, str(len(flatg[i]))
             pos = nprng.choice(len(flatg[i])-ks, 1)[0]

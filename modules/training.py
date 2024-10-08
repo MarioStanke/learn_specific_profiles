@@ -4,6 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from pathlib import Path
 import tensorflow as tf
 from time import time
 
@@ -21,7 +22,7 @@ class MotifWrapper():
     """ Bascially store the motifs np.ndarray together with any metadata. TODO: do this properly """
     motifs: np.ndarray
     alphabet: list[str]
-    metadata: str = None # can be anything for now, just make sure it is JSON-serializable
+    metadata: str = None # type: ignore # can be anything for now, just make sure it is JSON-serializable
 
     def __post__init__(self):
         assert len(self.motifs.shape) == 3, f"Expected 3D array, got {self.motifs.shape}."
@@ -32,7 +33,7 @@ class MotifWrapper():
         # catch tensors, try to convert them to numpy first
         if callable(getattr(self.motifs, 'numpy', None)):
             try:
-                motifs = self.motifs.numpy()
+                motifs = self.motifs.numpy() # type: ignore
             except Exception as e:
                 logging.error(f"[MotifWrapper.toDict] Error converting to numpy.")
                 logging.error(f"[MotifWrapper.toDict] Exception:\n{e}")
@@ -106,7 +107,7 @@ class TrainingEvaluation():
     trainingTime: float # time in seconds, TODO: put that in a history class or sth, does not really fit here
 
     def __post_init__(self):
-        self.nlinks = Links.nLinks(self.links)
+        self.nlinks = Links.nLinks(self.links) # type: ignore
 
     def toDict(self):
         """ Returns a JSON-writable representation of the object. """
@@ -132,6 +133,44 @@ class TrainingEvaluation():
                 logging.error(f"[TrainingEvaluation.toDict] >>> Exception:\n{e}")
 
         return d
+    
+    def toMemeTxt(self, file: Path):
+        """ Write the motifs to a text file in MEME format. """
+        if set(self.motifs.alphabet) == set('ACGT'):
+            alphabet = 'ACGT'
+        elif set(self.motifs.alphabet) == set('ACGU'):
+            alphabet = 'ACGU'
+        elif set(self.motifs.alphabet) == set('ACDEFGHIKLMNPQRSTVWY'):
+            alphabet = 'ACDEFGHIKLMNPQRSTVWY'
+        # elif set(self.motifs.alphabet[:-1]) == set('ACDEFGHIKLMNPQRSTVWY'):
+        #     alphabet = 'ACDEFGHIKLMNPQRSTVWY'
+            # todo: remove stop codon from motifs, otherwise not possible to write to MEME format
+        else:
+            raise ValueError(f"[training.TrainingEvaluation.toMemeTxt] Unknown alphabet: {self.motifs.alphabet}")
+        
+        # make sure the motif rows are in the same order as the alphabet
+        if [c for c in alphabet] != self.motifs.alphabet:
+            alphabet_map = [self.motifs.alphabet.index(c) for c in alphabet]
+            motifs = np.zeros(self.motifs.motifs.shape) # (k, alphabet_size, U_report)
+            assert len(motifs.shape) == 3, \
+                f"[training.TrainingEvaluation.toMemeTxt] Expected 3D array, got {motifs.shape}."
+            for u in range(motifs.shape[2]):
+                for i, c in enumerate(alphabet_map):
+                    motifs[:, i, u] = self.motifs.motifs[:, c, u]
+        else:
+            motifs = self.motifs.motifs
+
+        with open(file, 'wt') as fh:
+            fh.write(f"MEME version 5\n\n")
+            fh.write(f"ALPHABET= {alphabet}\n\n")
+            for u in range(motifs.shape[2]):
+                motif = motifs[:, :, u]
+                fh.write(f"MOTIF motif_{u}\n")
+                fh.write(f"letter-probability matrix: alength= {len(alphabet)} w= {motif.shape[0]}\n")
+                for k in range(motif.shape[0]):
+                    fh.write("  ".join([f"{x:.6f}" for x in motif[k,:]]) + "\n")
+                fh.write("\n")
+            fh.write("\n")
 
 
 
@@ -287,7 +326,7 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                 else:
                     s = [[seqidToSeq[occ[0]] for occ in occs] for occs in l['occs']]
 
-                links.append(Links.linkFromDict_fast(l, s))
+                links.append(Links.linkFromDict_fast(l, s)) # type: ignore
 
         if recalculate:
             hgGenome = [g for g in allGenomes if g.species == 'Homo_sapiens']
@@ -320,7 +359,7 @@ def trainAndEvaluate(runID,
                      evaluator: MultiTrainingEvaluation,
                      outdir: str, outprefix: str = "",
                      # trainingWithReporting: bool = True,
-                     rand_seed: int = None) -> None:
+                     rand_seed: int = None) -> None: # type: ignore
     """ 
     Train profiles on a given training setup and evaluate them. 
     Parameters:
@@ -346,7 +385,7 @@ def trainAndEvaluate(runID,
     assert trainsetup.initProfiles is not None, "[ERROR] >>> No seed profiles found in trainsetup."
 
     # build and randomly initialize profile model
-    tf.keras.backend.clear_session() # avoid memory cluttering by remains of old models
+    tf.keras.backend.clear_session()  # type: ignore # avoid memory cluttering by remains of old models
     specProModel = model.SpecificProfile(setup = trainsetup,
                                          rand_seed = rand_seed)
 
@@ -382,24 +421,33 @@ def trainAndEvaluate(runID,
 
         profile_report = specProModel.profile_report
         motifs = MotifWrapper(profile_report.P, trainsetup.data.alphabet,
-                              {'Pthresh': [float(pt) for pt in profile_report.threshold], 
+                              {'Pthresh': [float(pt) for pt in profile_report.threshold],  # type: ignore
                                'Ploss': [float(pl) for pl in profile_report.loss]})
         sites, sitescores = specProModel.get_profile_match_sites(trainsetup.data.getDataset(withPosTracking = True, 
                                                                                             original_data=True),
                                                                  profile_report.P, profile_report.threshold)
-        occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k)
+        occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k) # type: ignore
 
-        logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # (sites, (genomeID, contigID, pos, u, f))
+        logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
         mlinks = Links.multiLinksFromOccurrences(occurrences)
         logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
         logging.debug(f"[training.trainAndEvaluate] >>> len(mlinks) {len(mlinks)}")
-        logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}")
+        logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}") # type: ignore
 
         # add evaluation results to evaluator
         hgGenome = [g for g in trainsetup.data.training_data.getGenomes() if g.species == 'Homo_sapiens']
-        assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
-        hgGenome = hgGenome[0]
-        evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
+        assert len(hgGenome) <= 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
+        if len(hgGenome) == 1:
+            # do normal evaluation
+            hgGenome = hgGenome[0]
+            evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
+        else:
+            # assume there is no exon data with human reference and everything, bypass evaluation but still store motifs
+            logging.warning("[training.trainAndEvaluate] >>> Training data does not contain human genomes, " \
+                            + "bypassing evaluation")
+            evaluator.trainings.append(
+                TrainingEvaluation(runID, motifs, mlinks, 0, 0, 0, 0, 0, training_time)
+            )
 
         # draw link image
         kmerSites: list[Links.Occurrence] = []
@@ -407,7 +455,7 @@ def trainAndEvaluate(runID,
             kmerSites.extend(trainsetup.initKmerPositions[kmer])
         maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
                                                       sitelen = trainsetup.k)
-        img = plotting.drawGeneLinks(mlinks, 
+        img = plotting.drawGeneLinks(mlinks,  # type: ignore
                                      trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
                                      imname=os.path.join(outdir, outprefix+"links.png"), 
                                      kmerSites=kmerSites, kmerCol='deeppink',

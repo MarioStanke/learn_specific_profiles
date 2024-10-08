@@ -534,3 +534,157 @@ def combinePlots(plots: list,
     
     im.save(out, **kwargs)
     im.close()
+
+
+def scatter(
+    df: pd.DataFrame,
+    columnX: str,
+    columnY: str | list[str],
+    byColumn: str | list[str] = None,
+    lines: bool = False,
+    title: str = None,
+    label: str | list[str] = None,
+    hover: str = None,
+    xlab: str = None,
+    ylab: str = None,
+    # removeNAs: bool = True,
+    fig: go.Figure = None,
+    row=None,
+    col=None,
+):
+    """Creates a scatter plot from two numeric columns in the DataFrame.
+    Arguments:
+        df: Pandas DataFrame
+        columnX: str, column name of the x values
+        columnY: str or list of str, column name(s) of the y values (multiple traces if list)
+        byColumn: str or list of str, column name(s) of (a) categorical column(s) to color the data points, optional
+        lines: bool, add lines between data points (default: False)
+        title: str, plot title (if None, no title)
+        label: str or list of str, legend label(s) (if None, column name(s) is/are used), ignored if byColumn is given
+        hover: str, column name of a column to display on hover
+        xlab: str, label of the x-axis (if None, column name is used)
+        ylab: str, label of the y-axis (if None, column name is used)
+        # removeNAs: bool, removes all NA elements in the relevant columns if True
+        fig: Plotly GraphObjects Figure, optional, add traces to this figure instead of creating a new one
+        row: int, optional, only relevant if `fig` is a Plotly Subplots Figure
+        col: int, optional, only relevant if `fig` is a Plotly Subplots Figure"""
+    
+    # if removeNAs:
+    #     df = (
+    #         _removeNAs(df, [columnX, columnY])
+    #         if byColumn is None
+    #         else _removeNAs(df, [columnX, columnY, byColumn])
+    #     )
+    def _numConversion(df: pd.DataFrame, col: str) -> pd.DataFrame:
+        """Try to convert `col` in df to numeric. Returns a copy of df. Raises an exception if conversion fails."""
+        df = df.copy()
+        try:
+            df[col] = pd.to_numeric(df[col])
+        except Exception as e:
+            print(f"[ERROR] >>> Could not convert '{col}' to numeric:")
+            raise e
+
+        return df
+    
+    def _combineByColumns(df: pd.DataFrame, byColumns: list[str]) -> list[str]:
+        """ Given a list of column names for categorical columns, returns a new column that contains as categories all
+            combinations of the categories of the input columns. 
+            Example:
+            df with columns 'A' and 'B' and categories ['a', 'b'] and ['x', 'y'] respectively
+            returns a new column 'A_B' with categories ['a_x', 'a_y', 'b_x', 'b_y'] """
+        newcol = [] # add new category values here
+        for _, row in df.iterrows():
+            newcol.append(', '.join([f"{col} {row[col]}" for col in byColumns]))
+
+        return newcol
+    
+    def getPlotlyMarkerSymbols(i: int = None) -> list[tuple]:
+        from plotly.validators.scatter.marker import SymbolValidator
+        """Returns a list of available marker symbols. List elements are 2-tuples with
+        (symbol-id: int, symbol-name: str).
+        Supply an optional argument `i` to directly get the i-th symbol tuple. Index overflow is allowed, i.e. if the
+        symbol list has 54 elements, `i=56` would yield the third (i=2) element."""
+        raw_symbols = SymbolValidator().values
+        symbols = list()
+        for j in range(0, len(raw_symbols), 3):
+            symbol = raw_symbols[j]
+            name = raw_symbols[j + 2]
+            if "open" in name or "dot" in name:
+                continue
+            symbols.append((symbol, name))
+
+        assert sorted(symbols) == sorted(
+            set(symbols)
+        ), f"[getPlotlyMarkerSymbols]: symbols not unique: {symbols}"
+        return symbols if i is None else symbols[i % len(symbols)]
+
+
+    mode = "lines+markers" if lines else "markers"
+
+    if fig is None:
+        fig = go.Figure()
+
+    columns = columnY if type(columnY) is list else [columnY]
+    labels = None if label is None else label if type(label) is list else [label]
+    df = _numConversion(df, columnX)
+    for i, columnY in enumerate(columns):
+        df = _numConversion(df, columnY)
+        if labels is None:
+            label = columnY
+        else:
+            label = labels[i]
+
+        hovertemplate = f"{columnX}: %{{x}}<br>{columnY}: %{{y}}<br>i: %{{customdata[0]}}"
+        if hover is not None:
+            hovertemplate += f"<br>{hover}: %{{customdata[1]}}"
+
+        if byColumn is not None:
+            if type(byColumn) is list:
+                bc = '_'.join(byColumn)
+                assert bc not in df.columns, \
+                    f"[ERROR] >>> Column with name {bc} already exists in DataFrame"
+                df[bc] = _combineByColumns(df, byColumn)
+                byColumn = bc
+
+            categories = sorted(set(df[byColumn]))
+            for i, cat in enumerate(categories):
+                if hover is not None:
+                    customdata = np.stack((df[df[byColumn] == cat].index, df[df[byColumn] == cat][hover]), axis=-1)
+                else:
+                    customdata = np.stack((df[df[byColumn] == cat].index, df[df[byColumn] == cat][columnX]), axis=-1)
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=df[df[byColumn] == cat][columnX],
+                        y=df[df[byColumn] == cat][columnY],
+                        name=cat,
+                        marker_symbol=getPlotlyMarkerSymbols(i)[0],
+                        mode=mode,
+                        hovertemplate=hovertemplate,
+                        customdata=customdata,
+                    ),
+                    col=col,
+                    row=row,
+                )
+        else:
+            if hover is not None:
+                customdata = np.stack((df.index, df[hover]), axis=-1)
+            else:
+                customdata = np.stack((df.index, df[columnX]), axis=-1) # columnX just so stacking works
+            fig.add_trace(
+                go.Scatter(x=df[columnX], y=df[columnY], name=label, mode=mode,
+                           hovertemplate=hovertemplate, customdata=customdata),
+                col=col,
+                row=row,
+            )
+
+    fig.update_layout(
+        {
+            "yaxis": {"title": ylab if ylab is not None else columns[0]},
+            "xaxis": {"title": xlab if xlab is not None else columnX},
+        }
+    )
+    if title:
+        fig.update_layout({"title": title})
+
+    return fig

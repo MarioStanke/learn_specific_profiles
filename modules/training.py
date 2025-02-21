@@ -371,7 +371,7 @@ def trainAndEvaluate(runID,
         evaluator: MultiTrainingEvaluation
             To store the results of the training run.
         outdir: str
-            Directory to save results to.
+            Directory to save resulting plots to. Set to None for no saving.
         outprefix: str
             Prefix for output files.
         # trainingWithReporting: bool
@@ -417,17 +417,18 @@ def trainAndEvaluate(runID,
 
     # evaluate model (if possible)
     try:
-        # draw training history
-        fig, _ = plotting.plotHistory(specProModel.history)
-        fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
-        plt.close(fig)
+        if outdir is not None:
+            # draw training history
+            fig, _ = plotting.plotHistory(specProModel.history)
+            fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
+            plt.close(fig)
 
-        fig, _ = plotting.plotProfileLossHeatmap(specProModel.profile_tracking)
-        fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
-        plt.close(fig)
+            fig, _ = plotting.plotProfileLossHeatmap(specProModel.profile_tracking)
+            fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
+            plt.close(fig)
 
-        fig = plotting.plotBestProfileLossScatter(specProModel.profile_tracking)
-        fig.write_image(os.path.join(outdir, outprefix+"profile_loss_history_scat.png"), width=1920, height=1080)
+            fig = plotting.plotBestProfileLossScatter(specProModel.profile_tracking)
+            fig.write_image(os.path.join(outdir, outprefix+"profile_loss_history_scat.png"), width=1920, height=1080)
 
         # get match sites of profiles and create Links
 
@@ -469,7 +470,7 @@ def trainAndEvaluate(runID,
                                                       sitelen = trainsetup.k)
         img = plotting.drawGeneLinks(mlinks,  # type: ignore
                                      trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
-                                     imname=os.path.join(outdir, outprefix+"links.png"), 
+                                     imname=os.path.join(outdir, outprefix+"links.png") if outdir is not None else None, 
                                      kmerSites=kmerSites, kmerCol='deeppink',
                                      maskingSites=maskSites, maskingCol='chocolate',
                                      show=False)

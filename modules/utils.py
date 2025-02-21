@@ -1,6 +1,8 @@
 # general useful stuff
 
 import numpy as np
+from pathlib import Path
+import re
 
 def full_stack():
     """ Call this in an exception clause to output the full stack trace of an exception. """
@@ -141,3 +143,76 @@ def oneHot(seq, alphabet): # one hot encoding of a sequence
         if c in alphabet:
             oh[i,alphabet.index(c)] = 1.0
     return oh
+
+
+# read a *.meme file and extract the PWM in there
+def readMemeFile(file: Path, alph: str = 'ACGT') -> dict[str, np.ndarray]:
+    """ Read a file in meme format and extract the PWM from it as a list of numpy arrays of shape (w, a) where `w` is 
+      the width of the motiv and `a` is the alphabet size (4 by default). All motifs in the file must have the same
+      alphabet, and the alphabet must be given as second argument as a single string (default: 'ACGT').
+
+      If there are multiple motifs of the same name in the file, only the first occurrence will be parsed
+
+    Returns:
+        dict[str, np.ndarray] (map from motif name to PWM)
+    """
+    # parse reference motif PWMs
+    assert file.exists(), f"[utils.readMemeFile] Error: no file `{file}` found."
+    motifs = {}
+    with open(file) as f:
+        alphabet_seen = False
+        motif_name_seen = False
+        motif_started = False
+        motif_finished = True
+        motif_site = None
+        for line in f:
+            line = line.strip()
+            if line.startswith('ALPHABET'):
+                m = re.match(r'ALPHABET= ([A-Z]+)', line)
+                assert m, f"[utils.readMemeFile] Error: no valid alphabet in line '{line}'"
+                alphabet = m.group(1)
+                assert alphabet == alph, f"[utils.readMemeFile] Error: require alphabet '{alph}', but seen '{alphabet}'"
+                alphabet_seen = True
+
+            if line.startswith('MOTIF'):
+                assert alphabet_seen, f"[utils.readMemeFile] Error: encountered motif before alphabet in '{line}'"
+                assert motif_finished, \
+                    f"[utils.readMemeFile] Error: encountered new motif before the last was finished in '{line}'"
+                assert motif_site is None, \
+                    f"[utils.readMemeFile] Error: encountered new motif before the last was finished in '{line}'"
+                motif_id = line.split()[1]
+                motif_name_seen = True
+                motif_started = False
+                motif_finished = False
+
+                if motif_id in motifs:
+                    # reset flags to skip to next motif if this motif name was already encountered
+                    motif_name_seen = False
+                    motif_started = False
+                    motif_finished = True
+
+            if motif_name_seen:
+                if line.startswith('letter-probability matrix'):
+                    m = re.match(r'letter-probability matrix: alength= 4 w= (\d+).+', line)
+                    assert m, f"[utils.readMemeFile] Error: expected motif details, got '{line}'"
+                    motif_length = int(m.group(1))
+                    motif = np.zeros((motif_length, len(alph)))
+                    motif_started = True
+                    motif_site = 0
+                else:
+                    if not motif_started:
+                        continue
+                    elif motif_started and re.match(r'^\s*$', line):
+                        # done parsing motif, reset flags
+                        motif_name_seen = False
+                        motif_started = False
+                        motif_finished = True
+                        motif_site = None
+                        motifs[motif_id] = motif
+                    else:
+                        assert motif_site is not None, \
+                            f"[utils.readMemeFile] Error: flag motif_site not set when encountering line '{line}'"
+                        motif[motif_site] = list(map(float, line.split()))
+                        motif_site += 1
+
+    return motifs

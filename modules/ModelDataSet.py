@@ -187,12 +187,14 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                         posTrack[t,g,f,2] = f
                         posTrack[t,g,f,3] = start
 
-                    # initially had a bug with strings so that one-hot did not work. Does not apply for softmasked data.
-                    if len(tileseq) > 0 and not (tileseq.lower() == tileseq):
+                    # initially had a bug with strings so that one-hot did not work. Does not apply for softmasked data
+                    #   or tiles consisting only of out-of-alphabet characters (like 'NNNNN...' DNA or '***...' aa)
+                    if len(tileseq) > 0 and not (tileseq.lower() == tileseq or \
+                                                 not set(tileseq).issubset(set(alphabet))):
                         if (X[t,g,f] == 0).all(): 
-                            logging.warning(f"[ModelDataSet.createBatch] >>> {tileseq} {start} {tile_size} {len(tileseq)}")
-                            logging.warning(f"[ModelDataSet.createBatch] >>> {tileseq[:min(10, len(tileseq))]=}")
-                            logging.warning(f"[ModelDataSet.createBatch] >>> {X[t,g,f,:min(10, len(tileseq)),:]=}")
+                            logging.warning(f"[ModelDataSet.createBatch] >>> {alphabet=} {start=} {tile_size=} {len(tileseq)=}")
+                            logging.warning(f"[ModelDataSet.createBatch] >>> tileseq={tileseq[:min(10, len(tileseq))]}")
+                            logging.warning(f"[ModelDataSet.createBatch] >>> X[t,g,f,:,:]={X[t,g,f,:min(10, len(tileseq)),:]}")
                             raise ValueError(f"Tile {t} in genome {g} at frame {f} was not one-hot encoded")
 
                 if all([s.finished for s in sequences]):

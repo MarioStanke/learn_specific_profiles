@@ -16,136 +16,8 @@ from tqdm import tqdm
 from modules import ModelDataSet
 from modules import ProfileFindingSetup
 from modules import SequenceRepresentation
-from modules import Streme
 from modules import training
 from modules.utils import full_stack
-
-
-
-# # HOTFIX: make exon annotations unique, i.e. if the exact same region is annotated multiple times, keep only one annotation
-# def bestAnnot(annotation):
-#     """ `annotation` might be None, a string or a dict. Check if 'BestRefSeq' is part of the source """
-#     if annotation is None:
-#         return False
-#     elif type(annotation) is str:
-#         return re.search("bestrefseq", annotation) is not None
-#     else:
-#         assert type(annotation) is dict, \
-#             f"[ERROR] >>> Type of annotation {annotation} is not dict but {type(annotation)}"
-#         if "source" in annotation:
-#             return re.search("bestrefseq", annotation["source"]) is not None
-        
-#         return False
-
-
-
-# def makeAnnotationsUnique(genomes: list[SequenceRepresentation.Genome]):
-#     """ If a sequence in a genome has mutliple identical annotations w.r.t. the annotated positions, remove that 
-#         redundancy by trying to choose the best annotation """
-#     stats = {'altered_genomes': set(), 'altered_sequences': set(), 'nduplicates': 0, 'nremoved': 0}
-#     for genome in genomes:
-#         for sequence in genome:
-#             assert sequence.elementsPossible, f"[ERROR] >>> No elements possible in sequence '{sequence}'"
-#             if len(sequence.genomic_elements) <= 1:
-#                 continue
-                
-#             elements = {} # genome region to annotations
-#             for element in sequence.genomic_elements:
-#                 # without the "source", so identical annotations from different sources should group
-#                 key = element.toTuple()[:-3] 
-#                 if key not in elements:
-#                     elements[key] = []
-                    
-#                 elements[key].append(element)
-                
-#             # reduce redundant annotations
-#             for key in elements:
-#                 if len(elements[key]) > 1:
-#                     stats['altered_genomes'].add(genome.species)
-#                     stats['altered_sequences'].add(sequence.id)
-#                     stats['nduplicates'] += 1
-#                     stats['nremoved'] += len(elements[key])-1
-#                     annotQuality = [bestAnnot(element.source) for element in elements[key]]
-#                     annotation = elements[key][annotQuality.index(True)] if any(annotQuality) else elements[key][0]
-#                     elements[key] = annotation
-#                 else:
-#                     elements[key] = elements[key][0]
-                    
-#             assert all([type(elements[key]) is not list for key in elements]), \
-#                 f"[ERROR] >>> Not all elements unique: {[type(elements[key]) for key in elements]},\n\n {elements}"
-#             sequence.genomic_elements = list(elements.values())
-#             assert len(sequence.genomic_elements) == len(elements), "[ERROR] >>> new annotation length and elements " \
-#                                                           + f"length differ: {sequence.genomic_elements} vs. {elements}"
-            
-#     logging.info(f"[makeAnnotationsUnique] Found and uniq-ed {stats['nduplicates']} redundant annotations in " \
-#                  +f"{len(stats['altered_sequences'])} sequences from {len(stats['altered_genomes'])} genomes; "\
-#                  +f"removed total of {stats['nremoved']} redundant annotations")
-
-
-
-# def selectLongestTranscript(genomes: list[SequenceRepresentation.Genome]):
-#     """ If a sequence in a genome has mutliple annotations, check if any two of them overlap such that the shorter is 
-#         completely inside the longer one. If such a pair is found, discard the shorter annotation """
-#     stats = {'altered_genomes': set(), 'altered_sequences': set(), 'noverlaps': 0, 'nremoved': 0}
-#     for genome in genomes:
-#         for sequence in genome:
-#             assert sequence.elementsPossible, f"[ERROR] >>> No elements possible in sequence '{sequence}'"
-#             if len(sequence.genomic_elements) <= 1:
-#                 continue
-                
-#             elements = sorted(sequence.genomic_elements, key = lambda s: s.length) # increasing sequence length
-#             longest_elements = []
-#             for i in range(len(elements)):
-#                 has_superseq = False
-#                 for j in range(i+1, len(elements)):
-#                     if elements[i].isSubsequenceOf(elements[j]) and elements[i].strand == elements[j].strand:
-#                         has_superseq = True
-#                         break
-                    
-#                 if not has_superseq:
-#                     longest_elements.append(elements[i])
-                    
-#             assert len(longest_elements) >= 1, "[ERROR] >>> selectLongestTranscript has filtered out all elements"
-#             assert len(longest_elements) <= len(elements),"[ERROR] >>> selectLongestTranscript has duplicated something"
-#             if len(elements) > len(longest_elements):
-#                 stats['nremoved'] += len(elements) - len(longest_elements)
-#                 stats['altered_sequences'].add(sequence.id)
-#                 stats['altered_genomes'].add(genome.species)
-                
-            
-#             sequence.genomic_elements = longest_elements
-            
-#     logging.info("[selectLongestTranscript] Found and removed subsequence annotations in " \
-#                  + f"{len(stats['altered_sequences'])} sequences from {len(stats['altered_genomes'])} genomes; " \
-#                  + f"removed total of {stats['nremoved']} subsequence annotations")
-
-
-
-# def checkUniqueAnnotations(genomes: list[SequenceRepresentation.Genome]):
-#     """ Basically check if makeAnnotationsUnique() has worked """
-#     allUnique = True
-#     for genome in genomes:
-#         for sequence in genome:
-#             assert sequence.elementsPossible, f"[ERROR] >>> No elements possible in sequence '{sequence}'"
-#             if len(sequence.genomic_elements) <= 1:
-#                 continue
-                
-#             elements = {} # genome region to annotations
-#             for element in sequence.genomic_elements:
-#                 # without the "source", so identical annotations from different sources should group
-#                 key = element.toTuple()[:-3] 
-#                 if key not in elements:
-#                     elements[key] = []
-                    
-#                 elements[key].append(element)
-                
-#             # reduce redundant annotations
-#             for key in elements:
-#                 if len(elements[key]) > 1:
-#                     allUnique = False
-
-#     return allUnique
-
 
 
 def main():
@@ -163,6 +35,8 @@ def main():
                         required = False, type = int)
     parser.add_argument('--no-softmasking', help = 'Removes softmasking from sequences before training', 
                         required = False, action = 'store_true')
+    parser.add_argument('--do-not-train', help = 'Do not train the model, only evaluate the profiles', required = False,
+                        action = 'store_true')
     parser.add_argument('--rand-seed', help = 'Random seed for reproducibility', required = False, type = int)
     # add arguments for model dataset and setup options
     dataset_args = parser.add_argument_group('Dataset options')
@@ -290,109 +164,16 @@ def main():
 
     logging.info("[main] Loading sequences")
     sequences = SequenceRepresentation.loadFasta_agnostic(fasta)
-    # exonsetFiles = []
-    # warnings = []
-    # logging.info("[main] Getting exon list")
-    # for d in os.listdir(datadir):
-    #     subdir = datadir / d
-    #     if re.match(r"exon_chr.+", d) and subdir.is_dir():
-    #         seqDataFile = subdir / "profile_finding_sequence_data.json"
-    #         if not seqDataFile.is_file():
-    #             warnings.append(f"[main] Expected file {seqDataFile} but not found, skipping")
-    #             continue
-                
-    #         exonsetFiles.append(seqDataFile)
-
-    # logging.info(f"[main] {len(warnings)} warnings")
-    # for warning in warnings:
-    #     logging.warning(warning)
-        
-    # logging.info(f"[main] Number of exons: {len(exonsetFiles)}")
-    
-    # # shuffle exon list
-    # random.shuffle(exonsetFiles)
-    
     if MAXSEQS is not None and MAXSEQS < len(sequences):
         logging.info(f"[main] Limiting data to {MAXSEQS}/{len(sequences)} sequences from the input fasta")
         sequences = sequences[:MAXSEQS]
     
     genomes = [SequenceRepresentation.Genome([s]) for s in sequences]
-    # singleExonGenomes: list[list[SequenceRepresentation.Genome]] = [] # run training on these
-    # stoi = {} # species to allGenomes list index
-    # for sl in exonsetFiles:
-    #     sequences = SequenceRepresentation.loadJSONSequenceList(str(sl))
-
-    #     # assert unique sequences and unique species (i.e. only one sequence per species)
-    #     seqIDs = [seq.id for seq in sequences]
-    #     species = [seq.species for seq in sequences]
-    #     assert len(seqIDs) == len(set(seqIDs)), f"[ERROR] >>> Duplicate sequences in {sequences}"
-    #     assert len(species) == len(set(species)), f"[ERROR] >>> Duplicate species in {sequences}"
-    #     assert 'Homo_sapiens' in species, f"[ERROR] >>> Homo sapiens not in {sequences}"
-    #     assert species[0] == 'Homo_sapiens', f"[ERROR] >>> Homo sapiens not first in {sequences}"
-
-    #     skip = False
-    #     if len(sequences) <= 1:
-    #         logging.warning(f"[main] Skipping exon set {[s.id for s in sequences]} as there are not enoug sequences.")
-    #         skip = True
-    #     else:
-    #         for seq in sequences:
-    #             assert seq.hasHomologies(), f"[ERROR] >>> Sequence {seq} has no homologies"
-    #             assert len(seq.homology) == 1, f"[ERROR] >>> Sequence {seq} has not exactly one homology"
-
-    #             if seq.species == 'Homo_sapiens':
-    #                 assert seq.elementsPossible(), f"[ERROR] >>> Sequence {seq} cannot have annotations"
-    #                 if len(seq.genomic_elements) == 0:
-    #                     logging.warning(f"[main] Skipping sequence {seq} as it has no annotations")
-    #                     skip = True
-
-    #                 break
-
-    #     if skip:
-    #         continue
-
-    #     # create list of single-exon Genomes for training
-    #     seGen = []
-    #     for seq in sequences:
-    #         # make annotations and transkripts unique
-    #         SequenceRepresentation.makeAnnotationsUnique(seq)
-    #         SequenceRepresentation.selectLongestTranscript(seq)
-    #         if args.no_softmasking:
-    #             seq.removeSoftmasking()
-
-    #         seGen.append( SequenceRepresentation.Genome([seq]) )
-
-    #     singleExonGenomes.append(seGen)
-        
-    #     # store all sequences at their respective genomes
-    #     for seq in sequences:
-    #         if seq.species not in stoi:
-    #             stoi[seq.species] = len(allGenomes) # add new genome, remember index
-    #             allGenomes.append(SequenceRepresentation.Genome())
-
-    #         allGenomes[stoi[seq.species]].addSequence(seq)
     
-    # logging.info("[main] Number of homologies: "+str(len(exonsetFiles)))
-    # logging.info("[main] Total number of genomes: "+str(len(allGenomes)))
-    # logging.info("[main] Total number of sequences: "+str(sum([len(g) for g in allGenomes])))
-    # logging.info("[main] Sequences per genome: "+\
-    #              ', '.join([f"{[len(g) for g in allGenomes].count(i)} genomes with {i} sequences"\
-    #                           for i in range(max([len(g) for g in allGenomes])) \
-    #                           if [len(g) for g in allGenomes].count(i) > 0]))
-
-    # logging.info("[main] Check unique annotations: "+str(checkUniqueAnnotations(allGenomes)))
-
-    # # store all genomes for later evaluation
-    # with open(os.path.join(outdir, "allGenomes.json"), 'wt') as fh:
-    #     json.dump([g.toList() for g in allGenomes], fh)
-
     # === TRAINING ===
 
     logging.info("[main] Starting training and evaluation")
 
-    # some global settings
-    # genome_limit = 50
-    # settings['main.genome_limit'] = genome_limit # add to settings dict for later reference
-    
     # dump settings to file
     with open(outdir / "settings.json", 'wt') as fh:
         json.dump(settings, fh, indent=2)
@@ -429,7 +210,9 @@ def main():
     try:
         logging.info(f"[main] Start training and evaluation")
         training.trainAndEvaluate(fasta.name, trainsetup, evaluator, 
-                                  outdir, rand_seed=SEED) # type: ignore
+                                  outdir,  # type: ignore
+                                  do_not_train=args.do_not_train,
+                                  rand_seed=SEED) # type: ignore
     except Exception as e:
         logging.error(f"[main] trainAndEvaluate failed, check log for details")
         logging.error(f"[main] Error message: {e}")
@@ -442,79 +225,6 @@ def main():
     endtime = time()
     runtime = endtime - starttime
     logging.info(f"[main] Finished training and evaluation. Took {runtime:.2f}s")
-
-    # training iteration
-    # evaluator = training.MultiTrainingEvaluation()
-    # streme_evaluator = training.MultiTrainingEvaluation()
-    # for i, seGenomes in tqdm(enumerate(singleExonGenomes)):
-        # runID = f"{i:04}" # 0000, 0001, ...
-        # starttime = time()
-        # logging.info(f"[main] Start training and evaluation for run {runID}")
-
-        # seGenomes = seGenomes[:min(len(seGenomes), genome_limit)]
-        # # store single-exon genomes for later evaluation
-        # with open(os.path.join(outdir, f"{runID}_singleExonGenomes.json"), 'wt') as fh:
-        #     json.dump([g.toList() for g in seGenomes], fh)
-
-        # # --- train our model ---
-        # logging.info(f"[main] Start training and evaluation on model for {runID}")
-        # data = ModelDataSet.ModelDataSet(seGenomes, datamode,
-        #                                  tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
-        #                                  batch_size=args.batch_size, prefetch=args.prefetch)
-        # trainsetup = ProfileFindingSetup.ProfileFindingTrainingSetup(data,
-        #                                                              U = args.U, k = args.k, 
-        #                                                              midK = args.midK, s = args.s, 
-        #                                                              epochs = 350, gamma = args.gamma, l2 = args.l2,
-        #                                                              match_score_factor = args.match_score_factor,
-        #                                                              learning_rate = args.learning_rate,
-        #                                                              lr_patience = args.lr_patience,
-        #                                                              lr_factor = args.lr_factor,
-        #                                                              rho = args.rho, sigma = args.sigma,
-        #                                                              profile_plateau = args.profile_plateau,
-        #                                                              profile_plateau_dev = args.profile_plateau_dev,
-        #                                                              n_best_profiles = args.n_best_profiles,
-        #                                                              phylo_t = args.phylo_t)
-        # trainsetup.initializeProfiles_kmers(enforceU=args.enforceU, 
-        #                                     minU=args.minU, minOcc=args.minOcc,
-        #                                     overlapTilesize=args.overlapTilesize,
-        #                                     plot=False)
-        # try:
-        #     training.trainAndEvaluate(runID, trainsetup, evaluator, 
-        #                               outdir, outprefix=f"{runID}_",  # type: ignore
-        #                               rand_seed=SEED) # type: ignore
-        # except Exception as e:
-        #     logging.error(f"[main] trainAndEvaluate failed for homology {i}, check log for details")
-        #     logging.error(f"[main] Error message: {e}")
-        #     logging.debug(full_stack())
-        #     continue
-
-        # evaluator.dump(os.path.join(outdir, "evaluator.json")) # save after each run
-
-        # # --- run STREME ---
-        # logging.info(f"[main] Start training and evaluation on STREME for {runID}")
-        # streme_wd = os.path.join(outdir, f"{runID}_STREME")
-        # streme_runner = Streme.Streme(working_dir = streme_wd,
-        #                               k_min = args.k, k_max = args.k,
-        #                               n_best_motifs = args.n_best_profiles,
-        #                               load_streme_script= "/home/ebelm/Software/load_MEME.sh")
-        # data = ModelDataSet.ModelDataSet(seGenomes, datamode,
-        #                                  tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
-        #                                  batch_size=args.batch_size, prefetch=args.prefetch,
-        #                                  replaceSpaceWithX=True) # reset data
-        # try:
-        #     _ = streme_runner.run(runID, data, streme_evaluator, verbose=True, 
-        #                           plot_links=True, plot_onlyLinkedSeqs=False)
-        # except Exception as e:
-        #     logging.error(f"[main] STREME failed for homology {i}, check log for details")
-        #     logging.error(f"[main] Error message: {e}")
-        #     logging.debug(full_stack())
-        #     continue
-        
-        # streme_evaluator.dump(os.path.join(outdir, "streme_evaluator.json")) # save after each run
-
-        # endtime = time()
-        # runtime = endtime - starttime
-        # logging.info(f"[main] Finished training and evaluation for {runID}. Took {runtime:.2f}s")
 
 
 

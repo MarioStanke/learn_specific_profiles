@@ -359,6 +359,7 @@ def trainAndEvaluate(runID,
                      evaluator: MultiTrainingEvaluation,
                      outdir: str, outprefix: str = "",
                      # trainingWithReporting: bool = True,
+                     do_not_train: bool = False,
                      rand_seed: int = None) -> None: # type: ignore
     """ 
     Train profiles on a given training setup and evaluate them. 
@@ -375,6 +376,8 @@ def trainAndEvaluate(runID,
             Prefix for output files.
         # trainingWithReporting: bool
         #     If True, training is done with reporting, otherwise with classic training.
+        do_not_train: bool
+            If True, the model is not trained, but only the best initial profiles are returned.
         rand_seed: int
             Random seed for reproducibility.
 
@@ -392,7 +395,16 @@ def trainAndEvaluate(runID,
     # start training
     start = time()
     try:
-        specProModel.train(verbose_freq=10)
+        if not do_not_train:
+             specProModel.train(verbose_freq=10)
+        else:
+            # do not train, but return best initial profiles
+            for _ in range(trainsetup.n_best_profiles):
+                mean_losses = specProModel.get_mean_losses(specProModel.data.getDataset(withPosTracking = True), 
+                                                        specProModel.getP(), specProModel.P_logit) # (U)
+                best_profile = tf.argmin(mean_losses).numpy()
+                specProModel.profile_cleanup(best_profile, 0)
+
         end = time()
     except Exception as e:
         end = time()

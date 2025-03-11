@@ -145,6 +145,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                   kmerSites: list[Links.Occurrence] = None, kmerCol = None, 
                   maskingSites: list[Links.Occurrence] = None, maskingCol = 'darkred',
                   onlyLinkedGenes = False,
+                  connectLinks = True,
                   font = None, **kwargs) -> Image.Image:
     """
     Draw an image with sequences as horizontal bars and links as connecting lines. Returns a PIL.Image object, which
@@ -166,6 +167,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                                                  None and maskingSites are given, color is determined automatically. Use
                                                  gld.Palette class to get some color names
         onlyLinkedGenes (bool): If True, only draw genomes that have links
+        connectLinks (bool): If True (default), draw link lines, otherwise only mark the occurrences
         font (str): optional, path to an alternative font file to use for text
         **kwargs: named arguments forwarded to gld.draw()
     """
@@ -222,7 +224,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                 lgenes.append(dgid)
                 lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the site center
                 
-            drawLinks.append(gld.Link(lgenes, lpos))
+            drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks))
         else:
             lgenes = []
             lpos = []
@@ -231,7 +233,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                 lgenes.append( seqidToDrawGeneId[goccs[0].sequence.id] )
                 lpos.append( [occ.position + (occ.sitelen//2) for occ in goccs] )
 
-            drawLinks.append(gld.Link(lgenes, lpos, compressed=True))
+            drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
 
     # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
     def createAdditionalSites(sites: list[Links.Occurrence], col):

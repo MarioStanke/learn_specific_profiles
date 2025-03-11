@@ -1,6 +1,8 @@
 # general useful stuff
 
+import gzip
 import numpy as np
+import pandas as pd
 from pathlib import Path
 import re
 
@@ -146,12 +148,15 @@ def oneHot(seq, alphabet): # one hot encoding of a sequence
 
 
 # read a *.meme file and extract the PWM in there
-def readMemeFile(file: Path, alph: str = 'ACGT') -> dict[str, np.ndarray]:
+def readMemeFile(file: Path, motif_filter: list[str] = None, alph: str = 'ACGT') -> dict[str, np.ndarray]:
     """ Read a file in meme format and extract the PWM from it as a list of numpy arrays of shape (w, a) where `w` is 
       the width of the motiv and `a` is the alphabet size (4 by default). All motifs in the file must have the same
       alphabet, and the alphabet must be given as second argument as a single string (default: 'ACGT').
 
       If there are multiple motifs of the same name in the file, only the first occurrence will be parsed
+
+      You can also provide a list of motif names to filter for, in which case only the motifs with these names will be
+        returned.
 
     Returns:
         dict[str, np.ndarray] (map from motif name to PWM)
@@ -185,8 +190,8 @@ def readMemeFile(file: Path, alph: str = 'ACGT') -> dict[str, np.ndarray]:
                 motif_started = False
                 motif_finished = False
 
-                if motif_id in motifs:
-                    # reset flags to skip to next motif if this motif name was already encountered
+                if (motif_id in motifs) or (motif_filter is not None and motif_id not in motif_filter):
+                    # reset flags to skip to next motif if this motif name was already encountered or not in the filter
                     motif_name_seen = False
                     motif_started = False
                     motif_finished = True
@@ -216,3 +221,73 @@ def readMemeFile(file: Path, alph: str = 'ACGT') -> dict[str, np.ndarray]:
                         motif_site += 1
 
     return motifs
+
+
+def getMotifRC(pwm: np.ndarray, alph: str = 'ACGT', alph_comp: str = "TGCA") -> np.ndarray:
+    """ Compute the reverse complement of a single motif PWM as returned by readMemeFile(). Needs the alphabet of the
+    input pwm as well as the corresponding complement alphabet, 
+    i.e. alph_comp[i] must be the complement character of alph[i]. """
+    assert len(alph) == len(alph_comp), \
+        f"[utils.readMemeFile] Error: Alphabet sizes differ ({len(alph)} != {len(alph_comp)})"
+    assert sorted(alph) == sorted(alph_comp), \
+        f"[utils.readMemeFile] Error: Alphabet contents differ ({alph} != {alph_comp})"
+    assert pwm.shape[1] == len(alph), \
+        f"[utils.readMemeFile] Error: Alphabet size {len(alph)} does not match PWM shape {pwm.shape}"
+
+    rc = np.zeros(pwm.shape)
+    motif_len = pwm.shape[0]
+    cmap = {i: alph.find(alph_comp[i]) for i in range(len(alph))}
+    for i in range(motif_len):
+        j = motif_len-1 - i # fwd position
+        for k in range(len(alph)):
+            rc[j,cmap[k]] = pwm[i,k]
+
+    return rc
+
+
+# load a BED file and return it as a Pandas DataFrame
+def readBEDFile(filepath: Path) -> pd.DataFrame:
+    """ Load a BED file and return its content as a pd.DataFrame
+
+    Args:
+        filepath: Path - pathlib.Path object pointing to the file. If the filepath ends in `.gz`, a gzipped file is
+                         assumed and unzipped on loading
+
+    Returns:
+        pd.DataFrame with columns ['chrom', 'start', 'end', 'name', 'score', 'strand', 'signalValue', 'pValue', 
+        'qValue', 'peak']
+    """
+
+    # file format:
+    # https://genome.ucsc.edu/FAQ/FAQformat.html#format12
+    # chrom - Name of the chromosome (or contig, scaffold, etc.).
+    # chromStart - The starting position of the feature in the chromosome or scaffold. The first base in a chromosome is 
+    #              numbered 0.
+    # chromEnd - The ending position of the feature in the chromosome or scaffold. The chromEnd base is not included in 
+    #            the display of the feature.
+    # name - Name given to a region (preferably unique). Use "." if no name is assigned.
+    # score - Indicates how dark the peak will be displayed in the browser (0-1000). If all scores were '0' when the 
+    #         data was submitted to the DCC, the DCC assigned scores 1-1000 based on signal value. Ideally the average 
+    #         signalValue per base spread is between 100-1000.
+    # strand - +/- to denote strand or orientation (whenever applicable). Use "." if no orientation is assigned.
+    # signalValue - Measurement of overall (usually, average) enrichment for the region.
+    # pValue - Measurement of statistical significance (-log10). Use -1 if no pValue is assigned.
+    # qValue - Measurement of statistical significance using false discovery rate (-log10). Use -1 if no qValue is 
+    #          assigned.
+    # peak - Point-source called for this peak; 0-based offset from chromStart. Use -1 if no point-source called.
+
+    assert filepath.exists(), f"[utils.readBEDFile] Error: no file `{filepath}` found."
+    if filepath.suffix == '.gz':
+        openf = gzip.open
+    else:
+        openf = open
+
+    with openf(filepath, 'r') as f:
+        df = pd.read_csv(f, sep='\t', header=None)
+        df.columns = ['chrom', 'chromStart', 'chromEnd', 'name', 'score', 'strand', 'signalValue', 'pValue', 'qValue', 
+                      'peak']
+        # require peak to be called
+        assert not any(df['peak'] < 0), \
+            f"[utils.readBEDFile] Error: {bedfile.name}: {[str(t) for t in df.itertuples() if t.peak < 0][0]}" 
+
+        return df

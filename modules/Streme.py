@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import json
 import logging
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
@@ -327,15 +328,27 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                           'alphabet': parser.alphabet}
 
             hgGenome = [g for g in data.training_data.getGenomes() if g.species == 'Homo_sapiens']
-            assert len(hgGenome) == 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
-            hgGenome = hgGenome[0]
-            evaluator.add_result(runID, 
-                                 motifs=training.MotifWrapper(motifs=motifs, alphabet=parser.alphabet, 
-                                                              metadata=motif_meta), 
-                                 # links=multilinks, 
-                                 links=mlinks,
-                                 hg_genome=hgGenome,
-                                 time=training_time)
+            assert len(hgGenome) <= 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
+            if len(hgGenome) == 1:
+                hgGenome = hgGenome[0]
+                evaluator.add_result(runID, 
+                                    motifs=training.MotifWrapper(motifs=motifs, alphabet=parser.alphabet, 
+                                                                metadata=motif_meta), 
+                                    # links=multilinks, 
+                                    links=mlinks,
+                                    hg_genome=hgGenome,
+                                    time=training_time)
+                                    
+            else:
+                print("[WARNING] >>> Skipping classic evaluation, only storing links")
+                logging.warning(f"found {len(hgGenome)} human genomes: {hgGenome}")
+                logging.warning("Skipping classic evaluation, only storing links")
+                evaluator.trainings.append(
+                    training.TrainingEvaluation(runID, 
+                                                training.MotifWrapper(motifs=motifs, alphabet=parser.alphabet, 
+                                                                      metadata=motif_meta),
+                                                mlinks, 0, 0, 0, 0, 0, training_time)
+                )
 
         except subprocess.CalledProcessError as e:
             print(f"DEBUG: e: {e}")
@@ -352,7 +365,14 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
             try:
                 motifs, parser = self._getStremeOutputMotifs()
                 mNames = [a['id'] for a in parser.motif_attributes]
-                plotting.plotLogo(motifs, alphabet=parser.alphabet, pNames=mNames)
+                #plotting.plotLogo(motifs, alphabet=parser.alphabet, pNames=mNames)
+
+                nmotifs = motifs.shape[2]
+                fig, axs = plt.subplots(nmotifs, 1, figsize=(16, 9*nmotifs))
+                plotting.plotLogo(motifs, alphabet=parser.alphabet, pNames=mNames, ax=axs)
+                fig.savefig(os.path.join(self.working_dir, self._streme_outdir, "logos.png"), 
+                            dpi=300, bbox_inches='tight')
+                plt.close(fig)
             except Exception as e:
                 logging.error("[Streme.run] Plotting motifs failed.")
                 logging.error(f"[Streme.run] Exception:\n{e}")
@@ -364,6 +384,7 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                 img = plotting.drawGeneLinks(links=mlinks, genomes=data.training_data.getGenomes(),
                                              imname=os.path.join(self.working_dir, self._streme_outdir, "links.png"),
                                              onlyLinkedGenes=plot_onlyLinkedSeqs,
+                                             connectLinks=False,
                                              font = plot_font, **kwargs)
                 img.close()
             except Exception as e:

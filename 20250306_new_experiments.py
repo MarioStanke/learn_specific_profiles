@@ -9,6 +9,7 @@ import argparse
 import json
 import logging
 import os
+import pandas as pd
 from pathlib import Path
 import random
 import re
@@ -33,7 +34,7 @@ def main():
     parser.add_argument('--peaks', help = 'Path to one ore more tsv files with peak information, where the first ' \
                                           + 'column contains the sequence IDs (matching fasta) and the second column ' \
                                           + 'contains a peak position (0-based, relative to fasta sequence start)',
-                        required = False, type = ) # TODO
+                        required = False, type = str, nargs = '+')
     parser.add_argument('--out', help = 'Output directory', required = True, type = str)
     parser.add_argument('--mode', help="Data mode, either `DNA` or `Translated`", required = True, type = str, 
                         choices = ['DNA', 'Translated'])
@@ -183,7 +184,44 @@ def main():
     if MAXSEQS is not None and MAXSEQS < len(sequences):
         logging.info(f"[main] Limiting data to {MAXSEQS}/{len(sequences)} sequences from the input fasta")
         sequences = sequences[:MAXSEQS]
+
+    # load peak data if given
+    peaks = None
+    if args.peaks is not None:
+        for peakfile in args.peaks:
+            try:
+                assert Path(peakfile).is_file(), f"[ERROR] >>> Peak file '{peakfile}' not found"
+                df = pd.read_csv(peakfile, sep='\t', header=None, names=['seqid', 'peakpos'])
+                assert df.shape[1] >= 2, f"[ERROR] >>> Peak file '{peakfile}' must have at least two columns"
+                # only keep sequences that are in the fasta file
+                df = df[df['seqid'].isin([s.id for s in sequences])]
+                if peaks is None:
+                    df['source'] = Path(peakfile).name
+                    peaks = df
+                else:
+                    src = Path(peakfile).name
+                    if src in peaks['source'].values:
+                        logging.warning(f"[main] Peak file with same name as '{peakfile}' has already been loaded, " \
+                                        + "using full path as source name instead")
+                        src = peakfile
+                    df['source'] = src
+                    peaks = pd.concat([peaks, df], ignore_index=True)
+
+            except Exception as e:
+                logging.error(f"[main] Error while processing peak file '{peakfile}', check log for details")
+                logging.error(f"[main] Error message: {e}")
+                logging.debug(full_stack())
+
+    if peaks is not None:
+        # add the peaks as genomic elements to the sequences, then they will get drawn as well via geneLinkDraw
+        for seq in sequences:
+            peakdf = peaks[peaks['seqid'] == seq.id]
+            for peaksrc in peakdf['source'].unique():
+                for peak in peakdf[peakdf['source'] == peaksrc]['peakpos'].values:
+                    seq.addSubsequenceAsElement(start=peak, end=peak+1, seqtype=f"peak_{peaksrc}",
+                                                source=peaksrc, genomic_positions=False)
     
+    # continue creating training data
     genomes = [SequenceRepresentation.Genome([s]) for s in sequences]
 
     # make splits (either k-fold or train/test split)
@@ -212,6 +250,10 @@ def main():
     # dump settings to file
     with open(outdir / "settings.json", 'wt') as fh:
         json.dump(settings, fh, indent=2)
+
+    # # dump peaks to file if given (not needed for now, peaks are stored in the sequences)
+    # if peaks is not None:
+    #     peaks.to_csv(outdir / "peaks.tsv", sep='\t', index=False)
 
     model_evaluator_train = training.MultiTrainingEvaluation()
     model_evaluator_test = training.MultiTrainingEvaluation()

@@ -201,17 +201,17 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             assert any([occ.sequence in g for g in genomes]), f"Sequence {occ.sequence.id} not found in genomes"
 
     drawGenes = []
-    seqidToDrawGeneId = {}
+    seqidToDrawGene: dict[str, gld.Gene] = {}
     for genome in genomes:
         for sequence in genome:
             dg = gld.Gene(sequence.id, sequence.species, sequence.length, sequence.strand)
             for element in sequence.genomic_elements:
                 start, end = element.getRelativePositions(sequence, from_rc = False) # Always drawing forward strand
-                dg.addElement(element.type, start, end-1) # TODO: refactor gld to also use exclusive end positions!
+                dg.addElement(element.type, start, end)
 
             drawGenes.append(dg)
-            assert sequence.id not in seqidToDrawGeneId, f"Duplicate sequence id {sequence.id}"
-            seqidToDrawGeneId[sequence.id] = dg.id
+            assert sequence.id not in seqidToDrawGene, f"Duplicate sequence id {sequence.id}"
+            seqidToDrawGene[sequence.id] = dg
 
     # create links to draw
     drawLinks = []
@@ -220,8 +220,8 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             lgenes = []
             lpos = []
             for occ in link:
-                dgid = seqidToDrawGeneId[occ.sequence.id]
-                lgenes.append(dgid)
+                dg = seqidToDrawGene[occ.sequence.id]
+                lgenes.append(dg)
                 lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the site center
                 
             drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks))
@@ -230,20 +230,21 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             lpos = []
             for goccs in link.occs:
                 # in MultiLink, all occs from a sub-list are on the same gene
-                lgenes.append( seqidToDrawGeneId[goccs[0].sequence.id] )
+                lgenes.append( seqidToDrawGene[goccs[0].sequence.id] )
                 lpos.append( [occ.position + (occ.sitelen//2) for occ in goccs] )
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
 
+    # TODO: THIS IS NOW POSSIBLE DIRECTLY IN gld.Gene OBJECTS!!! UPDATE THIS!!!
     # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
     def createAdditionalSites(sites: list[Links.Occurrence], col):
         drawgeneidToOccs = {}
         for occ in sites:
-            dgid = seqidToDrawGeneId[occ.sequence.id]
-            if dgid not in drawgeneidToOccs:
-                drawgeneidToOccs[dgid] = []
+            dg = seqidToDrawGene[occ.sequence.id]
+            if dg.id not in drawgeneidToOccs:
+                drawgeneidToOccs[dg.id] = []
 
-            drawgeneidToOccs[dgid].append(occ.position + (occ.sitelen//2))
+            drawgeneidToOccs[dg.id].append(occ.position + (occ.sitelen//2))
 
         if len(drawgeneidToOccs.keys()) >= 2:
             # no links possible if less than two genomes

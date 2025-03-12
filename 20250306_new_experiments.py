@@ -188,13 +188,21 @@ def main():
     # load peak data if given
     peaks = None
     if args.peaks is not None:
+        logging.debug(f"[main] Loading peaks from {args.peaks}")
+        # loadFasta_agnostic stores the fasta id as species attribute in the Sequence objects, but the IDs of the
+        # Sequence objects probably differ. Thus create a mapping here to be able to match the peak data to the
+        # sequences
+        faid2seqid = {s.species: s.id for s in sequences}
         for peakfile in args.peaks:
             try:
                 assert Path(peakfile).is_file(), f"[ERROR] >>> Peak file '{peakfile}' not found"
                 df = pd.read_csv(peakfile, sep='\t', header=None, names=['seqid', 'peakpos'])
                 assert df.shape[1] >= 2, f"[ERROR] >>> Peak file '{peakfile}' must have at least two columns"
                 # only keep sequences that are in the fasta file
-                df = df[df['seqid'].isin([s.id for s in sequences])]
+                logging.debug(f"[main] {len(df.index)} peaks from {peakfile}")
+                df = df[df['seqid'].isin(faid2seqid.keys())]
+                logging.debug(f"[main] {len(df.index)} remaining peaks after filtering from {peakfile}")
+                df['seqid'] = df['seqid'].map(faid2seqid) # replace the fasta IDs with the sequence IDs
                 if peaks is None:
                     df['source'] = Path(peakfile).name
                     peaks = df
@@ -214,8 +222,10 @@ def main():
 
     if peaks is not None:
         # add the peaks as genomic elements to the sequences, then they will get drawn as well via geneLinkDraw
+        logging.debug(f"[main] Adding peaks (total: {len(peaks.index)}) to sequences")
         for seq in sequences:
             peakdf = peaks[peaks['seqid'] == seq.id]
+            logging.debug(f"[main] {len(peakdf.index)} peaks to {seq.id}")
             for peaksrc in peakdf['source'].unique():
                 for peak in peakdf[peakdf['source'] == peaksrc]['peakpos'].values:
                     seq.addSubsequenceAsElement(start=peak, end=peak+1, seqtype=f"peak_{peaksrc}",

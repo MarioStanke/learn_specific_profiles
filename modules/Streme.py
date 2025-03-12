@@ -385,7 +385,7 @@ echo "Running '"""+self.streme_exe+""" ${optionstr}'"
                                              imname=os.path.join(self.working_dir, self._streme_outdir, "links.png"),
                                              onlyLinkedGenes=plot_onlyLinkedSeqs,
                                              connectLinks=False,
-                                             font = plot_font, **kwargs)
+                                             fontpath = plot_font, **kwargs)
                 img.close()
             except Exception as e:
                 logging.error("[Streme.run] Plotting Links failed.")

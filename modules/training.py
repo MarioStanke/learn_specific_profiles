@@ -719,7 +719,7 @@ def testMotifs(runID, motifs: np.ndarray,
         # evaluate on training data
         train_sites, train_scores = dummy_model.get_profile_match_sites(traindata.getDataset(withPosTracking = True, 
                                                                                              original_data=True), 
-                                                                        motifs, score_thresholds=score_thresholds)
+                                                                        motifs, score_threshold=score_thresholds)
         train_occurrences = traindata.convertModelSites(train_sites.numpy(), k)
         train_mlinks = Links.multiLinksFromOccurrences(train_occurrences)
         train_evaluator.trainings.append(
@@ -729,7 +729,7 @@ def testMotifs(runID, motifs: np.ndarray,
         # evaluate on test data
         test_sites, test_scores = dummy_model.get_profile_match_sites(testdata.getDataset(withPosTracking = True, 
                                                                                           original_data=True), 
-                                                                      motifs, score_thresholds=score_thresholds)
+                                                                      motifs, score_threshold=score_thresholds)
         test_occurrences = testdata.convertModelSites(test_sites.numpy(), k)
         test_mlinks = Links.multiLinksFromOccurrences(test_occurrences)
         test_evaluator.trainings.append(

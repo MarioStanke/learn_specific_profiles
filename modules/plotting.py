@@ -200,6 +200,23 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
         for occ in occs:
             assert any([occ.sequence in g for g in genomes]), f"Sequence {occ.sequence.id} not found in genomes"
 
+    if kmerSites is not None or maskingSites is not None:
+        seqidToOccs: dict[str, dict[str, list[Links.Occurrence]]] = {}
+        if kmerSites is not None:
+            for occ in kmerSites:
+                if occ.sequence.id not in seqidToOccs:
+                    seqidToOccs[occ.sequence.id] = {'kmer sites': []}
+                seqidToOccs[occ.sequence.id]['kmer sites'].append(occ)
+        if maskingSites is not None:
+            for occ in maskingSites:
+                if occ.sequence.id not in seqidToOccs:
+                    seqidToOccs[occ.sequence.id] = {'masking sites': []}
+                elif 'masking sites' not in seqidToOccs[occ.sequence.id]:
+                    seqidToOccs[occ.sequence.id]['masking sites'] = []
+                seqidToOccs[occ.sequence.id]['masking sites'].append(occ)
+    else:
+        seqidToOccs = {}
+    
     drawGenes = []
     seqidToDrawGene: dict[str, gld.Gene] = {}
     for genome in genomes:
@@ -208,6 +225,11 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             for element in sequence.genomic_elements:
                 start, end = element.getRelativePositions(sequence, from_rc = False) # Always drawing forward strand
                 dg.addElement(element.type, start, end)
+            if sequence.id in seqidToOccs:
+                for siteType in seqidToOccs[sequence.id]:
+                    for occ in seqidToOccs[sequence.id][siteType]:
+                        pos = occ.position + (occ.sitelen//2)
+                        dg.addSite(siteType, pos)
 
             drawGenes.append(dg)
             assert sequence.id not in seqidToDrawGene, f"Duplicate sequence id {sequence.id}"
@@ -235,35 +257,35 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
 
-    # TODO: THIS IS NOW POSSIBLE DIRECTLY IN gld.Gene OBJECTS!!! UPDATE THIS!!!
-    # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
-    def createAdditionalSites(sites: list[Links.Occurrence], col):
-        drawgeneidToOccs = {}
-        for occ in sites:
-            dg = seqidToDrawGene[occ.sequence.id]
-            if dg.id not in drawgeneidToOccs:
-                drawgeneidToOccs[dg.id] = []
+    # # TODO: THIS IS NOW POSSIBLE DIRECTLY IN gld.Gene OBJECTS!!! UPDATE THIS!!!
+    # # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
+    # def createAdditionalSites(sites: list[Links.Occurrence], col):
+    #     drawgeneidToOccs = {}
+    #     for occ in sites:
+    #         dg = seqidToDrawGene[occ.sequence.id]
+    #         if dg.id not in drawgeneidToOccs:
+    #             drawgeneidToOccs[dg.id] = []
 
-            drawgeneidToOccs[dg.id].append(occ.position + (occ.sitelen//2))
+    #         drawgeneidToOccs[dg.id].append(occ.position + (occ.sitelen//2))
 
-        if len(drawgeneidToOccs.keys()) >= 2:
-            # no links possible if less than two genomes
-            lgenes = []
-            lpos = []
-            for gid in drawgeneidToOccs.keys():
-                lgenes.append(gid)
-                lpos.append(drawgeneidToOccs[gid])
+    #     if len(drawgeneidToOccs.keys()) >= 2:
+    #         # no links possible if less than two genomes
+    #         lgenes = []
+    #         lpos = []
+    #         for gid in drawgeneidToOccs.keys():
+    #             lgenes.append(gid)
+    #             lpos.append(drawgeneidToOccs[gid])
 
-            drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
-        else:
-            logging.warning("[plotting.drawGeneLinks.createAdditionalSites] >>> Could not "+\
-                            "create kmer sites or masking sites because less than 2 genes are involved")
+    #         drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
+    #     else:
+    #         logging.warning("[plotting.drawGeneLinks.createAdditionalSites] >>> Could not "+\
+    #                         "create kmer sites or masking sites because less than 2 genes are involved")
         
 
-    if kmerSites is not None:
-        createAdditionalSites(kmerSites, kmerCol)
-    if maskingSites is not None:
-        createAdditionalSites(maskingSites, maskingCol)
+    # if kmerSites is not None:
+    #     createAdditionalSites(kmerSites, kmerCol)
+    # if maskingSites is not None:
+    #     createAdditionalSites(maskingSites, maskingCol)
 
     # if desired, only draw genes that have links
     if onlyLinkedGenes:

@@ -619,12 +619,10 @@ def trainAndTest(runID,
                                                           sitelen = trainsetup.k)
             img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
                                          trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
-                                         imname=os.path.join(outdir, outprefix+"training_links.png"),# \
-                                            #if outdir is not None else None, 
-                                         kmerSites=kmerSites, kmerCol='deeppink',
-                                         maskingSites=maskSites, maskingCol='chocolate',
+                                         imname=os.path.join(outdir, outprefix+"training_links.png"),
+                                         kmerSites=kmerSites, maskingSites=maskSites,
                                          connectLinks=False,
-                                         show=False)
+                                         show=False, genewidth=15)
             img.close()
     except Exception as e:
         logging.error("[training.trainAndTest] >>> Storing training data failed.")
@@ -660,7 +658,7 @@ def trainAndTest(runID,
                                          imname=os.path.join(outdir, outprefix+"test_links.png"),# \
                                             #if outdir is not None else None, 
                                          connectLinks=False,
-                                         show=False)
+                                         show=False, genewidth=15)
             img.close()
     except Exception as e:
         logging.error("[training.trainAndTest] >>> Evaluation on test data failed.")

@@ -228,8 +228,8 @@ def main():
             logging.debug(f"[main] {len(peakdf.index)} peaks to {seq.id}")
             for peaksrc in peakdf['source'].unique():
                 for peak in peakdf[peakdf['source'] == peaksrc]['peakpos'].values:
-                    seq.addSubsequenceAsElement(start=peak, end=peak+1, seqtype=f"peak_{peaksrc}",
-                                                source=peaksrc, genomic_positions=False)
+                    seq.addSubsequenceAsElement(start=int(peak), end=int(peak)+1, seqtype=f"peak_{peaksrc}",
+                                                source=str(peaksrc), genomic_positions=False)
     
     # continue creating training data
     genomes = [SequenceRepresentation.Genome([s]) for s in sequences]

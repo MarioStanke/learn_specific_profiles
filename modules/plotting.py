@@ -236,7 +236,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             seqidToDrawGene[sequence.id] = dg
 
     # create links to draw
-    drawLinks = []
+    drawLinks: list[gld.Link] = []
     for link in links:
         if link.classname == 'Link':
             lgenes = []
@@ -291,7 +291,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     if onlyLinkedGenes:
         linkedGenes = set()
         for link in drawLinks:
-            linkedGenes.update(link.genes)
+            linkedGenes.update([g.id for g in link.genes])
         drawGenes = [dg for dg in drawGenes if dg.id in linkedGenes]
 
     # avoid masking kwargs and set defaults here that can be overwritten in function call

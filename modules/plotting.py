@@ -146,7 +146,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                   maskingSites: list[Links.Occurrence] = None, maskingCol = 'darkred',
                   onlyLinkedGenes = False,
                   connectLinks = True,
-                  font = None, **kwargs) -> Image.Image:
+                  fontpath = None, **kwargs) -> Image.Image:
     """
     Draw an image with sequences as horizontal bars and links as connecting lines. Returns a PIL.Image object, which
     you should remember to close!
@@ -171,8 +171,8 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
         font (str): optional, path to an alternative font file to use for text
         **kwargs: named arguments forwarded to gld.draw()
     """
-    if font is None:
-        font = _font_path
+    if fontpath is None:
+        fontpath = _font_path
 
     for link in links:
         typecheck_list(link, ['Link', 'MultiLink'], die=True)
@@ -257,36 +257,6 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
 
             drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
 
-    # # TODO: THIS IS NOW POSSIBLE DIRECTLY IN gld.Gene OBJECTS!!! UPDATE THIS!!!
-    # # also create kmer-"Link" showing the position of initial kmers and/or masking-"Link" to see where masking happened
-    # def createAdditionalSites(sites: list[Links.Occurrence], col):
-    #     drawgeneidToOccs = {}
-    #     for occ in sites:
-    #         dg = seqidToDrawGene[occ.sequence.id]
-    #         if dg.id not in drawgeneidToOccs:
-    #             drawgeneidToOccs[dg.id] = []
-
-    #         drawgeneidToOccs[dg.id].append(occ.position + (occ.sitelen//2))
-
-    #     if len(drawgeneidToOccs.keys()) >= 2:
-    #         # no links possible if less than two genomes
-    #         lgenes = []
-    #         lpos = []
-    #         for gid in drawgeneidToOccs.keys():
-    #             lgenes.append(gid)
-    #             lpos.append(drawgeneidToOccs[gid])
-
-    #         drawLinks.append(gld.Link(lgenes, lpos, connect=False, compressed=True, color=col))
-    #     else:
-    #         logging.warning("[plotting.drawGeneLinks.createAdditionalSites] >>> Could not "+\
-    #                         "create kmer sites or masking sites because less than 2 genes are involved")
-        
-
-    # if kmerSites is not None:
-    #     createAdditionalSites(kmerSites, kmerCol)
-    # if maskingSites is not None:
-    #     createAdditionalSites(maskingSites, maskingCol)
-
     # if desired, only draw genes that have links
     if onlyLinkedGenes:
         linkedGenes = set()
@@ -299,9 +269,9 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     kwargs.pop('genewidth') if 'genewidth' in kwargs else ()
     lw = 1  if 'linkwidth' not in kwargs else kwargs['linkwidth']
     kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
-    img, _ = gld.draw(drawGenes, drawLinks, font = font,
-                      genewidth = gw, linkwidth = lw, #width = (1920*2), 
-                      **kwargs)
+    img = gld.draw(drawGenes, drawLinks, fontpath = fontpath,
+                   genewidth = gw, linkwidth = lw, #width = (1920*2), 
+                   **kwargs)
     if imname:
         img.save(imname)
 

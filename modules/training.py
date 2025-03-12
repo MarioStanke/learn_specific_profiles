@@ -555,6 +555,7 @@ def trainAndTest(runID,
     # plot history if possible
     if outdir is not None:
         try:
+            logging.info(f"[training.trainAndTest] >>> Plotting history")
             # draw training history
             fig, _ = plotting.plotHistory(specProModel.history)
             fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
@@ -573,6 +574,7 @@ def trainAndTest(runID,
 
     # store and plot training data motif sites
     try:
+        logging.info(f"[training.trainAndTest] >>> Extracting and storing training info")
         profile_report = specProModel.profile_report
         motifs = MotifWrapper(profile_report.P, trainsetup.data.alphabet,
                               {'Pthresh': [float(pt) for pt in profile_report.threshold],  # type: ignore
@@ -596,6 +598,7 @@ def trainAndTest(runID,
         if outdir is not None:
             # plot logos
             try:
+                logging.info(f"[training.trainAndTest] >>> Plotting logos")
                 # create plt axes, one for each motif
                 nmotifs = profile_report.P.shape[2]
                 fig, axs = plt.subplots(nmotifs, 1, figsize=(16, 9*nmotifs))
@@ -608,6 +611,7 @@ def trainAndTest(runID,
                 logging.debug(full_stack())
 
             # draw link image
+            logging.info(f"[training.trainAndTest] >>> Plotting link image")
             kmerSites: list[Links.Occurrence] = []
             for kmer in trainsetup.initKmerPositions:
                 kmerSites.extend(trainsetup.initKmerPositions[kmer])
@@ -629,6 +633,7 @@ def trainAndTest(runID,
 
     # run model on test data
     try:
+        logging.info(f"[training.trainAndTest] >>> Running model on test data")
         profile_report = specProModel.profile_report
         motifs = MotifWrapper(profile_report.P, trainsetup.data.alphabet,
                               {'Pthresh': [float(pt) for pt in profile_report.threshold],  # type: ignore
@@ -649,6 +654,7 @@ def trainAndTest(runID,
 
         if outdir is not None:
             # draw link image
+            logging.info(f"[training.trainAndTest] >>> Plotting test link image")
             img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
                                          testdata.training_data.getGenomes(), # not really needed, but defines genome order
                                          imname=os.path.join(outdir, outprefix+"test_links.png"),# \

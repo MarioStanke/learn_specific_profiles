@@ -344,8 +344,8 @@ def main():
 
         # evaluate STREME motifs with dummy model
         if len(streme_evaluator.trainings) > splitidx:
-            motifs = streme_evaluator.trainings[splitidx].motifs.motifs
-            training.testMotifs(fasta.name, motifs,
+            motifwrapper = streme_evaluator.trainings[splitidx].motifs
+            training.testMotifs(fasta.name, motifwrapper,
                                 traindata, testdata, args.match_score_factor,
                                 streme_evaluator_train, streme_evaluator_test,
                                 outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_")

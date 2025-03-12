@@ -668,7 +668,7 @@ def trainAndTest(runID,
 
 
 
-def testMotifs(runID, motifs: np.ndarray,
+def testMotifs(runID, motifwrapper: MotifWrapper,
                traindata: ModelDataSet.ModelDataSet,
                testdata: ModelDataSet.ModelDataSet,
                match_score_factor,
@@ -694,7 +694,8 @@ def testMotifs(runID, motifs: np.ndarray,
         outprefix: str
             Prefix for output files.
       """
-    assert motifs is not None, "[ERROR] >>> No seed profiles found in trainsetup."
+    assert motifwrapper is not None, "[ERROR] >>> No seed profiles found in trainsetup."
+    motifs = motifwrapper.motifs
     assert len(motifs.shape) == 3, f"[ERROR] >>> Expected 3D array, got {motifs.shape}."
     try:
         U = motifs.shape[2]
@@ -723,7 +724,7 @@ def testMotifs(runID, motifs: np.ndarray,
         train_occurrences = traindata.convertModelSites(train_sites.numpy(), k)
         train_mlinks = Links.multiLinksFromOccurrences(train_occurrences)
         train_evaluator.trainings.append(
-            TrainingEvaluation(runID, motifs, train_mlinks, 0, 0, 0, 0, 0, 0)
+            TrainingEvaluation(runID, motifwrapper, train_mlinks, 0, 0, 0, 0, 0, 0)
         )
 
         # evaluate on test data
@@ -733,7 +734,7 @@ def testMotifs(runID, motifs: np.ndarray,
         test_occurrences = testdata.convertModelSites(test_sites.numpy(), k)
         test_mlinks = Links.multiLinksFromOccurrences(test_occurrences)
         test_evaluator.trainings.append(
-            TrainingEvaluation(runID, motifs, test_mlinks, 0, 0, 0, 0, 0, 0)
+            TrainingEvaluation(runID, motifwrapper, test_mlinks, 0, 0, 0, 0, 0, 0)
         )
 
         if outdir is not None:

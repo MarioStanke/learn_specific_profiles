@@ -8,6 +8,7 @@ with training and test sets, maybe k*l-CV, simpler evaluation of Sn, Sp, etc.
 import argparse
 import json
 import logging
+import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
@@ -19,6 +20,7 @@ from time import time
 from tqdm import tqdm
 
 
+from modules import model
 from modules import ModelDataSet
 from modules import ProfileFindingSetup
 from modules import SequenceRepresentation
@@ -268,6 +270,8 @@ def main():
     model_evaluator_train = training.MultiTrainingEvaluation()
     model_evaluator_test = training.MultiTrainingEvaluation()
     streme_evaluator = training.MultiTrainingEvaluation()
+    streme_evaluator_train = training.MultiTrainingEvaluation() # for dummy-model evaluation
+    streme_evaluator_test = training.MultiTrainingEvaluation()
     starttime = time()
 
     for splitidx, split in enumerate(data_splits):
@@ -281,12 +285,12 @@ def main():
         with open(os.path.join(outdir, f"test_sequences_{splitidx}.json"), 'wt') as fh:
             json.dump([g.toList() for g in test_sequences], fh)
 
-        data = ModelDataSet.ModelDataSet(train_sequences, datamode,
-                                         tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
-                                         batch_size=args.batch_size, prefetch=args.prefetch)
+        traindata = ModelDataSet.ModelDataSet(train_sequences, datamode,
+                                              tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
+                                              batch_size=args.batch_size, prefetch=args.prefetch)
         
         # --- train our model ---
-        trainsetup = ProfileFindingSetup.ProfileFindingTrainingSetup(data,
+        trainsetup = ProfileFindingSetup.ProfileFindingTrainingSetup(traindata,
                                                                      U = args.U, k = args.k, 
                                                                      midK = args.midK, s = args.s, 
                                                                      epochs = 350, gamma = args.gamma, l2 = args.l2,
@@ -330,7 +334,7 @@ def main():
                                n_best_motifs=args.n_best_profiles)
         try:
             logging.info(f"[main] Start STREME training and evaluation {splitidx+1}/{len(data_splits)}")
-            streme.run(splitidx, data, streme_evaluator, plot_motifs=True, plot_links=True, verbose=True)
+            streme.run(splitidx, traindata, streme_evaluator, plot_motifs=True, plot_links=True, verbose=True)
         except Exception as e:
             logging.error(f"[main] STREME failed, check log for details")
             logging.error(f"[main] Error message: {e}")
@@ -338,10 +342,16 @@ def main():
         
         streme_evaluator.dump(str(outdir / "STREME" / "streme_evaluator.json"))
 
-        # TODO: evaluate STREME profiles on test data
-        # Approach: use SpecProModel for convenience methods. Create new model with STREME profiles and evaluate,
-        #           doing a forward pass on the training data first to get thresholds and then do a pass on the test
-        #           data to get the evaluation metrics like above.
+        # evaluate STREME motifs with dummy model
+        if len(streme_evaluator.trainings) > splitidx:
+            motifs = streme_evaluator.trainings[splitidx].motifs.motifs
+            training.testMotifs(fasta.name, motifs,
+                                traindata, testdata, args.match_score_factor,
+                                streme_evaluator_train, streme_evaluator_test,
+                                outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_")
+            streme_evaluator_train.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_train.json"))
+            streme_evaluator_test.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_test.json"))
+            
 
     endtime = time()
     runtime = endtime - starttime

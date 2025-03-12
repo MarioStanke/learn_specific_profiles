@@ -14,6 +14,7 @@ from . import ModelDataSet
 from . import plotting
 from . import ProfileFindingSetup as setup
 from . import SequenceRepresentation as sr
+from . import Streme
 from .typecheck import typecheck
 from .utils import full_stack
 
@@ -663,4 +664,97 @@ def trainAndTest(runID,
     except Exception as e:
         logging.error("[training.trainAndTest] >>> Evaluation on test data failed.")
         logging.error(f"[training.trainAndTest] >>> Exception:\n{e}")
+        logging.debug(full_stack())
+
+
+
+def testMotifs(runID, motifs: np.ndarray,
+               traindata: ModelDataSet.ModelDataSet,
+               testdata: ModelDataSet.ModelDataSet,
+               match_score_factor,
+               train_evaluator: MultiTrainingEvaluation,
+               test_evaluator: MultiTrainingEvaluation,
+               outdir: str, outprefix: str = "") -> None:
+    """ Test the performance of any motifs on the training and test data.
+    Parameters:
+        runID: any
+            Identifier for the training run.
+        motifs: np.ndarray with shape (k, alphabet_size, U)
+            Motifs to test.
+        traindata: ModelDataSet.ModelDataSet
+            Training data to test the motifs on.
+        testdata: ModelDataSet.ModelDataSet
+            Test data to test the motifs on.
+        match_score_factor: float
+            Factor to multiply the maximum training data score of the motifs with to get the threshold.
+        test_evaluator: MultiTrainingEvaluation
+            To store the results of the test data evaluation.
+        outdir: str
+            Directory to save resulting plots to. Set to None for no saving.
+        outprefix: str
+            Prefix for output files.
+      """
+    assert motifs is not None, "[ERROR] >>> No seed profiles found in trainsetup."
+    assert len(motifs.shape) == 3, f"[ERROR] >>> Expected 3D array, got {motifs.shape}."
+    try:
+        U = motifs.shape[2]
+        k = motifs.shape[0]
+        dummy_setup = setup.ProfileFindingTrainingSetup(
+            traindata,
+            U = U, k = k, 
+            midK = k, s = 0, epochs=1, gamma=1.0, l2=0.0, match_score_factor=0, 
+            learning_rate=0, lr_patience=0, lr_factor=0, rho=0, sigma=0, profile_plateau=0, profile_plateau_dev=0, 
+            n_best_profiles=0, phylo_t=0)
+        dummy_setup.initProfiles = motifs # should be the logits, but we don't actually use them so it's fine
+        dummy_model = model.SpecificProfile(dummy_setup)
+        
+        # get max scores of all motifs at all sites in the training data, scores has shape (n_sites, 6)
+        score_thresholds = []
+        for pIdx in range(len(motifs.shape[2])):
+            _, scores = dummy_model.get_profile_match_sites(traindata.getDataset(withPosTracking=True, original_data=True), 
+                                                            motifs, score_threshold=0.0, pIdx=pIdx)
+            score_thresholds.append(np.max(scores) * match_score_factor)
+
+        score_thresholds = np.array(score_thresholds)
+        # evaluate on training data
+        train_sites, train_scores = dummy_model.get_profile_match_sites(traindata.getDataset(withPosTracking = True, 
+                                                                                             original_data=True), 
+                                                                        motifs, score_thresholds=score_thresholds)
+        train_occurrences = traindata.convertModelSites(train_sites.numpy(), k)
+        train_mlinks = Links.multiLinksFromOccurrences(train_occurrences)
+        train_evaluator.trainings.append(
+            TrainingEvaluation(runID, motifs, train_mlinks, 0, 0, 0, 0, 0, 0)
+        )
+
+        # evaluate on test data
+        test_sites, test_scores = dummy_model.get_profile_match_sites(testdata.getDataset(withPosTracking = True, 
+                                                                                          original_data=True), 
+                                                                      motifs, score_thresholds=score_thresholds)
+        test_occurrences = testdata.convertModelSites(test_sites.numpy(), k)
+        test_mlinks = Links.multiLinksFromOccurrences(test_occurrences)
+        test_evaluator.trainings.append(
+            TrainingEvaluation(runID, motifs, test_mlinks, 0, 0, 0, 0, 0, 0)
+        )
+
+        if outdir is not None:
+            # draw link images
+            logging.info(f"[training.testMotifs] >>> Plotting train link image")
+            img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
+                                         traindata.training_data.getGenomes(), # not really needed, but defines genome order
+                                         imname=os.path.join(outdir, outprefix+"train_links.png"),
+                                         connectLinks=False,
+                                         show=False, genewidth=15)
+            img.close()
+
+            logging.info(f"[training.testMotifs] >>> Plotting test link image")
+            img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
+                                         testdata.training_data.getGenomes(), # not really needed, but defines genome order
+                                         imname=os.path.join(outdir, outprefix+"test_links.png"),
+                                         connectLinks=False,
+                                         show=False, genewidth=15)
+            img.close()
+
+    except Exception as e:
+        logging.error("[training.testMotifs] >>> Evaluation on test data failed.")
+        logging.error(f"[training.testMotifs] >>> Exception:\n{e}")
         logging.debug(full_stack())

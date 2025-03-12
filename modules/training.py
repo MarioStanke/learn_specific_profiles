@@ -710,7 +710,7 @@ def testMotifs(runID, motifs: np.ndarray,
         
         # get max scores of all motifs at all sites in the training data, scores has shape (n_sites, 6)
         score_thresholds = []
-        for pIdx in range(len(motifs.shape[2])):
+        for pIdx in range(motifs.shape[2]):
             _, scores = dummy_model.get_profile_match_sites(traindata.getDataset(withPosTracking=True, original_data=True), 
                                                             motifs, score_threshold=0.0, pIdx=pIdx)
             score_thresholds.append(np.max(scores) * match_score_factor)

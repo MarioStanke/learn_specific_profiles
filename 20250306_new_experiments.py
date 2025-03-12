@@ -201,9 +201,9 @@ def main():
                 df = pd.read_csv(peakfile, sep='\t', header=None, names=['seqid', 'peakpos'])
                 assert df.shape[1] >= 2, f"[ERROR] >>> Peak file '{peakfile}' must have at least two columns"
                 # only keep sequences that are in the fasta file
-                logging.debug(f"[main] {len(df.index)} peaks from {peakfile}")
+                #logging.debug(f"[main] {len(df.index)} peaks from {peakfile}")
                 df = df[df['seqid'].isin(faid2seqid.keys())]
-                logging.debug(f"[main] {len(df.index)} remaining peaks after filtering from {peakfile}")
+                #logging.debug(f"[main] {len(df.index)} remaining peaks after filtering from {peakfile}")
                 df['seqid'] = df['seqid'].map(faid2seqid) # replace the fasta IDs with the sequence IDs
                 if peaks is None:
                     df['source'] = Path(peakfile).name
@@ -227,7 +227,7 @@ def main():
         logging.debug(f"[main] Adding peaks (total: {len(peaks.index)}) to sequences")
         for seq in sequences:
             peakdf = peaks[peaks['seqid'] == seq.id]
-            logging.debug(f"[main] {len(peakdf.index)} peaks to {seq.id}")
+            #logging.debug(f"[main] {len(peakdf.index)} peaks to {seq.id}")
             for peaksrc in peakdf['source'].unique():
                 for peak in peakdf[peakdf['source'] == peaksrc]['peakpos'].values:
                     seq.addSubsequenceAsElement(start=int(peak), end=int(peak)+1, seqtype=f"peak_{peaksrc}",

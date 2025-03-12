@@ -444,9 +444,9 @@ def trainAndEvaluate(runID,
                                                                  profile_report.P, profile_report.threshold)
         occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k) # type: ignore
 
-        logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
+        #logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
         mlinks = Links.multiLinksFromOccurrences(occurrences)
-        logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
+        #logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
         logging.debug(f"[training.trainAndEvaluate] >>> len(mlinks) {len(mlinks)}")
         logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}") # type: ignore
 
@@ -586,9 +586,9 @@ def trainAndTest(runID,
             profile_report.P, profile_report.threshold)
         train_occurrences = trainsetup.data.convertModelSites(train_sites.numpy(), trainsetup.k) # type: ignore
 
-        logging.debug(f"[training.trainAndTest] >>> <training> sites: {train_sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
+        #logging.debug(f"[training.trainAndTest] >>> <training> sites: {train_sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
         train_mlinks = Links.multiLinksFromOccurrences(train_occurrences)
-        logging.debug(f"[training.trainAndTest] >>> <training> mlinks[:{min(len(train_mlinks), 2)}] {train_mlinks[:min(len(train_mlinks), 2)]}")
+        #logging.debug(f"[training.trainAndTest] >>> <training> mlinks[:{min(len(train_mlinks), 2)}] {train_mlinks[:min(len(train_mlinks), 2)]}")
         logging.debug(f"[training.trainAndTest] >>> <training> len(mlinks) {len(train_mlinks)}")
         logging.debug(f"[training.trainAndTest] >>> <training> number of unique links: {Links.nLinks(train_mlinks)}") # type: ignore
 
@@ -641,9 +641,9 @@ def trainAndTest(runID,
                                                                                                original_data=True),
                                                                            profile_report.P, profile_report.threshold)
         test_occurrences = testdata.convertModelSites(test_sites.numpy(), trainsetup.k) # type: ignore
-        logging.debug(f"[training.trainAndTest] >>> <test> sites: {test_sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
+        #logging.debug(f"[training.trainAndTest] >>> <test> sites: {test_sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
         test_mlinks = Links.multiLinksFromOccurrences(test_occurrences)
-        logging.debug(f"[training.trainAndTest] >>> <test> mlinks[:{min(len(test_mlinks), 2)}] {test_mlinks[:min(len(test_mlinks), 2)]}")
+        #logging.debug(f"[training.trainAndTest] >>> <test> mlinks[:{min(len(test_mlinks), 2)}] {test_mlinks[:min(len(test_mlinks), 2)]}")
         logging.debug(f"[training.trainAndTest] >>> <test> len(mlinks) {len(test_mlinks)}")
         logging.debug(f"[training.trainAndTest] >>> <test> number of unique links: {Links.nLinks(test_mlinks)}") # type: ignore
 

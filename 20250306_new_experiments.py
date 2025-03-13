@@ -67,6 +67,9 @@ def main():
                               default=1)
     dataset_args.add_argument('--prefetch', help = 'Number of batches to prefetch', required = False, type = int,
                               default=3)
+    dataset_args.add_argument('--generate-negative-samples', help = 'Generate negative samples for test data',
+                              required = False, action = 'store_true')
+    # add arguments for model options
     model_args = parser.add_argument_group('Model options')
     model_args.add_argument('--n-best-profiles', help = 'Number of best profiles to report', required = False, 
                             type = int, default = 2)
@@ -243,7 +246,7 @@ def main():
 
     # make splits (either k-fold or train/test split)
     genomes = random.sample(genomes, len(genomes)) # shuffle genomes
-    data_splits = []
+    data_splits: list[dict[str, list[SequenceRepresentation.Genome]]] = []
     if args.k_cv > 1:
         assert args.k_cv < len(genomes), f"[ERROR] >>> Number of folds must be less than number of sequences, " \
                                          + f"not {args.k_cv} >= {len(genomes)}"
@@ -259,6 +262,33 @@ def main():
         train_size = int(args.train_fraction * len(genomes))
         data_splits.append({'train': genomes[:train_size], 'test': genomes[train_size:]})
 
+    if args.generate_negative_samples:
+        logging.info("[main] Generating negative samples for test data")
+        def _generate_negative_sequence(len, nt_bg_dist):
+            seq = ''
+            for i in range(len):
+                seq += np.random.choice(list(nt_bg_dist.keys()), p=list(nt_bg_dist.values()))
+            return seq
+
+        for i in range(len(data_splits)):
+            split = data_splits[i]
+            testgenomes: list[SequenceRepresentation.Genome] = split['test']
+            nt_bg_dist = {nt: 0 for nt in 'ACGT'}
+            for g in testgenomes:
+                for s in g:
+                    for nt in 'ACGT':
+                        nt_bg_dist[nt] += s.count(nt)
+            nt_bg_dist = {nt: nt_bg_dist[nt] / sum(nt_bg_dist.values()) for nt in nt_bg_dist}
+            neg_genomes = []
+            for g in testgenomes:
+                neg_seqs = []
+                for s in g:
+                    neg_seqs.append(SequenceRepresentation.Sequence(f"negative_{s.species}", s.chromosome, s.strand, 0,
+                                                                    _generate_negative_sequence(s.length, nt_bg_dist)))
+                neg_genomes.append(SequenceRepresentation.Genome(neg_seqs))
+
+            data_splits[i]['test_negative'] = neg_genomes
+                
     
     # === TRAINING ===
 
@@ -274,9 +304,11 @@ def main():
 
     model_evaluator_train = training.MultiTrainingEvaluation()
     model_evaluator_test = training.MultiTrainingEvaluation()
+    model_evaluator_negtest = training.MultiTrainingEvaluation() # for negative test data
     streme_evaluator = training.MultiTrainingEvaluation()
     streme_evaluator_train = training.MultiTrainingEvaluation() # for dummy-model evaluation
     streme_evaluator_test = training.MultiTrainingEvaluation()
+    streme_evaluator_negtest = training.MultiTrainingEvaluation() # for negative test data dummy-model evaluation
     starttime = time()
 
     for splitidx, split in enumerate(data_splits):
@@ -284,11 +316,15 @@ def main():
 
         train_sequences = split['train']
         test_sequences = split['test']
+        negative_test_sequences = split.get('test_negative', None)
         # store sequences for later evaluation
         with open(os.path.join(outdir, f"training_sequences_{splitidx}.json"), 'wt') as fh:
             json.dump([g.toList() for g in train_sequences], fh)
         with open(os.path.join(outdir, f"test_sequences_{splitidx}.json"), 'wt') as fh:
             json.dump([g.toList() for g in test_sequences], fh)
+        if negative_test_sequences is not None:
+            with open(os.path.join(outdir, f"negative_test_sequences_{splitidx}.json"), 'wt') as fh:
+                json.dump([g.toList() for g in negative_test_sequences], fh)
 
         traindata = ModelDataSet.ModelDataSet(train_sequences, datamode,
                                               tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
@@ -316,6 +352,13 @@ def main():
         testdata = ModelDataSet.ModelDataSet(test_sequences, datamode,
                                              tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
                                              batch_size=args.batch_size, prefetch=args.prefetch)
+        if negative_test_sequences is not None:
+            negtestdata = ModelDataSet.ModelDataSet(negative_test_sequences, datamode,
+                                                    tile_size=args.tile_size, tiles_per_X=args.tiles_per_X,
+                                                    batch_size=args.batch_size, prefetch=args.prefetch)
+        else:
+            negtestdata = None
+
         try:
             logging.info(f"[main] Start model training and evaluation {splitidx+1}/{len(data_splits)}")
             training.trainAndTest(fasta.name, trainsetup, testdata, 
@@ -332,6 +375,15 @@ def main():
         model_evaluator_test.dump(str(outdir / "evaluator_test.json"))
         if len(model_evaluator_train.trainings) > splitidx:
             model_evaluator_train.trainings[splitidx].toMemeTxt(outdir / f"profiles_{splitidx}.meme")
+
+        # evaluate model with negative data, using dummy model
+        if negative_test_sequences is not None and len(model_evaluator_train.trainings) > splitidx:
+            motifwrapper = model_evaluator_train.trainings[splitidx].motifs
+            training.testMotifs(fasta.name, motifwrapper,
+                                traindata, negtestdata, args.match_score_factor,
+                                training.MultiTrainingEvaluation(), model_evaluator_negtest,
+                                outdir=str(outdir), outprefix=f"model_{splitidx}_dummymodel_negative_")
+            model_evaluator_negtest.dump(str(outdir / "evaluator_negative_test.json"))
 
         # --- train STREME ---
         streme = Streme.Streme(working_dir=str(outdir / "STREME"),
@@ -356,6 +408,13 @@ def main():
                                 outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_")
             streme_evaluator_train.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_train.json"))
             streme_evaluator_test.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_test.json"))
+
+            if negative_test_sequences is not None:
+                training.testMotifs(fasta.name, motifwrapper,
+                                    traindata, negtestdata, args.match_score_factor,
+                                    training.MultiTrainingEvaluation(), streme_evaluator_negtest,
+                                    outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_negative_")
+                streme_evaluator_negtest.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_negative_test.json"))
             
 
     endtime = time()

@@ -283,8 +283,12 @@ def main():
             for g in testgenomes:
                 neg_seqs = []
                 for s in g:
-                    neg_seqs.append(SequenceRepresentation.Sequence(f"negative_{s.species}", s.chromosome, s.strand, 0,
-                                                                    _generate_negative_sequence(s.length, nt_bg_dist)))
+                    neg_seqs.append(SequenceRepresentation.Sequence(species=f"negative_{s.species}", 
+                                                                    chromosome=s.chromosome, 
+                                                                    strand=s.strand, 
+                                                                    genome_start=0,
+                                                                    sequence=_generate_negative_sequence(s.length, 
+                                                                                                         nt_bg_dist)))
                 neg_genomes.append(SequenceRepresentation.Genome(neg_seqs))
 
             data_splits[i]['test_negative'] = neg_genomes

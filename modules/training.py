@@ -14,7 +14,6 @@ from . import ModelDataSet
 from . import plotting
 from . import ProfileFindingSetup as setup
 from . import SequenceRepresentation as sr
-from . import Streme
 from .typecheck import typecheck
 from .utils import full_stack
 

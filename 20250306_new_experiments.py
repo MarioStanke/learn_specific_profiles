@@ -277,7 +277,7 @@ def main():
             for g in testgenomes:
                 for s in g:
                     for nt in 'ACGT':
-                        nt_bg_dist[nt] += s.count(nt)
+                        nt_bg_dist[nt] += s.sequence.count(nt)
             nt_bg_dist = {nt: nt_bg_dist[nt] / sum(nt_bg_dist.values()) for nt in nt_bg_dist}
             neg_genomes = []
             for g in testgenomes:

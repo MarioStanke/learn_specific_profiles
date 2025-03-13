@@ -230,6 +230,11 @@ def main():
             #logging.debug(f"[main] {len(peakdf.index)} peaks to {seq.id}")
             for peaksrc in peakdf['source'].unique():
                 for peak in peakdf[peakdf['source'] == peaksrc]['peakpos'].values:
+                    if peak < 0 or peak >= seq.length:
+                        logging.warning(f"[main] Peak position {peak} is out of bounds for sequence {seq.id}, " \
+                                        + f"skipping")
+                        continue
+                    
                     seq.addSubsequenceAsElement(start=int(peak), end=int(peak)+1, seqtype=f"peak_{peaksrc}",
                                                 source=str(peaksrc), genomic_positions=False)
     

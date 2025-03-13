@@ -231,9 +231,11 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                         pos = occ.position + (occ.sitelen//2)
                         dg.addSite(siteType, pos)
 
-            drawGenes.append(dg)
-            assert sequence.id not in seqidToDrawGene, f"Duplicate sequence id {sequence.id}"
-            seqidToDrawGene[sequence.id] = dg
+            if sequence.id in seqidToDrawGene: 
+                logging.warning(f"[plotting.drawGeneLinks] Duplicate sequence {sequence.id}, ignoring the second one")
+            else:
+                drawGenes.append(dg)
+                seqidToDrawGene[sequence.id] = dg
 
     # create links to draw
     drawLinks: list[gld.Link] = []

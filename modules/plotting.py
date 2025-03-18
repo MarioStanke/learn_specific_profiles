@@ -427,9 +427,10 @@ def ownHist_impl(ls, binSize=None, bins=None):
             b = _getBin(x, binSize)
             i = (b - lbin) / binSize
             assert i >= 0, f"{i=} must be greater or equal to 0 ({x=}, {binSize=}, {b=}, {lbin=})"
-            assert math.isclose(int(i), i), f"{i=} must be an integer ({x=}, {binSize=}, {b=}, {lbin=})"
+            assert math.isclose(round(i), i), \
+                f"{i=} (rounded to {round(i)}) must be an integer ({x=}, {binSize=}, {b=}, {lbin=})"
             assert i < len(vals), f"{i=} must be less than {len(vals)=} ({x=}, {binSize=}, {b=}, {lbin=})"
-            vals[int(i)] += 1
+            vals[round(i)] += 1
 
     return bins, vals, binSize
 

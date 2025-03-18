@@ -314,7 +314,7 @@ def makeVideo(path, video_name, fps = 1):
 
 # === Stuff for histograms ===
 
-def ownHist_impl(ls, binSize=None, bins=None):
+def ownHist_impl_deprecated(ls, binSize=None, bins=None):
     """ Returns two lists, the first containing the bin indices and the second the item count per bin
 
     Arguments:
@@ -365,6 +365,75 @@ def ownHist_impl(ls, binSize=None, bins=None):
 
 
 
+def ownHist_impl(ls, binSize=None, bins=None):
+    """ Returns two equal-sized lists, the first containing the bin start values and the second the item count per bin,
+        and a float value that is the bin size. The bin start values are inclusive, the end values (i.e. bin start + bin
+        size) are exclusive. All bins are the same size.
+
+    Arguments:
+        ls: list of values to create histogram from
+        binSize: optional bin size, if None it is determined to yield at most 100 bins. Is ignored if bins is not None
+                 and contains at least 2 bins. If too small, this is adjusted to only yield 100 bins.
+        bins:    optional list of bins to use, must have at least one element and pairwise bin differences must all
+                 be equal """
+    maxls = np.nanmax(ls)
+    minls = np.nanmin(ls)
+    # determine binSize
+    if binSize is None:    
+        if bins is not None and len(bins) > 1:
+            binSize = bins[1] - bins[0]
+            assert all([math.isclose(bins[i]-bins[i-1], binSize) for i in range(1,len(bins))]), "bin sizes not equal: "\
+                                                                  + str([bins[i]-bins[i-1] for i in range(1,len(bins))])
+        else:
+            if maxls == minls:
+                binSize = 1
+            elif maxls-minls < 2:
+                binSize = 0.1
+            else:
+                binSize = math.ceil(max(1, (maxls-minls)/100))
+    else:
+        assert binSize > 0, f"{binSize=} must be greater than 0"
+        # check below if binSize is too small (yields more than 100 bins), in that case adjust it
+
+    def _getBin(x, binSize):
+        return math.floor(x/binSize)*binSize
+        
+    # determine bins
+    if bins is None:
+        lbin = _getBin(minls, binSize)
+        rbin = _getBin(maxls, binSize) + binSize
+        assert rbin > lbin, f"{rbin=} must be greater than {lbin=}"
+        assert lbin <= minls, f"{lbin=} must be less than or equal to {minls=}"
+        assert minls < lbin+binSize, f"{minls=} must be less than {lbin+binSize=}"
+        assert rbin >= maxls, f"{rbin=} must be greater than or equal to {maxls=}"
+        assert maxls < rbin+binSize, f"{maxls=} must be less than {rbin+binSize=}"
+        bins = [b for b in np.arange(lbin, rbin, binSize)]
+        if len(bins) > 101:
+            logging.warning(f"[plotting.ownHist_impl] >>> Too many bins ({len(bins)}), adjusting bin size")
+            return ownHist_impl(ls, binSize=(maxls-minls)/100, bins=None)        
+    else:
+        assert len(bins) >= 1, "bins must contain at least one element"
+        if len(bins) >= 2:
+            assert all([math.isclose(bins[i]-bins[i-1], binSize) for i in range(1,len(bins))]), "bin sizes not equal: "\
+                                                                  + str([bins[i]-bins[i-1] for i in range(1,len(bins))])
+        lbin = bins[0]
+        rbin = bins[-1]
+        assert minls >= lbin, f"{lbin=} must be smaller or equal to lowest ls value {minls=}"
+        assert maxls < rbin+binSize, f"{rbin+binSize=} must be greater than biggest ls value {maxls=}"
+
+    vals = [0 for _ in bins]
+    for x in ls:
+        if not np.isnan(x):
+            b = _getBin(x, binSize)
+            i = (b - lbin) / binSize
+            assert i >= 0, f"{i=} must be greater or equal to 0 ({x=}, {binSize=}, {b=}, {lbin=})"
+            assert math.isclose(int(i), i), f"{i=} must be an integer ({x=}, {binSize=}, {b=}, {lbin=})"
+            assert i < len(vals), f"{i=} must be less than {len(vals)=} ({x=}, {binSize=}, {b=}, {lbin=})"
+            vals[int(i)] += 1
+
+    return bins, vals, binSize
+
+
 def ownHist(ls, binSize=None, bins=None):
     """ Returns two lists, the first containing the bin indices and the second the item count per bin, based on all 
         items in `ls` that are not NaN. """
@@ -375,9 +444,9 @@ def ownHist(ls, binSize=None, bins=None):
 def ownHistRel(ls, binSize=None, bins=None):
     """ Returns two lists, the first containing the bin indices and the second the relative frequencies per bin, based 
         on all items in `ls` that are not NaN."""
-    bins, vals = ownHist(ls, binSize, bins)
+    bins, vals, bs = ownHist(ls, binSize, bins)
     vals[:] = [v/len(ls) for v in vals]
-    return bins, vals
+    return bins, vals, bs
 
 
 
@@ -422,7 +491,7 @@ def plotOwnHist(bins, vals, ylim=None, precision=None, ax=None, **kwargs):
     
 
 
-def ownPlotlyHist(lists: dict[str, list], binSize=None, bins=None, **kwargs):
+def ownPlotlyHist(lists: dict[str, list], binSize=None, bins=None, rel=False, xlim=None, **kwargs) -> go.Figure:
     """ Create a plotly histogram from a dictionary of lists. The keys of the dictionary are used as labels for the 
         traces. 
         Arguments:
@@ -431,19 +500,32 @@ def ownPlotlyHist(lists: dict[str, list], binSize=None, bins=None, **kwargs):
                      Is ignored if bins is not None
             bins: optional list of bins to use, must have at least one element and pairwise bin differences must all be 
                   equal
+            rel: if True, bar heights represent relative frequencies (w.r.t. their list), otherwise counts
+            xlim: optional tuple (a, b) where a < b, values outside this range are clipped
             kwargs: additional arguments passed to go.Histogram"""
     
     allvals = list(set([v for label in lists for v in lists[label]]))
-    allbins, _ = ownHist(allvals, binSize, bins)
+    if xlim is not None:
+        assert type(xlim) == tuple, "xlim must be a tuple"
+        assert xlim[0] < xlim[1], 'xlim must be a tuple (a, b) where a < b'
+        allvals = [v for v in allvals if xlim[0] <= v <= xlim[1]]
+    allbins, _, bs = ownHist(allvals, binSize, bins)
     
     counts = {}
     for label in lists:
-        _, c = ownHist(lists[label], bins=allbins)
+        ls = lists[label] if xlim is None else [v for v in lists[label] if xlim[0] <= v <= xlim[1]]
+        _, c, _ = ownHist(ls, bins=allbins) if not rel else ownHistRel(ls, bins=allbins)
         counts[label] = c
         
+    if (int(bs) == bs) or (bs < 0.01):
+        hovertext = [f"bin [{b}, {b+bs})" for b in allbins]  
+    elif bs >= 0.01:
+        hovertext = [f"bin [{b:.2f}, {(b+bs):.2f})" for b in allbins]
+
     fig = go.Figure()
     for label in counts:
-        fig.add_trace(go.Bar(x=allbins, y=counts[label], name=label, **kwargs))
+        fig.add_trace(go.Bar(x=allbins, y=counts[label], name=label, 
+                             hovertext=hovertext, **kwargs))
     
     return fig
 

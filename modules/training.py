@@ -673,7 +673,12 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
                match_score_factor,
                train_evaluator: MultiTrainingEvaluation,
                test_evaluator: MultiTrainingEvaluation,
-               outdir: str, outprefix: str = "") -> None:
+               outdir: str, outprefix: str = "",
+               linkplot_single_genecol: str = None,
+               linkplot_single_linkcol: str = None,
+               linkplot_genewidth: int = 20,
+               linkplot_linkwidth: int = 10,
+               **linkplot_kwargs) -> None:
     """ Test the performance of any motifs on the training and test data.
     Parameters:
         runID: any
@@ -692,6 +697,16 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
             Directory to save resulting plots to. Set to None for no saving.
         outprefix: str
             Prefix for output files.
+        linkplot_single_genecol: str
+            Optional single color to use for all genes in the link plots.
+        linkplot_single_linkcol: str
+            Optional single color to use for all links in the link plots.
+        linkplot_genewidth: int
+            Width of gene lines in the link plots.
+        linkplot_linkwidth: int
+            Width of link lines in the link plots.
+        linkplot_kwargs: dict
+            Additional keyword arguments for plotting.drawGeneLinks().
       """
     assert motifwrapper is not None, "[ERROR] >>> No seed profiles found in trainsetup."
     motifs = motifwrapper.motifs
@@ -739,20 +754,60 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
         if outdir is not None:
             # draw link images
             logging.info(f"[training.testMotifs] >>> Plotting train link image")
-            img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
-                                         traindata.training_data.getGenomes(), # not really needed, but defines genome order
-                                         imname=os.path.join(outdir, outprefix+"train_links.png"),
-                                         connectLinks=False,
-                                         show=False, genewidth=15)
-            img.close()
+            train_genomes = traindata.training_data.getGenomes()
+            if len(train_genomes > 700):
+                # split images into multiple parts of 500 genes each
+                n_parts = (len(train_genomes) // 500) + 1
+                genomeparts = []
+                for i in range(n_parts):
+                    genomeparts.append(train_genomes[i*500:min(len(train_genomes), (i+1)*500)])
+            else:
+                genomeparts = [train_genomes]
+
+            for i, genomes in enumerate(genomeparts):
+                part = f"_part{i}" if len(genomeparts) > 1 else ""
+                genecols = [linkplot_single_genecol]*len(genomes) if linkplot_single_genecol is not None else None
+                linkcols = [linkplot_single_linkcol]*len(train_mlinks) if linkplot_single_linkcol is not None else None
+                img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
+                                             genomes, # not really needed, but defines genome order
+                                             imname=os.path.join(outdir, outprefix+f"train_links{part}.png"),
+                                             connectLinks=False,
+                                             show=False, 
+                                             genecols=genecols,
+                                             linkcols=linkcols,
+                                             genewidth=linkplot_genewidth,
+                                             linkwidth=linkplot_linkwidth,
+                                             **linkplot_kwargs)
+                img.close()
 
             logging.info(f"[training.testMotifs] >>> Plotting test link image")
-            img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
-                                         testdata.training_data.getGenomes(), # not really needed, but defines genome order
-                                         imname=os.path.join(outdir, outprefix+"test_links.png"),
-                                         connectLinks=False,
-                                         show=False, genewidth=15)
-            img.close()
+            test_genomes = testdata.training_data.getGenomes()
+            if len(test_genomes > 700):
+                # split images into multiple parts of 500 genes each
+                n_parts = (len(test_genomes) // 500) + 1
+                genomeparts = []
+                for i in range(n_parts):
+                    genomeparts.append(test_genomes[i*500:min(len(test_genomes), (i+1)*500)])
+            else:
+                genomeparts = [test_genomes]
+
+            for i, genomes in enumerate(genomeparts):
+                part = f"_part{i}" if len(genomeparts) > 1 else ""
+                genecols = [linkplot_single_genecol]*len(genomes) if linkplot_single_genecol is not None else None
+                linkcols = [linkplot_single_linkcol]*len(test_mlinks) if linkplot_single_linkcol is not None else None
+                img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
+                                             genomes, # not really needed, but defines genome order
+                                             imname=os.path.join(outdir, outprefix+f"test_links{part}.png"),
+                                             connectLinks=False,
+                                             show=False,
+                                             genecols=genecols,
+                                             linkcols=linkcols,
+                                             genewidth=linkplot_genewidth,
+                                             linkwidth=linkplot_linkwidth,
+                                             **linkplot_kwargs)
+                img.close()
+
+                # TODO: do this also above for the training method!
 
     except Exception as e:
         logging.error("[training.testMotifs] >>> Evaluation on test data failed.")

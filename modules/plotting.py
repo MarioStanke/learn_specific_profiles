@@ -198,7 +198,10 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
         if maskingSites is not None:
             occs.extend(maskingSites)
         for occ in occs:
-            assert any([occ.sequence in g for g in genomes]), f"Sequence {occ.sequence.id} not found in genomes"
+            if not any([occ.sequence in g for g in genomes]):
+                logging.warning(f"Sequence {occ.sequence.id} not found in genomes, this will not be drawn! " \
+                                + "Not checking for further missing sequences, there might be more!")
+                break
 
     if kmerSites is not None or maskingSites is not None:
         seqidToOccs: dict[str, dict[str, list[Links.Occurrence]]] = {}
@@ -244,20 +247,26 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             lgenes = []
             lpos = []
             for occ in link:
+                if occ.sequence.id not in seqidToDrawGene:
+                    continue
                 dg = seqidToDrawGene[occ.sequence.id]
                 lgenes.append(dg)
                 lpos.append(occ.position + (occ.sitelen//2)) # probably not noticable, but this is the site center
                 
-            drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks))
+            if len(lgenes) > 1:
+                drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks))
         else:
             lgenes = []
             lpos = []
             for goccs in link.occs:
+                if goccs[0].sequence.id not in seqidToDrawGene:
+                    continue
                 # in MultiLink, all occs from a sub-list are on the same gene
                 lgenes.append( seqidToDrawGene[goccs[0].sequence.id] )
                 lpos.append( [occ.position + (occ.sitelen//2) for occ in goccs] )
 
-            drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
+            if len(lgenes) > 1:
+                drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
 
     # if desired, only draw genes that have links
     if onlyLinkedGenes:

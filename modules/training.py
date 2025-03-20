@@ -510,9 +510,10 @@ def _linkImg(links: list[Links.MultiLink], genomes: list[Links.sr.Genome], imnam
         kwargs: dict
             Additional keyword arguments for plotting.drawGeneLinks().
     """
-    if len(genomes > splitthreshold):
+    if len(genomes) > splitthreshold:
         # split images into multiple parts of 500 genes each
-        n_parts = (len(genomes) // splitsize) + 1
+        n_parts = len(genomes) / splitsize
+        n_parts = int(n_parts) if n_parts == int(n_parts) else int(n_parts) + 1
         genomeparts = []
         for i in range(n_parts):
             genomeparts.append(genomes[i*splitsize:min(len(genomes), (i+1)*splitsize)])

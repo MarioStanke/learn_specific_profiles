@@ -369,7 +369,20 @@ def main():
                                   model_evaluator_train, model_evaluator_test, 
                                   outdir,  # type: ignore
                                   do_not_train=args.do_not_train,
-                                  rand_seed=SEED) # type: ignore
+                                  rand_seed=SEED,
+                                  linkplot_single_genecol="lightgray",
+                                  linkplot_single_linkcol="indigo",
+                                  linkplot_genewidth=20,
+                                  linkplot_linkwidth=10,
+                                  sitecols={
+                                      'kmer sites': "#00ff007f",
+                                      'masking sites': "#00ff001a",
+                                      },
+                                  elementcols={
+                                      'peak_bed.tsv': "darkred",
+                                      'peak_fimo.tsv': "darkorange",
+                                      'peak_mast.tsv': "red",
+                                      })
         except Exception as e:
             logging.error(f"[main] trainAndEvaluate failed, check log for details")
             logging.error(f"[main] Error message: {e}")
@@ -409,7 +422,20 @@ def main():
             training.testMotifs(fasta.name, motifwrapper,
                                 traindata, testdata, args.match_score_factor,
                                 streme_evaluator_train, streme_evaluator_test,
-                                outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_")
+                                outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_",
+                                linkplot_single_genecol="lightgray",
+                                linkplot_single_linkcol="indigo",
+                                linkplot_genewidth=20,
+                                linkplot_linkwidth=10,
+                                sitecols={
+                                    'kmer sites': "#00ff007f",
+                                    'masking sites': "#00ff001a",
+                                    },
+                                elementcols={
+                                    'peak_bed.tsv': "darkred",
+                                    'peak_fimo.tsv': "darkorange",
+                                    'peak_mast.tsv': "red",
+                                    })
             streme_evaluator_train.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_train.json"))
             streme_evaluator_test.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_test.json"))
 
@@ -417,7 +443,20 @@ def main():
                 training.testMotifs(fasta.name, motifwrapper,
                                     traindata, negtestdata, args.match_score_factor,
                                     training.MultiTrainingEvaluation(), streme_evaluator_negtest,
-                                    outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_negative_")
+                                    outdir=str(outdir / "STREME"), outprefix=f"streme_{splitidx}_dummymodel_negative_",
+                                    linkplot_single_genecol="lightgray",
+                                    linkplot_single_linkcol="indigo",
+                                    linkplot_genewidth=20,
+                                    linkplot_linkwidth=10,
+                                    sitecols={
+                                        'kmer sites': "#00ff007f",
+                                        'masking sites': "#00ff001a",
+                                        },
+                                    elementcols={
+                                        'peak_bed.tsv': "darkred",
+                                        'peak_fimo.tsv': "darkorange",
+                                        'peak_mast.tsv': "red",
+                                        })
                 streme_evaluator_negtest.dump(str(outdir / "STREME" / "streme_evaluator_dummymodel_negative_test.json"))
             
 

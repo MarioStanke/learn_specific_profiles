@@ -221,8 +221,11 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
         seqidToOccs = {}
     
     drawGenes = []
+    assert 'genecols' not in kwargs or len(kwargs['genecols']) == len(genomes), \
+        f"Number of genecols ({len(kwargs['genecols'])}) must match number of genomes ({len(genomes)})"
+    drawGeneCols = [] if 'genecols' in kwargs else None
     seqidToDrawGene: dict[str, gld.Gene] = {}
-    for genome in genomes:
+    for gid, genome in enumerate(genomes):
         for sequence in genome:
             dg = gld.Gene(sequence.id, sequence.species, sequence.length, sequence.strand)
             for element in sequence.genomic_elements:
@@ -239,10 +242,15 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
             else:
                 drawGenes.append(dg)
                 seqidToDrawGene[sequence.id] = dg
+                if drawGeneCols is not None:
+                    drawGeneCols.append(kwargs['genecols'][gid])
 
     # create links to draw
     drawLinks: list[gld.Link] = []
-    for link in links:
+    assert 'linkcols' not in kwargs or len(kwargs['linkcols']) == len(links), \
+        f"Number of linkcols ({len(kwargs['linkcols'])}) must match number of links ({len(links)})"
+    drawLinkCols = [] if 'linkcols' in kwargs else None
+    for lid, link in enumerate(links):
         if link.classname == 'Link':
             lgenes = []
             lpos = []
@@ -255,6 +263,8 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
                 
             if len(lgenes) > 1:
                 drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks))
+                if drawLinkCols is not None:
+                    drawLinkCols.append(kwargs['linkcols'][lid])
         else:
             lgenes = []
             lpos = []
@@ -267,12 +277,17 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
 
             if len(lgenes) > 1:
                 drawLinks.append(gld.Link(lgenes, lpos, connect=connectLinks, compressed=True))
+                if drawLinkCols is not None:
+                    drawLinkCols.append(kwargs['linkcols'][lid])
 
     # if desired, only draw genes that have links
     if onlyLinkedGenes:
         linkedGenes = set()
         for link in drawLinks:
             linkedGenes.update([g.id for g in link.genes])
+
+        if drawGeneCols is not None:
+            drawGeneCols = [gc for i, gc in enumerate(drawGeneCols) if drawGenes[i].id in linkedGenes]
         drawGenes = [dg for dg in drawGenes if dg.id in linkedGenes]
 
     # avoid masking kwargs and set defaults here that can be overwritten in function call
@@ -282,6 +297,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
     img = gld.draw(drawGenes, drawLinks, fontpath = fontpath,
                    genewidth = gw, linkwidth = lw, #width = (1920*2), 
+                   genecols = drawGeneCols, linkcols = drawLinkCols
                    **kwargs)
     if imname:
         img.save(imname)

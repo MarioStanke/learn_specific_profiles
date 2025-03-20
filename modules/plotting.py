@@ -221,7 +221,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
         seqidToOccs = {}
     
     drawGenes = []
-    assert 'genecols' not in kwargs or len(kwargs['genecols']) == len(genomes), \
+    assert 'genecols' not in kwargs or kwargs['genecols'] is None or len(kwargs['genecols']) == len(genomes), \
         f"Number of genecols ({len(kwargs['genecols'])}) must match number of genomes ({len(genomes)})"
     drawGeneCols = [] if 'genecols' in kwargs else None
     seqidToDrawGene: dict[str, gld.Gene] = {}
@@ -247,7 +247,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
 
     # create links to draw
     drawLinks: list[gld.Link] = []
-    assert 'linkcols' not in kwargs or len(kwargs['linkcols']) == len(links), \
+    assert 'linkcols' not in kwargs or kwargs['linkcols'] is None or len(kwargs['linkcols']) == len(links), \
         f"Number of linkcols ({len(kwargs['linkcols'])}) must match number of links ({len(links)})"
     drawLinkCols = [] if 'linkcols' in kwargs else None
     for lid, link in enumerate(links):

@@ -297,7 +297,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
     img = gld.draw(drawGenes, drawLinks, fontpath = fontpath,
                    genewidth = gw, linkwidth = lw, #width = (1920*2), 
-                   genecols = drawGeneCols, linkcols = drawLinkCols
+                   genecols = drawGeneCols, linkcols = drawLinkCols,
                    **kwargs)
     if imname:
         img.save(imname)

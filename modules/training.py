@@ -520,16 +520,15 @@ def _linkImg(links: list[Links.MultiLink], genomes: list[Links.sr.Genome], imnam
     else:
         genomeparts = [genomes]
 
+    suffix = Path(imname).suffix
+    imname_pre = imname[:-len(suffix)]
     for i, genomes in enumerate(genomeparts):
-        suffix = Path(imname).suffix
-        imname = imname[:-len(suffix)]
         part = f"_part{i}" if len(genomeparts) > 1 else ""
-        imname = imname + part + suffix
         genecols = [single_genecol]*len(genomes) if single_genecol is not None else None
         linkcols = [single_linkcol]*len(links) if single_linkcol is not None else None
         img = plotting.drawGeneLinks(links,  # type: ignore
                                      genomes, # not really needed, but defines genome order
-                                     imname=imname,
+                                     imname=imname_pre + part + suffix,
                                      genecols=genecols,
                                      linkcols=linkcols,
                                      **kwargs)

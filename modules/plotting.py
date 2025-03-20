@@ -223,7 +223,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     drawGenes = []
     assert 'genecols' not in kwargs or kwargs['genecols'] is None or len(kwargs['genecols']) == len(genomes), \
         f"Number of genecols ({len(kwargs['genecols'])}) must match number of genomes ({len(genomes)})"
-    drawGeneCols = [] if 'genecols' in kwargs else None
+    drawGeneCols = [] if 'genecols' in kwargs and kwargs['genecols'] is not None else None
     seqidToDrawGene: dict[str, gld.Gene] = {}
     for gid, genome in enumerate(genomes):
         for sequence in genome:
@@ -249,7 +249,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     drawLinks: list[gld.Link] = []
     assert 'linkcols' not in kwargs or kwargs['linkcols'] is None or len(kwargs['linkcols']) == len(links), \
         f"Number of linkcols ({len(kwargs['linkcols'])}) must match number of links ({len(links)})"
-    drawLinkCols = [] if 'linkcols' in kwargs else None
+    drawLinkCols = [] if 'linkcols' in kwargs and kwargs['linkcols'] is not None else None
     for lid, link in enumerate(links):
         if link.classname == 'Link':
             lgenes = []

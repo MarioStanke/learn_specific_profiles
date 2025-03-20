@@ -295,6 +295,8 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
     kwargs.pop('genewidth') if 'genewidth' in kwargs else ()
     lw = 1  if 'linkwidth' not in kwargs else kwargs['linkwidth']
     kwargs.pop('linkwidth') if 'linkwidth' in kwargs else ()
+    kwargs.pop('genecols') if 'genecols' in kwargs else ()
+    kwargs.pop('linkcols') if 'linkcols' in kwargs else ()
     img = gld.draw(drawGenes, drawLinks, fontpath = fontpath,
                    genewidth = gw, linkwidth = lw, #width = (1920*2), 
                    genecols = drawGeneCols, linkcols = drawLinkCols,

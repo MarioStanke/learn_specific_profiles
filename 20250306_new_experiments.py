@@ -399,7 +399,20 @@ def main():
             training.testMotifs(fasta.name, motifwrapper,
                                 traindata, negtestdata, args.match_score_factor,
                                 training.MultiTrainingEvaluation(), model_evaluator_negtest,
-                                outdir=str(outdir), outprefix=f"model_{splitidx}_dummymodel_negative_")
+                                outdir=str(outdir), outprefix=f"model_{splitidx}_dummymodel_negative_",
+                                linkplot_single_genecol="lightgray",
+                                linkplot_single_linkcol="indigo",
+                                linkplot_genewidth=20,
+                                linkplot_linkwidth=10,
+                                sitecols={
+                                    'kmer sites': "#00ff007f",
+                                    'masking sites': "#00ff001a",
+                                    },
+                                elementcols={
+                                    'peak_bed.tsv': "darkred",
+                                    'peak_fimo.tsv': "darkorange",
+                                    'peak_mast.tsv': "red",
+                                    })
             model_evaluator_negtest.dump(str(outdir / "evaluator_negative_test.json"))
 
         # --- train STREME ---

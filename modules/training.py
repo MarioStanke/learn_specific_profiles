@@ -683,6 +683,8 @@ def trainAndTest(runID,
 
             # draw link image
             logging.info(f"[training.trainAndTest] >>> Plotting link image")
+            imdir = os.path.join(outdir, "link_plots")
+            os.makedirs(imdir, exist_ok=True)
             kmerSites: list[Links.Occurrence] = []
             for kmer in trainsetup.initKmerPositions:
                 kmerSites.extend(trainsetup.initKmerPositions[kmer])
@@ -701,7 +703,7 @@ def trainAndTest(runID,
             #                              **linkplot_kwargs)
             # img.close()
             _linkImg(train_mlinks, trainsetup.data.training_data.getGenomes(),
-                     os.path.join(outdir, outprefix+"training_links.png"),
+                     os.path.join(imdir, outprefix+"training_links.png"),
                      splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
                      kmerSites=kmerSites, maskingSites=maskSites, connectLinks=False, show=False,
                      single_genecol=linkplot_single_genecol,
@@ -739,6 +741,8 @@ def trainAndTest(runID,
         if outdir is not None:
             # draw link image
             logging.info(f"[training.trainAndTest] >>> Plotting test link image")
+            imdir = os.path.join(outdir, "link_plots")
+            os.makedirs(imdir, exist_ok=True)
             # img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
             #                              testdata.training_data.getGenomes(), # not really needed, but defines genome order
             #                              imname=os.path.join(outdir, outprefix+"test_links.png"),# \
@@ -752,7 +756,7 @@ def trainAndTest(runID,
             #                              **linkplot_kwargs)
             # img.close()
             _linkImg(test_mlinks, testdata.training_data.getGenomes(),
-                     os.path.join(outdir, outprefix+"test_links.png"),
+                     os.path.join(imdir, outprefix+"test_links.png"),
                      splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
                      connectLinks=False, show=False, 
                      single_genecol=linkplot_single_genecol,
@@ -860,6 +864,8 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
         if outdir is not None:
             # draw link images
             logging.info(f"[training.testMotifs] >>> Plotting train link image")
+            imdir = os.path.join(outdir, "link_plots")
+            os.makedirs(imdir, exist_ok=True)
             train_genomes = traindata.training_data.getGenomes()
             # if len(train_genomes > 700):
             #     # split images into multiple parts of 500 genes each
@@ -886,7 +892,7 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
             #                                  **linkplot_kwargs)
             #     img.close()
             _linkImg(train_mlinks, train_genomes,
-                     os.path.join(outdir, outprefix+"train_links.png"),
+                     os.path.join(imdir, outprefix+"train_links.png"),
                      connectLinks=False, show=False, 
                      splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
                      single_genecol=linkplot_single_genecol,
@@ -922,7 +928,7 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
             #                                  **linkplot_kwargs)
             #     img.close()
             _linkImg(test_mlinks, test_genomes,
-                     os.path.join(outdir, outprefix+"test_links.png"),
+                     os.path.join(imdir, outprefix+"test_links.png"),
                      connectLinks=False, show=False, 
                      splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
                      single_genecol=linkplot_single_genecol,

@@ -292,6 +292,14 @@ def main():
                 neg_genomes.append(SequenceRepresentation.Genome(neg_seqs))
 
             data_splits[i]['test_negative'] = neg_genomes
+
+        # dump the negative data to a single fasta file using Biopython
+        negfasta = outdir / "negative_test_data.fasta"
+        logging.info(f"[main] Dumping negative test data to {negfasta}")
+        neg_seqs = []
+        for splt in data_splits:
+            neg_seqs.extend([s for s in g for g in splt['test_negative']])
+            SequenceRepresentation.sequenceListToFASTA(neg_seqs, str(negfasta))
                 
     
     # === TRAINING ===

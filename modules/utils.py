@@ -288,6 +288,6 @@ def readBEDFile(filepath: Path) -> pd.DataFrame:
                       'peak']
         # require peak to be called
         assert not any(df['peak'] < 0), \
-            f"[utils.readBEDFile] Error: {bedfile.name}: {[str(t) for t in df.itertuples() if t.peak < 0][0]}" 
+            f"[utils.readBEDFile] Error: {filepath.name}: {[str(t) for t in df.itertuples() if t.peak < 0][0]}" 
 
         return df

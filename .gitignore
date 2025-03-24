@@ -9,6 +9,7 @@
 # [Matthis] temporary/testing folders
 run_STREME/
 *_test/
+.brain_mnt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -292,14 +292,6 @@ def main():
                 neg_genomes.append(SequenceRepresentation.Genome(neg_seqs))
 
             data_splits[i]['test_negative'] = neg_genomes
-
-        # dump the negative data to a single fasta file using Biopython
-        negfasta = outdir / "negative_test_data.fasta"
-        logging.info(f"[main] Dumping negative test data to {negfasta}")
-        neg_seqs = []
-        for splt in data_splits:
-            neg_seqs.extend([s for s in g for g in splt['test_negative']])
-            SequenceRepresentation.sequenceListToFASTA(neg_seqs, str(negfasta))
                 
     
     # === TRAINING ===
@@ -329,6 +321,12 @@ def main():
         train_sequences = split['train']
         test_sequences = split['test']
         negative_test_sequences = split.get('test_negative', None)
+        # dump test and negative sequences to fasta for fimo/mast site search after training
+        SequenceRepresentation.sequenceListToFASTA([s for g in test_sequences for s in g],
+                                                   str(outdir / f"test_sequences_{splitidx}.fasta"))
+        if negative_test_sequences is not None:
+            SequenceRepresentation.sequenceListToFASTA([s for g in negative_test_sequences for s in g], 
+                                                       str(outdir / f"negative_test_sequences_{splitidx}.fasta"))
         # store sequences for later evaluation
         with open(os.path.join(outdir, f"training_sequences_{splitidx}.json"), 'wt') as fh:
             json.dump([g.toList() for g in train_sequences], fh)

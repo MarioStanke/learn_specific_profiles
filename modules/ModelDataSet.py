@@ -346,6 +346,8 @@ class ModelDataSet:
 
         assert self.Q.shape == (self.alphabet_size(),), \
             f"[ERROR] >>> Q-matrix must have shape ({self.alphabet_size()},), not {self.Q.shape}"
+        assert self.Q.min() >= 0, f"[ERROR] >>> Q-matrix must have only non-negative values, not {self.Q.min()}"
+        assert self.Q.max() <= 1, f"[ERROR] >>> Q-matrix must have only values <= 1, not {self.Q.max()}"
         
         self.tile_size = tile_size
         self.tiles_per_X = tiles_per_X

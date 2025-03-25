@@ -253,7 +253,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
     def _getRandomProfiles(self):
         """ Returns a random profile matrix of shape (k+(2*s), alphabet_size, U). """
-        Q1 = tf.expand_dims(self.data.Q, 0)
+        Q = tf.maximum(self.data.Q, self.epsilon) # avoid log(0)
+        Q1 = tf.expand_dims(Q, 0)
         Q2 = tf.expand_dims(Q1, -1) # shape: (1, alphabet_size, 1)
         
         P_logit_like_Q = np.log(Q2.numpy())
@@ -286,7 +287,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
     def getR(self, P):
         """ Returns R (k, alphabet_size, U). Argument `P` must be _softmaxed_, don't pass the logits! """
-        Q1 = tf.expand_dims(self.data.Q, 0)
+        Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by 0
+        Q1 = tf.expand_dims(Q, 0)
         Q2 = tf.expand_dims(Q1, -1)
         # Limit the odds-ratio, to prevent problem with log(0).
         # Very bad matches of profiles are irrelevant anyways.
@@ -295,7 +297,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         if tf.reduce_any(tf.math.is_nan(P)):
             logging.debug(f"[model.getR] >>> nan in P: {tf.reduce_any(tf.math.is_nan(P), axis=[0,1])} " + \
                           f"{tf.boolean_mask(P, tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), axis=2)}")
-            logging.debug(f"[model.getR] >>> Q: {self.data.Q}")
+            logging.debug(f"[model.getR] >>> Q: {Q}")
             
         return R # shape: (k, alphabet_size, U)
 
@@ -361,6 +363,19 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         L2 = tf.math.multiply(L2, self.setup.l2)
         loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
 
+        # Kullback-Leibler divergence regularization
+        Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by zero (alphabet_size)
+        Q1 = tf.repeat(tf.expand_dims(Q, axis=0), P_logit.shape[0], axis=0)    # shape: (k+2s, alphabet_size)
+        Q2 = tf.repeat(tf.expand_dims(Q1, axis=-1), P_logit.shape[2], axis=-1) # shape: (k+2s, alphabet_size, U)
+        KLD = tf.divide(P_logit, Q2) # shape: (k+2s, alphabet_size, U)
+        # # avoid log(0) by adding epsilon to KLD where it is too close to 0
+        # KLD = tf.where((-self.epsilon < KLD) & (KLD < self.epsilon), self.epsilon, KLD)
+        KLD = tf.where(KLD == 0, self.epsilon, KLD) # avoid log(0)
+        KLD = tf.math.multiply(P_logit, tf.math.log(KLD)) # shape: (k+2s, alphabet_size, U)
+        KLD = tf.reduce_sum(KLD, axis=[0,1]) # U
+        KLD = tf.math.multiply(KLD, self.setup.kld)
+        loss_by_unit = tf.math.add(loss_by_unit, KLD) # U
+        
         return score, loss_by_unit
     
     

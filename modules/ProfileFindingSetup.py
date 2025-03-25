@@ -26,6 +26,7 @@ class ProfileFindingTrainingSetup:
     epochs: int  # max number of epochs to train until force report
     gamma: float # softmax scale (used in 'experiment' loss function)
     l2: float    # L2 reg factor
+    kld: float   # KL divergence reg factor
     match_score_factor: float
     learning_rate: float 
     lr_patience: int # number of epochs to wait for loss decrease before trigger learning rate reduction

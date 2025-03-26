@@ -356,25 +356,27 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         loss_by_unit = -tf.math.reduce_max(Z, axis=-1) # best isolated match for each profile in each genome (N x U)
         loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
             
-        # L2 regularization
-        # shape of P_logit: (k+2s, alphabet_size, U)
-        L2 = tf.reduce_sum(tf.math.square(P_logit), axis=[0,1]) # U
-        L2 = tf.math.divide(L2, P_logit.shape[0])
-        L2 = tf.math.multiply(L2, self.setup.l2)
-        loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
+        if self.setup.l2 != 0:
+            # L2 regularization
+            # shape of P_logit: (k+2s, alphabet_size, U)
+            L2 = tf.reduce_sum(tf.math.square(P_logit), axis=[0,1]) # U
+            L2 = tf.math.divide(L2, P_logit.shape[0])
+            L2 = tf.math.multiply(L2, self.setup.l2)
+            loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
 
-        # Kullback-Leibler divergence regularization
-        Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by zero (alphabet_size)
-        Q1 = tf.repeat(tf.expand_dims(Q, axis=0), P_logit.shape[0], axis=0)    # shape: (k+2s, alphabet_size)
-        Q2 = tf.repeat(tf.expand_dims(Q1, axis=-1), P_logit.shape[2], axis=-1) # shape: (k+2s, alphabet_size, U)
-        KLD = tf.divide(P_logit, Q2) # shape: (k+2s, alphabet_size, U)
-        # # avoid log(0) by adding epsilon to KLD where it is too close to 0
-        # KLD = tf.where((-self.epsilon < KLD) & (KLD < self.epsilon), self.epsilon, KLD)
-        KLD = tf.where(KLD == 0, self.epsilon, KLD) # avoid log(0)
-        KLD = tf.math.multiply(P_logit, tf.math.log(KLD)) # shape: (k+2s, alphabet_size, U)
-        KLD = tf.reduce_sum(KLD, axis=[0,1]) # U
-        KLD = tf.math.multiply(KLD, self.setup.kld)
-        loss_by_unit = tf.math.add(loss_by_unit, KLD) # U
+        if self.setup.kld != 0:
+            # Kullback-Leibler divergence regularization
+            Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by zero (alphabet_size)
+            Q1 = tf.repeat(tf.expand_dims(Q, axis=0), P_logit.shape[0], axis=0)    # shape: (k+2s, alphabet_size)
+            Q2 = tf.repeat(tf.expand_dims(Q1, axis=-1), P_logit.shape[2], axis=-1) # shape: (k+2s, alphabet_size, U)
+            KLD = tf.divide(P_logit, Q2) # shape: (k+2s, alphabet_size, U)
+            # # avoid log(0) by adding epsilon to KLD where it is too close to 0
+            # KLD = tf.where((-self.epsilon < KLD) & (KLD < self.epsilon), self.epsilon, KLD)
+            KLD = tf.where(KLD == 0, self.epsilon, KLD) # avoid log(0)
+            KLD = tf.math.multiply(P_logit, tf.math.log(KLD)) # shape: (k+2s, alphabet_size, U)
+            KLD = tf.reduce_sum(KLD, axis=[0,1]) # U
+            KLD = tf.math.multiply(KLD, self.setup.kld)
+            loss_by_unit = tf.math.add(loss_by_unit, KLD) # U
         
         return score, loss_by_unit
     

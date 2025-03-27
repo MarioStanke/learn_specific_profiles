@@ -353,9 +353,17 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         Z = tf.transpose(Z, [1,4,0,2,3]) # shape N x U x ntiles x f x tile_size-k+1
         Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) # shape N x U x -1
         Zsm = tf.nn.softmax(self.setup.gamma*Z, axis=-1) # softmax for each profile in each genome 
+        # logging.debug(f"[model.lossfun] >>> \nZ: {Z},\nZsm: {Zsm}")
         Z = tf.math.multiply(Z, Zsm)
+        # logging.debug(f"[model.lossfun] >>> \nZ: {Z}")
+
+        Z = tf.maximum(Z, 0) # >>> TEST TEST TEST <<<
+        # logging.debug(f"[model.lossfun] >>> \nZ (2): {Z}")
+        
         loss_by_unit = -tf.math.reduce_max(Z, axis=-1) # best isolated match for each profile in each genome (N x U)
+        # logging.debug(f"[model.lossfun] >>> \nloss_by_unit: {loss_by_unit}")
         loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
+        # logging.debug(f"[model.lossfun] >>> \nloss_by_unit (2): {loss_by_unit}")
             
         if self.setup.l2 != 0:
             # L2 regularization

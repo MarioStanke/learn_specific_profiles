@@ -355,6 +355,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         Z = tf.math.multiply(Z, Zsm)
         loss_by_unit = -tf.math.reduce_max(Z, axis=-1) # best isolated match for each profile in each genome (N x U)
         loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
+        # logging.debug(f"[model.lossfun] >>> loss_by_unit (1): {loss_by_unit}")
             
         if self.setup.l2 != 0:
             # L2 regularization
@@ -366,17 +367,39 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
         if self.setup.kld != 0:
             # Kullback-Leibler divergence regularization
-            Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by zero (alphabet_size)
+            Q = tf.clip_by_value(self.data.Q, self.epsilon, 1.0) # avoid numerical issues (log(0), division by zero)
             Q1 = tf.repeat(tf.expand_dims(Q, axis=0), P_logit.shape[0], axis=0)    # shape: (k+2s, alphabet_size)
             Q2 = tf.repeat(tf.expand_dims(Q1, axis=-1), P_logit.shape[2], axis=-1) # shape: (k+2s, alphabet_size, U)
-            KLD = tf.divide(P_logit, Q2) # shape: (k+2s, alphabet_size, U)
-            # # avoid log(0) by adding epsilon to KLD where it is too close to 0
-            # KLD = tf.where((-self.epsilon < KLD) & (KLD < self.epsilon), self.epsilon, KLD)
-            KLD = tf.where(KLD == 0, self.epsilon, KLD) # avoid log(0)
-            KLD = tf.math.multiply(P_logit, tf.math.log(KLD)) # shape: (k+2s, alphabet_size, U)
+            # tf.cond(tf.reduce_any(tf.math.is_nan(Q2)), lambda: logging.debug(f"[model.lossfun] >>> nan in Q2: {Q}"), lambda: None)
+            # tf.cond(tf.reduce_any(Q2 < 0), lambda: logging.debug(f"[model.lossfun] >>> negatives in Q2: {Q}"), lambda: None)
+            # tf.cond(tf.reduce_any(Q2 == 0), lambda: logging.debug(f"[model.lossfun] >>> zeros in Q2: {Q}"), lambda: None)
+       
+            # logging.debug(f"[model.lossfun] >>> P_logit: {P_logit}")
+            # logging.debug(f"[model.lossfun] >>> P: {tf.nn.softmax(P_logit, axis=1)}, sum(P, axis=1): {tf.reduce_sum(tf.nn.softmax(P_logit, axis=1), axis=1)}, Q2: {Q2}")
+            P = tf.clip_by_value(tf.nn.softmax(P_logit, axis=1), self.epsilon, 1.0) # avoid numerical issues (log(0), division by zero)
+            
+            # logging.debug(f"[model.lossfun] >>> Dividing P by Q2")
+            KLD = tf.divide(P, Q2) # shape: (k+2s, alphabet_size, U)
+            # logging.debug(f"[model.lossfun] >>> KLD: {KLD}")
+            # tf.cond(tf.reduce_any(tf.math.is_nan(KLD)), lambda: logging.debug(f"[model.lossfun] >>> nan in KLD (1): {KLD}"), lambda: None)                    
+            KLD = tf.math.multiply(P, tf.math.log(KLD)) # shape: (k+2s, alphabet_size, U)
+            # tf.cond(tf.reduce_any(tf.math.is_nan(KLD)), lambda: logging.debug(f"[model.lossfun] >>> nan in KLD (3): {KLD}"), lambda: None)
             KLD = tf.reduce_sum(KLD, axis=[0,1]) # U
+            # tf.cond(tf.reduce_any(tf.math.is_nan(KLD)), lambda: logging.debug(f"[model.lossfun] >>> nan in KLD (4): {KLD}"), lambda: None)
             KLD = tf.math.multiply(KLD, self.setup.kld)
+            # tf.cond(tf.reduce_any(tf.math.is_nan(KLD)), lambda: logging.debug(f"[model.lossfun] >>> nan in KLD (5): {KLD}"), lambda: None)
+            # logging.debug(f"[model.lossfun] >>> loss_by_unit (2): {loss_by_unit}")
             loss_by_unit = tf.math.add(loss_by_unit, KLD) # U
+            # tf.cond(tf.reduce_any(tf.math.is_nan(KLD)), 
+            #         lambda: logging.warning("[model.lossfun] >>> nan in KLD, not applying regularization"), 
+            #         lambda: None)
+            # logging.debug(f"[model.lossfun] >>> loss_by_unit (2): {loss_by_unit}")
+            # loss_by_unit = tf.cond(tf.reduce_any(tf.math.is_nan(KLD)), 
+            #                        lambda: loss_by_unit, 
+            #                        lambda: tf.math.add(loss_by_unit, KLD)) # U
+            # logging.debug(f"[model.lossfun] >>> loss_by_unit (3): {loss_by_unit}")
+            # tf.cond(tf.reduce_any(tf.math.is_nan(loss_by_unit)), lambda: logging.debug("[model.lossfun] >>> nan in loss_by_unit"), lambda: None)
+            
         
         return score, loss_by_unit
     
@@ -385,14 +408,21 @@ class SpecificProfile(tf.keras.Model): # type: ignore
     @tf.function()
     def train_step(self, X):
         with tf.GradientTape() as tape:
+            # logging.debug(f"[model.train_step] >>> X: {X.shape}, P: {self.getP()}")
             S, R, Z = self.call(X, self.getP())
             score, loss_by_unit = self.lossfun(Z, self.P_logit) # TODO: what P to pass to loss? In old version, this switches (otherP is usually softmaxed, but here it's the logits)
             # Mario's loss
             #loss = -score
+            # logging.debug(f"[model.train_step] >>> loss_by_unit: {loss_by_unit}")
             loss = tf.reduce_sum(loss_by_unit)
             
+        # logging.debug(f"[model.train_step] >>> loss: {loss}")
+        # logging.debug(f"[model.train_step] >>> self.P_logit (1): {self.P_logit}")
         grad = tape.gradient(loss, self.P_logit)
+        # logging.debug(f"[model.train_step] >>> self.P_logit (2): {self.P_logit}")
+        # logging.debug(f"[model.train_step] >>> grad: {grad}")
         self.opt.apply_gradients([(grad, self.P_logit)])
+        # logging.debug(f"[model.train_step] >>> self.P_logit (3): {self.P_logit}")
         
         return S, R, loss
     

@@ -344,7 +344,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             Scores is the max loss over all tiles and frames, summed up for all genomes and profiles.
             Loss per profile is the softmax over all positions (tiles, frames) per genome and profile, maxed for each
                profile and summed over all genomes. 
-            Pass P_logit _instead of softmaxed P_, as the L2 regularization is weaker with value ranges close to 0."""
+            Pass P_logit _instead of softmaxed P_, as the L2 regularization is weaker with value ranges close to 0. For
+               KLD regularization, P_logit is softmaxed when calculating the regularization term. """
         # shape of Z: ntiles x N x f x tile_size-k+1 x U 
         S = tf.reduce_max(Z, axis=[0,2,3]) # N x U
         score = tf.reduce_sum(S)
@@ -358,6 +359,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             
         if self.setup.l2 != 0:
             # L2 regularization
+            # use P_logit here instead of softmaxed P, as the L2 regularization is weaker with value ranges close to 0
             # shape of P_logit: (k+2s, alphabet_size, U)
             L2 = tf.reduce_sum(tf.math.square(P_logit), axis=[0,1]) # U
             L2 = tf.math.divide(L2, P_logit.shape[0])
@@ -367,6 +369,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         if self.setup.kld != 0:
             # Kullback-Leibler divergence regularization 
             #   (adjusted implementation of https://www.tensorflow.org/api_docs/python/tf/keras/losses/KLD)
+            # Use softmaxed P instead of P_logit, as the KLD is not defined for logits
             Q = tf.clip_by_value(self.data.Q, self.epsilon, 1.0) # avoid numerical issues (log(0), division by zero)
             Q1 = tf.repeat(tf.expand_dims(Q, axis=0), P_logit.shape[0], axis=0)    # shape: (k+2s, alphabet_size)
             Q2 = tf.repeat(tf.expand_dims(Q1, axis=-1), P_logit.shape[2], axis=-1) # shape: (k+2s, alphabet_size, U)
@@ -384,7 +387,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
     def train_step(self, X):
         with tf.GradientTape() as tape:
             S, R, Z = self.call(X, self.getP())
-            score, loss_by_unit = self.lossfun(Z, self.P_logit) # TODO: what P to pass to loss? In old version, this switches (otherP is usually softmaxed, but here it's the logits)
+            score, loss_by_unit = self.lossfun(Z, self.P_logit)
             # Mario's loss
             #loss = -score
             loss = tf.reduce_sum(loss_by_unit)

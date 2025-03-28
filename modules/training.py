@@ -827,7 +827,7 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
         dummy_setup = setup.ProfileFindingTrainingSetup(
             traindata,
             U = U, k = k, 
-            midK = k, s = 0, epochs=1, gamma=1.0, l2=0.0, kld=0.0, match_score_factor=0, 
+            midK = k, s = 0, epochs=1, gamma=1.0, l2=0.0, kld=0.0, mellowmax_alpha=1.0, match_score_factor=0, 
             learning_rate=0, lr_patience=0, lr_factor=0, rho=0, sigma=0, profile_plateau=0, profile_plateau_dev=0, 
             n_best_profiles=1, phylo_t=0)
         dummy_setup.initProfiles = motifs # should be the logits, but we don't actually use them so it's fine

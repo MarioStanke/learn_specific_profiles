@@ -418,7 +418,7 @@ def main():
                                                                      U = args.U, k = args.k, 
                                                                      midK = args.midK, s = args.s, 
                                                                      epochs = 350, gamma = args.gamma, l2 = args.l2,
-                                                                     kld=0.0,
+                                                                     kld=0.0, mellowmax_alpha=1.0,
                                                                      match_score_factor = args.match_score_factor,
                                                                      learning_rate = args.learning_rate,
                                                                      lr_patience = args.lr_patience,

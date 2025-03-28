@@ -94,6 +94,8 @@ def main():
                             default = 0.0)
     model_args.add_argument('--kld', help = 'KLD regularization factor in loss function', required = False, 
                             type = float, default = 0.0)
+    model_args.add_argument('--mellowmax-alpha', help = 'Alpha parameter for mellowmax loss function', required = False,
+                            type = float, default = 1.0)
     model_args.add_argument('--match-score-factor', help = 'Sites must match a profile at least this fraction of the ' \
                             + 'best matching site to be considered a match', required = False, type = float,
                             default = 0.7)
@@ -347,7 +349,7 @@ def main():
                                                                      U = args.U, k = args.k, 
                                                                      midK = args.midK, s = args.s, 
                                                                      epochs = 350, gamma = args.gamma, l2 = args.l2,
-                                                                     kld=args.kld,
+                                                                     kld=args.kld, mellowmax_alpha=args.mellowmax_alpha,
                                                                      match_score_factor = args.match_score_factor,
                                                                      learning_rate = args.learning_rate,
                                                                      lr_patience = args.lr_patience,

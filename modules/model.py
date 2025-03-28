@@ -371,13 +371,14 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
             x should have shape (N, U)
             """
+            # logging.debug(f"[model.lossfun] >>> mellowmax called with {x.shape=} and {a=}")
             n = x.shape[0] # N
             x = tf.math.multiply(x, a) # (N, U)
             lse = tf.math.log(tf.reduce_sum(tf.exp(x), axis=0)) # (U)
             return tf.math.divide(tf.math.subtract(lse, tf.math.log(tf.cast(n, x.dtype))), a)
 
-        # loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
         loss_by_unit = mellowmax(loss_by_unit, self.setup.mellowmax_alpha)
+        # loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
         # logging.debug(f"[model.lossfun] >>> \nloss_by_unit (2): {loss_by_unit}")
             
         if self.setup.l2 != 0:

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from pathlib import Path
+import sys
 import tensorflow as tf
 from time import time
 
@@ -128,6 +129,14 @@ class TrainingEvaluation():
         # for easier debugging
         for key in d:
             try:
+                # catch a int_max_str_digits error if there are insanely many links or occs
+                #   (i.e. len(str(d[key])) > sys.get_int_max_str_digits())
+                if key in ['nhumanOccs', 'nhumanOccsThatHit', 'nlinks', 'nlinksThatHit'] \
+                    and len(json.dumps(d[key])) > int('9' * sys.get_int_max_str_digits()):
+                    logging.error(f"[TrainingEvaluation.toDict] >>> {key} is too large " \
+                                  + "to be converted to JSON. Setting to None.")
+                    d[key] = None
+                    
                 _ = json.dumps(d[key])
             except Exception as e:
                 logging.error(f"[TrainingEvaluation.toDict] >>> Error converting {key} to JSON, dump will fail.")
@@ -328,6 +337,13 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
                     s = [[seqidToSeq[occ[0]] for occ in occs] for occs in l['occs']]
 
                 links.append(Links.linkFromDict_fast(l, s)) # type: ignore
+
+        # when dumping the TrainingEvaluation objects to json, it might happen that some of the values were too large
+        #   to be converted to JSON. In this case, we set them to None. This is not a problem for the training time,
+        #   but for the other values we need to recalculate them.
+        if not recalculate and any([t[key] is None for key in ['nhumanOccs', 'nhumanOccsThatHit', 'nlinksThatHit']]):
+            logging.warning(f"[loadMultiTrainingEvaluation] >>> Some values are None, need to recalculate.")
+            recalculate = True
 
         if recalculate:
             hgGenome = [g for g in allGenomes if g.species == 'Homo_sapiens']

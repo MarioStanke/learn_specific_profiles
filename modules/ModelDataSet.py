@@ -328,10 +328,10 @@ class ModelDataSet:
             replaceSpaceWithX: bool -- if True, replaces ' ' with 'X' in translated sequences, only needed in
                                         translated mode!
         """
-        assert datamode in DataMode, f"[ERROR] >>> datamode must be of type DataMode, not {type(datamode)}"
-        assert isinstance(data, list), f"[ERROR] >>> data must be of type list, not {type(data)}"
-        assert len(data) > 1, f"[ERROR] >>> Need at least 2 genomes for training, not {len(data)}"
-        assert all(typecheck(x, "Genome") for x in data), f"[ERROR] >>> data must be a list of Genomes"
+        assert datamode in DataMode, f"[ModelDataSet] >>> datamode must be of type DataMode, not {type(datamode)}"
+        assert isinstance(data, list), f"[ModelDataSet] >>> data must be of type list, not {type(data)}"
+        assert len(data) > 1, f"[ModelDataSet] >>> Need at least 2 genomes for training, not {len(data)}"
+        assert all(typecheck(x, "Genome") for x in data), f"[ModelDataSet] >>> data must be a list of Genomes"
 
         self.training_data = _TrainingDataWrapper(data, datamode, tile_size, replaceSpaceWithX)
         if datamode == DataMode.DNA:
@@ -345,9 +345,9 @@ class ModelDataSet:
             self.Q = backgroundFreqs(self.training_data.getTrainingData(), self.alphabet)
 
         assert self.Q.shape == (self.alphabet_size(),), \
-            f"[ERROR] >>> Q-matrix must have shape ({self.alphabet_size()},), not {self.Q.shape}"
-        assert self.Q.min() >= 0, f"[ERROR] >>> Q-matrix must have only non-negative values, not {self.Q.min()}"
-        assert self.Q.max() <= 1, f"[ERROR] >>> Q-matrix must have only values <= 1, not {self.Q.max()}"
+            f"[ModelDataSet] >>> Q-matrix must have shape ({self.alphabet_size()},), not {self.Q.shape}"
+        assert self.Q.min() >= 0, f"[ModelDataSet] >>> Q-matrix must have only non-negative values, not {self.Q.min()}"
+        assert self.Q.max() <= 1, f"[ModelDataSet] >>> Q-matrix must have only values <= 1, not {self.Q.max()}"
         
         self.tile_size = tile_size
         self.tiles_per_X = tiles_per_X
@@ -506,23 +506,24 @@ class ModelDataSet:
         specified part is (partly) out of bounds, returns a shorter or an empty string. """
         trainingData = self.training_data.getTrainingData(fromSource=False)
 
-        assert start_pos >= 0, f"[ERROR] >>> start_pos must be >= 0, not {start_pos}"
-        assert masklen > 0, f"[ERROR] >>> masklen must be > 0, not {masklen}"
+        assert start_pos >= 0, f"[ModelDataSet.softmask] >>> start_pos must be >= 0, not {start_pos}"
+        assert masklen > 0, f"[ModelDataSet.softmask] >>> masklen must be > 0, not {masklen}"
         assert genome_idx in range(len(trainingData)), \
-            f"[ERROR] >>> No sequence with genome index {genome_idx}"
+            f"[ModelDataSet.softmask] >>> No sequence with genome index {genome_idx}"
         assert sequence_idx in range(len(trainingData[genome_idx])), \
-            f"[ERROR] >>> No sequence with inner index {sequence_idx} in genome {genome_idx}"
+            f"[ModelDataSet.softmask] >>> No sequence with inner index {sequence_idx} in genome {genome_idx}"
         assert frame_idx in range(len(trainingData[genome_idx][sequence_idx])), \
-            f"[ERROR] >>> No sequence with frame index {frame_idx} in sequence {sequence_idx} of genome {genome_idx}"
+            f"[ModelDataSet.softmask] >>> No sequence with frame index {frame_idx} " \
+                + f"in sequence {sequence_idx} of genome {genome_idx}"
         
         tseq = trainingData[genome_idx][sequence_idx][frame_idx]
         if start_pos >= len(tseq):
-            logging.warning(f"[WARNING] >>> start_pos {start_pos} >= len(tseq) {len(tseq)}")
+            logging.warning(f"[ModelDataSet.softmask] >>> start_pos {start_pos} >= len(tseq) {len(tseq)}")
             return ""
         
         end_pos = start_pos + masklen
         if end_pos > len(tseq):
-            logging.warning(f"[WARNING] >>> end_pos {end_pos} > len(tseq) {len(tseq)}")
+            logging.warning(f"[ModelDataSet.softmask] >>> end_pos {end_pos} > len(tseq) {len(tseq)}")
         
         end_pos = min(end_pos, len(tseq))
         rseq = tseq[start_pos:end_pos] # return this

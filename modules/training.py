@@ -675,8 +675,8 @@ def trainAndTest(runID,
         #logging.debug(f"[training.trainAndTest] >>> <training> sites: {train_sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
         train_mlinks = Links.multiLinksFromOccurrences(train_occurrences)
         #logging.debug(f"[training.trainAndTest] >>> <training> mlinks[:{min(len(train_mlinks), 2)}] {train_mlinks[:min(len(train_mlinks), 2)]}")
-        logging.debug(f"[training.trainAndTest] >>> <training> len(mlinks) {len(train_mlinks)}")
-        logging.debug(f"[training.trainAndTest] >>> <training> number of unique links: {Links.nLinks(train_mlinks)}") # type: ignore
+        # logging.debug(f"[training.trainAndTest] >>> <training> len(mlinks) {len(train_mlinks)}")
+        # logging.debug(f"[training.trainAndTest] >>> <training> number of unique links: {Links.nLinks(train_mlinks)}") # type: ignore
 
         train_evaluator.trainings.append(
                 TrainingEvaluation(runID, motifs, train_mlinks, 0, 0, 0, 0, 0, training_time)
@@ -698,35 +698,40 @@ def trainAndTest(runID,
                 logging.debug(full_stack())
 
             # draw link image
-            logging.info(f"[training.trainAndTest] >>> Plotting link image")
-            imdir = os.path.join(outdir, "link_plots")
-            os.makedirs(imdir, exist_ok=True)
-            kmerSites: list[Links.Occurrence] = []
-            for kmer in trainsetup.initKmerPositions:
-                kmerSites.extend(trainsetup.initKmerPositions[kmer])
-            maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
-                                                          sitelen = trainsetup.k)
-            # img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
-            #                              trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
-            #                              imname=os.path.join(outdir, outprefix+"training_links.png"),
-            #                              kmerSites=kmerSites, maskingSites=maskSites,
-            #                              connectLinks=False,
-            #                              show=False, 
-            #                              genecols=genecols,
-            #                              linkcols=linkcols,
-            #                              genewidth=linkplot_genewidth,
-            #                              linkwidth=linkplot_linkwidth,
-            #                              **linkplot_kwargs)
-            # img.close()
-            _linkImg(train_mlinks, trainsetup.data.training_data.getGenomes(),
-                     os.path.join(imdir, outprefix+"training_links.png"),
-                     splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
-                     kmerSites=kmerSites, maskingSites=maskSites, connectLinks=False, show=False,
-                     single_genecol=linkplot_single_genecol,
-                     single_linkcol=linkplot_single_linkcol,
-                     genewidth=linkplot_genewidth,
-                     linkwidth=linkplot_linkwidth,
-                     **linkplot_kwargs)
+            try:
+                logging.info(f"[training.trainAndTest] >>> Plotting link image")
+                imdir = os.path.join(outdir, "link_plots")
+                os.makedirs(imdir, exist_ok=True)
+                kmerSites: list[Links.Occurrence] = []
+                for kmer in trainsetup.initKmerPositions:
+                    kmerSites.extend(trainsetup.initKmerPositions[kmer])
+                maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
+                                                            sitelen = trainsetup.k)
+                # img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
+                #                              trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
+                #                              imname=os.path.join(outdir, outprefix+"training_links.png"),
+                #                              kmerSites=kmerSites, maskingSites=maskSites,
+                #                              connectLinks=False,
+                #                              show=False, 
+                #                              genecols=genecols,
+                #                              linkcols=linkcols,
+                #                              genewidth=linkplot_genewidth,
+                #                              linkwidth=linkplot_linkwidth,
+                #                              **linkplot_kwargs)
+                # img.close()
+                _linkImg(train_mlinks, trainsetup.data.training_data.getGenomes(),
+                        os.path.join(imdir, outprefix+"training_links.png"),
+                        splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
+                        kmerSites=kmerSites, maskingSites=maskSites, connectLinks=False, show=False,
+                        single_genecol=linkplot_single_genecol,
+                        single_linkcol=linkplot_single_linkcol,
+                        genewidth=linkplot_genewidth,
+                        linkwidth=linkplot_linkwidth,
+                        **linkplot_kwargs)
+            except Exception as e:
+                logging.error("[training.trainAndTest] >>> Plotting link image failed.")
+                logging.error(f"[training.trainAndTest] >>> Exception:\n{e}")
+                logging.debug(full_stack())
             
     except Exception as e:
         logging.error("[training.trainAndTest] >>> Storing training data failed.")
@@ -747,39 +752,46 @@ def trainAndTest(runID,
         #logging.debug(f"[training.trainAndTest] >>> <test> sites: {test_sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
         test_mlinks = Links.multiLinksFromOccurrences(test_occurrences)
         #logging.debug(f"[training.trainAndTest] >>> <test> mlinks[:{min(len(test_mlinks), 2)}] {test_mlinks[:min(len(test_mlinks), 2)]}")
-        logging.debug(f"[training.trainAndTest] >>> <test> len(mlinks) {len(test_mlinks)}")
-        logging.debug(f"[training.trainAndTest] >>> <test> number of unique links: {Links.nLinks(test_mlinks)}") # type: ignore
+        # logging.debug(f"[training.trainAndTest] >>> <test> len(mlinks) {len(test_mlinks)}")
+        # logging.debug(f"[training.trainAndTest] >>> <test> number of unique links: {Links.nLinks(test_mlinks)}") # type: ignore
 
         test_evaluator.trainings.append(
             TrainingEvaluation(runID, motifs, test_mlinks, 0, 0, 0, 0, 0, training_time)
         )
 
         if outdir is not None:
-            # draw link image
-            logging.info(f"[training.trainAndTest] >>> Plotting test link image")
-            imdir = os.path.join(outdir, "link_plots")
-            os.makedirs(imdir, exist_ok=True)
-            # img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
-            #                              testdata.training_data.getGenomes(), # not really needed, but defines genome order
-            #                              imname=os.path.join(outdir, outprefix+"test_links.png"),# \
-            #                                 #if outdir is not None else None, 
-            #                              connectLinks=False,
-            #                              show=False, 
-            #                              genecols=genecols,
-            #                              linkcols=linkcols,
-            #                              genewidth=linkplot_genewidth,
-            #                              linkwidth=linkplot_linkwidth,
-            #                              **linkplot_kwargs)
-            # img.close()
-            _linkImg(test_mlinks, testdata.training_data.getGenomes(),
-                     os.path.join(imdir, outprefix+"test_links.png"),
-                     splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
-                     connectLinks=False, show=False, 
-                     single_genecol=linkplot_single_genecol,
-                     single_linkcol=linkplot_single_linkcol,
-                     genewidth=linkplot_genewidth,
-                     linkwidth=linkplot_linkwidth,
-                     **linkplot_kwargs)
+            try:
+                # draw link image
+                logging.info(f"[training.trainAndTest] >>> Plotting test link image")
+                imdir = os.path.join(outdir, "link_plots")
+                os.makedirs(imdir, exist_ok=True)
+                # img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
+                #                              testdata.training_data.getGenomes(), # not really needed, but defines genome order
+                #                              imname=os.path.join(outdir, outprefix+"test_links.png"),# \
+                #                                 #if outdir is not None else None, 
+                #                              connectLinks=False,
+                #                              show=False, 
+                #                              genecols=genecols,
+                #                              linkcols=linkcols,
+                #                              genewidth=linkplot_genewidth,
+                #                              linkwidth=linkplot_linkwidth,
+                #                              **linkplot_kwargs)
+                # img.close()
+                _linkImg(test_mlinks, testdata.training_data.getGenomes(),
+                        os.path.join(imdir, outprefix+"test_links.png"),
+                        splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
+                        connectLinks=False, show=False, 
+                        single_genecol=linkplot_single_genecol,
+                        single_linkcol=linkplot_single_linkcol,
+                        genewidth=linkplot_genewidth,
+                        linkwidth=linkplot_linkwidth,
+                        **linkplot_kwargs)
+                
+            except Exception as e:
+                logging.error("[training.trainAndTest] >>> Plotting test link image failed.")
+                logging.error(f"[training.trainAndTest] >>> Exception:\n{e}")
+                logging.debug(full_stack())
+
     except Exception as e:
         logging.error("[training.trainAndTest] >>> Evaluation on test data failed.")
         logging.error(f"[training.trainAndTest] >>> Exception:\n{e}")
@@ -878,80 +890,92 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
         )
 
         if outdir is not None:
-            # draw link images
-            logging.info(f"[training.testMotifs] >>> Plotting train link image")
-            imdir = os.path.join(outdir, "link_plots")
-            os.makedirs(imdir, exist_ok=True)
-            train_genomes = traindata.training_data.getGenomes()
-            # if len(train_genomes > 700):
-            #     # split images into multiple parts of 500 genes each
-            #     n_parts = (len(train_genomes) // 500) + 1
-            #     genomeparts = []
-            #     for i in range(n_parts):
-            #         genomeparts.append(train_genomes[i*500:min(len(train_genomes), (i+1)*500)])
-            # else:
-            #     genomeparts = [train_genomes]
+            try:
+                # draw link images
+                logging.info(f"[training.testMotifs] >>> Plotting train link image")
+                imdir = os.path.join(outdir, "link_plots")
+                os.makedirs(imdir, exist_ok=True)
+                train_genomes = traindata.training_data.getGenomes()
+                # if len(train_genomes > 700):
+                #     # split images into multiple parts of 500 genes each
+                #     n_parts = (len(train_genomes) // 500) + 1
+                #     genomeparts = []
+                #     for i in range(n_parts):
+                #         genomeparts.append(train_genomes[i*500:min(len(train_genomes), (i+1)*500)])
+                # else:
+                #     genomeparts = [train_genomes]
 
-            # for i, genomes in enumerate(genomeparts):
-            #     part = f"_part{i}" if len(genomeparts) > 1 else ""
-            #     genecols = [linkplot_single_genecol]*len(genomes) if linkplot_single_genecol is not None else None
-            #     linkcols = [linkplot_single_linkcol]*len(train_mlinks) if linkplot_single_linkcol is not None else None
-            #     img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
-            #                                  genomes, # not really needed, but defines genome order
-            #                                  imname=os.path.join(outdir, outprefix+f"train_links{part}.png"),
-            #                                  connectLinks=False,
-            #                                  show=False, 
-            #                                  genecols=genecols,
-            #                                  linkcols=linkcols,
-            #                                  genewidth=linkplot_genewidth,
-            #                                  linkwidth=linkplot_linkwidth,
-            #                                  **linkplot_kwargs)
-            #     img.close()
-            _linkImg(train_mlinks, train_genomes,
-                     os.path.join(imdir, outprefix+"train_links.png"),
-                     connectLinks=False, show=False, 
-                     splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
-                     single_genecol=linkplot_single_genecol,
-                     single_linkcol=linkplot_single_linkcol,
-                     genewidth=linkplot_genewidth,
-                     linkwidth=linkplot_linkwidth,
-                     **linkplot_kwargs)
+                # for i, genomes in enumerate(genomeparts):
+                #     part = f"_part{i}" if len(genomeparts) > 1 else ""
+                #     genecols = [linkplot_single_genecol]*len(genomes) if linkplot_single_genecol is not None else None
+                #     linkcols = [linkplot_single_linkcol]*len(train_mlinks) if linkplot_single_linkcol is not None else None
+                #     img = plotting.drawGeneLinks(train_mlinks,  # type: ignore
+                #                                  genomes, # not really needed, but defines genome order
+                #                                  imname=os.path.join(outdir, outprefix+f"train_links{part}.png"),
+                #                                  connectLinks=False,
+                #                                  show=False, 
+                #                                  genecols=genecols,
+                #                                  linkcols=linkcols,
+                #                                  genewidth=linkplot_genewidth,
+                #                                  linkwidth=linkplot_linkwidth,
+                #                                  **linkplot_kwargs)
+                #     img.close()
+                _linkImg(train_mlinks, train_genomes,
+                        os.path.join(imdir, outprefix+"train_links.png"),
+                        connectLinks=False, show=False, 
+                        splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
+                        single_genecol=linkplot_single_genecol,
+                        single_linkcol=linkplot_single_linkcol,
+                        genewidth=linkplot_genewidth,
+                        linkwidth=linkplot_linkwidth,
+                        **linkplot_kwargs)
+                
+            except Exception as e:
+                logging.error("[training.testMotifs] >>> Plotting train link image failed.")
+                logging.error(f"[training.testMotifs] >>> Exception:\n{e}")
+                logging.debug(full_stack())
 
-            logging.info(f"[training.testMotifs] >>> Plotting test link image")
-            test_genomes = testdata.training_data.getGenomes()
-            # if len(test_genomes > 700):
-            #     # split images into multiple parts of 500 genes each
-            #     n_parts = (len(test_genomes) // 500) + 1
-            #     genomeparts = []
-            #     for i in range(n_parts):
-            #         genomeparts.append(test_genomes[i*500:min(len(test_genomes), (i+1)*500)])
-            # else:
-            #     genomeparts = [test_genomes]
+            try:
+                logging.info(f"[training.testMotifs] >>> Plotting test link image")
+                test_genomes = testdata.training_data.getGenomes()
+                # if len(test_genomes > 700):
+                #     # split images into multiple parts of 500 genes each
+                #     n_parts = (len(test_genomes) // 500) + 1
+                #     genomeparts = []
+                #     for i in range(n_parts):
+                #         genomeparts.append(test_genomes[i*500:min(len(test_genomes), (i+1)*500)])
+                # else:
+                #     genomeparts = [test_genomes]
 
-            # for i, genomes in enumerate(genomeparts):
-            #     part = f"_part{i}" if len(genomeparts) > 1 else ""
-            #     genecols = [linkplot_single_genecol]*len(genomes) if linkplot_single_genecol is not None else None
-            #     linkcols = [linkplot_single_linkcol]*len(test_mlinks) if linkplot_single_linkcol is not None else None
-            #     img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
-            #                                  genomes, # not really needed, but defines genome order
-            #                                  imname=os.path.join(outdir, outprefix+f"test_links{part}.png"),
-            #                                  connectLinks=False,
-            #                                  show=False,
-            #                                  genecols=genecols,
-            #                                  linkcols=linkcols,
-            #                                  genewidth=linkplot_genewidth,
-            #                                  linkwidth=linkplot_linkwidth,
-            #                                  **linkplot_kwargs)
-            #     img.close()
-            _linkImg(test_mlinks, test_genomes,
-                     os.path.join(imdir, outprefix+"test_links.png"),
-                     connectLinks=False, show=False, 
-                     splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
-                     single_genecol=linkplot_single_genecol,
-                     single_linkcol=linkplot_single_linkcol,
-                     genewidth=linkplot_genewidth,
-                     linkwidth=linkplot_linkwidth,
-                     **linkplot_kwargs)
+                # for i, genomes in enumerate(genomeparts):
+                #     part = f"_part{i}" if len(genomeparts) > 1 else ""
+                #     genecols = [linkplot_single_genecol]*len(genomes) if linkplot_single_genecol is not None else None
+                #     linkcols = [linkplot_single_linkcol]*len(test_mlinks) if linkplot_single_linkcol is not None else None
+                #     img = plotting.drawGeneLinks(test_mlinks,  # type: ignore
+                #                                  genomes, # not really needed, but defines genome order
+                #                                  imname=os.path.join(outdir, outprefix+f"test_links{part}.png"),
+                #                                  connectLinks=False,
+                #                                  show=False,
+                #                                  genecols=genecols,
+                #                                  linkcols=linkcols,
+                #                                  genewidth=linkplot_genewidth,
+                #                                  linkwidth=linkplot_linkwidth,
+                #                                  **linkplot_kwargs)
+                #     img.close()
+                _linkImg(test_mlinks, test_genomes,
+                        os.path.join(imdir, outprefix+"test_links.png"),
+                        connectLinks=False, show=False, 
+                        splitthreshold=linkplot_splitthreshold, splitsize=linkplot_splitsize,
+                        single_genecol=linkplot_single_genecol,
+                        single_linkcol=linkplot_single_linkcol,
+                        genewidth=linkplot_genewidth,
+                        linkwidth=linkplot_linkwidth,
+                        **linkplot_kwargs)
+                
+            except Exception as e:
+                logging.error("[training.testMotifs] >>> Plotting test link image failed.")
+                logging.error(f"[training.testMotifs] >>> Exception:\n{e}")
+                logging.debug(full_stack())
 
     except Exception as e:
         logging.error("[training.testMotifs] >>> Evaluation on test data failed.")

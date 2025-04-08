@@ -44,7 +44,7 @@ pushd /home/ebelm/genomegraph/learn_specific_profiles
 
 python3 20241008_runModel.py \\
   --fasta {primary_data}/${{basename}}.fasta \\
-  --out ${wd}/${{basename}}/profilefinding \\
+  --out {wd}/${{basename}}/profilefinding \\
   --mode DNA \\
   --rand-seed 42 \\
   --n-best-profiles 5 \\

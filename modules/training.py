@@ -132,7 +132,7 @@ class TrainingEvaluation():
                 # catch a int_max_str_digits error if there are insanely many links or occs
                 #   (i.e. len(str(d[key])) > sys.get_int_max_str_digits())
                 if key in ['nhumanOccs', 'nhumanOccsThatHit', 'nlinks', 'nlinksThatHit'] \
-                    and len(json.dumps(d[key])) > int('9' * sys.get_int_max_str_digits()):
+                    and d[key] > int('9' * sys.get_int_max_str_digits()):
                     logging.error(f"[TrainingEvaluation.toDict] >>> {key} is too large " \
                                   + "to be converted to JSON. Setting to None.")
                     d[key] = None

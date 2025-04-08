@@ -61,7 +61,8 @@ source ~/Software/load_MEME.sh
 tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme
 
 # also store this command in a makefile to repeat it later (usually partly fails for some reason)
-echo "tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme" > ./make_tomtom_profilefinding.sh
+echo "source ~/Software/load_MEME.sh" > ./make_tomtom_profilefinding.sh
+echo "tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme" >> ./make_tomtom_profilefinding.sh
 
 # ---
 
@@ -79,7 +80,8 @@ streme \\
 tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
 
 # also store this command in a makefile to repeat it later (usually partly fails for some reason)
-echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" > ./make_tomtom_streme.sh
+echo "source ~/Software/load_MEME.sh" > ./make_tomtom_streme.sh
+echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" >> ./make_tomtom_streme.sh
 
 end=`date +%s`
 runtime=$((end-start))

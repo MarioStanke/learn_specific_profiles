@@ -569,8 +569,10 @@ def trainAndEvaluate(runID,
             # img.close()
             
             try:
+                imdir = os.path.join(outdir, "link_plots")
+                os.makedirs(imdir, exist_ok=True)
                 _linkImg(mlinks, trainsetup.data.training_data.getGenomes(),
-                        imname=os.path.join(outdir, outprefix+"links.png"),
+                        imname=os.path.join(imdir, outprefix+"links.png"),
                         splitthreshold=linkplot_splitthreshold,
                         splitsize=linkplot_splitsize,
                         connectLinks=False, show=False,

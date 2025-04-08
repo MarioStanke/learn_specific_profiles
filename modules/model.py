@@ -358,11 +358,11 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         # logging.debug(f"[model.lossfun] >>> \nZ: {Z}")
 
         # Z = tf.maximum(Z, 0) # >>> TEST TEST TEST <<<
-        # # logging.debug(f"[model.lossfun] >>> \nZ (2): {Z}")
+        # logging.debug(f"[model.lossfun] >>> \nZ (2): {Z}")
         
         loss_by_unit = -tf.math.reduce_max(Z, axis=-1) # best isolated match for each profile in each genome (N x U)
-        # logging.debug(f"[model.lossfun] >>> \nloss_by_unit: {loss_by_unit}")
-
+        # logging.debug(f"[model.lossfun] >>> \nloss_by_unit: {loss_by_unit}\n  mean: {tf.reduce_mean(loss_by_unit)}, max: {tf.reduce_max(loss_by_unit)}")
+        
         # >>> TEST TEST TEST <<<
         def mellowmax(x, a):
             """ See https://en.wikipedia.org/wiki/Smooth_maximum#Mellowmax
@@ -377,8 +377,13 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             lse = tf.math.log(tf.reduce_sum(tf.exp(x), axis=0)) # (U)
             return tf.math.divide(tf.math.subtract(lse, tf.math.log(tf.cast(n, x.dtype))), a)
 
-        loss_by_unit = mellowmax(loss_by_unit, self.setup.mellowmax_alpha)
-        # loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
+        # logging.debug(f"[model.lossfun] >>> \nmellowmax(loss,  0.01): {mellowmax(loss_by_unit, 0.01)}")
+        # logging.debug(f"[model.lossfun] >>> \nmellowmax(loss,  0.1): {mellowmax(loss_by_unit, 0.1)}")
+        # logging.debug(f"[model.lossfun] >>> \nmellowmax(loss,  1  ): {mellowmax(loss_by_unit, 1)}")
+        # logging.debug(f"[model.lossfun] >>> \nmellowmax(loss, 10  ): {mellowmax(loss_by_unit, 10)}")
+
+        # loss_by_unit = mellowmax(loss_by_unit, self.setup.mellowmax_alpha)
+        loss_by_unit = tf.math.reduce_sum(loss_by_unit, axis=0) # best isolated match of all genomes (U,)
         # logging.debug(f"[model.lossfun] >>> \nloss_by_unit (2): {loss_by_unit}")
             
         if self.setup.l2 != 0:

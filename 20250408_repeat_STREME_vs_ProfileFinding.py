@@ -291,6 +291,7 @@ def main():
     # Load the reference data
     data = pd.read_csv(datadir / "target_reference_motifs.tsv", sep="\t", names=['file', 'ref'])
     
+    print(f"Running STREME vs ProfileFinding on {datadir / 'diluted_dataset' / '1.00'}")
     full_experiment(wd=wd / "full",
                     primary_data=datadir / "diluted_dataset" / "1.00" / "primary_sequences",
                     control_data=datadir / "diluted_dataset" / "1.00" / "control_sequences",
@@ -301,6 +302,26 @@ def main():
                     mem=args.mem,
                     partition=args.partition,
                     time=args.time)
+    
+    for i in (datadir / "diluted_dataset").iterdir():
+        if i.is_dir():
+            try:
+                float(i.name)
+            except ValueError:
+                print(f"Diluted experiments: Skipping {i} as it is not a valid dilution level")
+                continue
+
+            print(f"Running STREME vs ProfileFinding on {i.name}")
+            full_experiment(wd=wd / "diluted" / i.name,
+                            primary_data=i / "primary_sequences",
+                            control_data=i / "control_sequences",
+                            ref_motifs=data,
+                            jolma=datadir / "jolma2013.meme",
+                            jobname=f"diluted_SvPF_{i.name}",
+                            n=args.n,
+                            mem=args.mem,
+                            partition=args.partition,
+                            time=args.time)
     #hybrid_experiment()
     #diluted_experiment()
 

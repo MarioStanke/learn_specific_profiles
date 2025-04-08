@@ -4,13 +4,13 @@ from pathlib import Path
 import pandas as pd
 
 def full_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs: pd.DataFrame, jolma: Path,
-                    n: int, mem: int, partition: str, time: str):
+                    jobname: str, n: int, mem: int, partition: str, time: str):
     (wd / 'slurmout').mkdir(parents=True, exist_ok=True)
 
     # Create the SLURM script for an array job
     script = f"""#!/bin/bash
 
-#SBATCH --job-name=STREME_full
+#SBATCH --job-name={jobname}
 #SBATCH -N 1
 #SBATCH -n {n}
 #SBATCH --mem={mem}
@@ -288,6 +288,7 @@ def main():
                     control_data=datadir / "diluted_dataset" / "1.00" / "control_sequences",
                     ref_motifs=data,
                     jolma=datadir / "jolma2013.meme",
+                    jobname="full_SvPF",
                     n=args.n,
                     mem=args.mem,
                     partition=args.partition,

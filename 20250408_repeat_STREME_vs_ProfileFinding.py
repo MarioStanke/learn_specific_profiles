@@ -17,8 +17,8 @@ def full_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs
 #SBATCH --partition={partition}
 #SBATCH --array=0-{len(ref_motifs.index)-1}
 #SBATCH --time={time}
-#SBATCH -o {wd}/slurmout/STREME_%A_%a.out
-#SBATCH -e {wd}/slurmout/STREME_%A_%a.err
+#SBATCH -o {wd}/slurmout/%A_%a.out
+#SBATCH -e {wd}/slurmout/%A_%a.err
 
 # die if SLURM_ARRAY_TASK_ID is not set
 if [ -z $SLURM_ARRAY_TASK_ID ]; then
@@ -42,17 +42,17 @@ echo ""
 
 pushd /home/ebelm/genomegraph/learn_specific_profiles
 
-python3 20241008_runModel.py \
-  --fasta {primary_data}/${{basename}}.fasta \
-  --out ${wd}/${{basename}}/profilefinding \
-  --mode DNA \
-  --rand-seed 42 \
-  --n-best-profiles 5 \
-  --tiles-per-X 1 --tile-size 100 \
-  --k 12 \
-  --midK 8 \
-  --l2 0.1 \
-  --kld 0.0 \
+python3 20241008_runModel.py \\
+  --fasta {primary_data}/${{basename}}.fasta \\
+  --out ${wd}/${{basename}}/profilefinding \\
+  --mode DNA \\
+  --rand-seed 42 \\
+  --n-best-profiles 5 \\
+  --tiles-per-X 1 --tile-size 100 \\
+  --k 12 \\
+  --midK 8 \\
+  --l2 0.1 \\
+  --kld 0.0 \\
   --mellowmax-alpha 1.0
 
 popd
@@ -87,7 +87,7 @@ popd
         f.write(script)
 
     # Submit the job
-    #os.system(f"sbatch {wd / 'run_STREME.sh'}")
+    os.system(f"sbatch {wd / 'run_STREME.sh'}")
 
 # ----------------------------------------------------------------------------------------------------------------------
 

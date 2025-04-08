@@ -60,6 +60,9 @@ popd
 source ~/Software/load_MEME.sh
 tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme
 
+# also store this command in a makefile to repeat it later (usually partly fails for some reason)
+echo "tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme" > ./make_tomtom_profilefinding.sh
+
 # ---
 
 # run STREME
@@ -74,6 +77,9 @@ streme \\
   --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
 
 tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
+
+# also store this command in a makefile to repeat it later (usually partly fails for some reason)
+echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" > ./make_tomtom_streme.sh
 
 end=`date +%s`
 runtime=$((end-start))

@@ -217,7 +217,11 @@ def main():
         training.trainAndEvaluate(fasta.name, trainsetup, evaluator, 
                                   outdir,  # type: ignore
                                   do_not_train=args.do_not_train,
-                                  rand_seed=SEED) # type: ignore
+                                  rand_seed=SEED,
+                                  linkplot_single_genecol="lightgray",
+                                  linkplot_single_linkcol="indigo",
+                                  linkplot_genewidth=20,
+                                  linkplot_linkwidth=10)
     except Exception as e:
         logging.error(f"[main] trainAndEvaluate failed, check log for details")
         logging.error(f"[main] Error message: {e}")

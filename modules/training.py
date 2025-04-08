@@ -371,136 +371,6 @@ def loadMultiTrainingEvaluation(filename, allGenomes: list[sr.Genome],
 
 
 
-def trainAndEvaluate(runID,
-                     trainsetup: setup.ProfileFindingTrainingSetup, 
-                     evaluator: MultiTrainingEvaluation,
-                     outdir: str, outprefix: str = "",
-                     # trainingWithReporting: bool = True,
-                     do_not_train: bool = False,
-                     rand_seed: int = None) -> None: # type: ignore
-    """ 
-    Train profiles on a given training setup and evaluate them. 
-    Parameters:
-        runID: any
-            Identifier for the training run.
-        trainsetup: ProfileFindingTrainingSetup
-            Training setup to use for training and evaluation.
-        evaluator: MultiTrainingEvaluation
-            To store the results of the training run.
-        outdir: str
-            Directory to save resulting plots to. Set to None for no saving.
-        outprefix: str
-            Prefix for output files.
-        # trainingWithReporting: bool
-        #     If True, training is done with reporting, otherwise with classic training.
-        do_not_train: bool
-            If True, the model is not trained, but only the best initial profiles are returned.
-        rand_seed: int
-            Random seed for reproducibility.
-
-    Returns:
-        None
-    """
-
-    assert trainsetup.initProfiles is not None, "[ERROR] >>> No seed profiles found in trainsetup."
-
-    # build and randomly initialize profile model
-    tf.keras.backend.clear_session()  # type: ignore # avoid memory cluttering by remains of old models
-    logging.info(f"[training.trainAndEvaluate] >>> Num GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
-    specProModel = model.SpecificProfile(setup = trainsetup,
-                                         rand_seed = rand_seed)
-
-    # start training
-    start = time()
-    try:
-        if not do_not_train:
-             specProModel.train(verbose_freq=10)
-        else:
-            # do not train, but return best initial profiles
-            for _ in range(trainsetup.n_best_profiles):
-                mean_losses = specProModel.get_mean_losses(specProModel.data.getDataset(withPosTracking = True), 
-                                                        specProModel.getP(), specProModel.P_logit) # (U)
-                best_profile = tf.argmin(mean_losses).numpy()
-                specProModel.profile_cleanup(best_profile, 0)
-
-        end = time()
-    except Exception as e:
-        end = time()
-        logging.error(f"[training.trainAndEvaluate] >>> Training failed after {end-start:.2f}.")
-        logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
-        logging.debug(full_stack())
-        
-    training_time = end-start
-    logging.info(f"[training.trainAndEvaluate] >>> Training time: {training_time:.2f}")
-
-    # evaluate model (if possible)
-    try:
-        if outdir is not None:
-            # draw training history
-            fig, _ = plotting.plotHistory(specProModel.history)
-            fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
-            plt.close(fig)
-
-            fig, _ = plotting.plotProfileLossHeatmap(specProModel.profile_tracking)
-            fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
-            plt.close(fig)
-
-            fig = plotting.plotBestProfileLossScatter(specProModel.profile_tracking)
-            fig.write_image(os.path.join(outdir, outprefix+"profile_loss_history_scat.png"), width=1920, height=1080)
-
-        # get match sites of profiles and create Links
-
-        profile_report = specProModel.profile_report
-        motifs = MotifWrapper(profile_report.P, trainsetup.data.alphabet,
-                              {'Pthresh': [float(pt) for pt in profile_report.threshold],  # type: ignore
-                               'Ploss': [float(pl) for pl in profile_report.loss]})
-        sites, sitescores = specProModel.get_profile_match_sites(trainsetup.data.getDataset(withPosTracking = True, 
-                                                                                            original_data=True),
-                                                                 profile_report.P, profile_report.threshold)
-        occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k) # type: ignore
-
-        #logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
-        mlinks = Links.multiLinksFromOccurrences(occurrences)
-        #logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
-        logging.debug(f"[training.trainAndEvaluate] >>> len(mlinks) {len(mlinks)}")
-        logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}") # type: ignore
-
-        # add evaluation results to evaluator
-        hgGenome = [g for g in trainsetup.data.training_data.getGenomes() if g.species == 'Homo_sapiens']
-        assert len(hgGenome) <= 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
-        if len(hgGenome) == 1:
-            # do normal evaluation
-            hgGenome = hgGenome[0]
-            evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
-        else:
-            # assume there is no exon data with human reference and everything, bypass evaluation but still store motifs
-            logging.warning("[training.trainAndEvaluate] >>> Training data does not contain human genomes, " \
-                            + "bypassing evaluation")
-            evaluator.trainings.append(
-                TrainingEvaluation(runID, motifs, mlinks, 0, 0, 0, 0, 0, training_time)
-            )
-
-        # draw link image
-        kmerSites: list[Links.Occurrence] = []
-        for kmer in trainsetup.initKmerPositions:
-            kmerSites.extend(trainsetup.initKmerPositions[kmer])
-        maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
-                                                      sitelen = trainsetup.k)
-        img = plotting.drawGeneLinks(mlinks,  # type: ignore
-                                     trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
-                                     imname=os.path.join(outdir, outprefix+"links.png") if outdir is not None else None, 
-                                     kmerSites=kmerSites, kmerCol='deeppink',
-                                     maskingSites=maskSites, maskingCol='chocolate',
-                                     show=False)
-        img.close()
-        
-    except Exception as e:
-        logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")
-        logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
-        logging.debug(full_stack())
-
-
-
 def _linkImg(links: list[Links.MultiLink], genomes: list[Links.sr.Genome], imname: str,
              splitthreshold: int = 150, splitsize: int = 100,
              single_genecol: str = None, single_linkcol: str = None,
@@ -549,6 +419,178 @@ def _linkImg(links: list[Links.MultiLink], genomes: list[Links.sr.Genome], imnam
                                      linkcols=linkcols,
                                      **kwargs)
         img.close()
+
+
+
+def trainAndEvaluate(runID,
+                     trainsetup: setup.ProfileFindingTrainingSetup, 
+                     evaluator: MultiTrainingEvaluation,
+                     outdir: str, outprefix: str = "",
+                     # trainingWithReporting: bool = True,
+                     do_not_train: bool = False,
+                     rand_seed: int = None,
+                     linkplot_splitthreshold: int = 150,
+                     linkplot_splitsize: int = 100,
+                     linkplot_single_genecol: str = None,
+                     linkplot_single_linkcol: str = None,
+                     linkplot_genewidth: int = 20,
+                     linkplot_linkwidth: int = 10,
+                     **linkplot_kwargs) -> None: # type: ignore
+    """ 
+    Train profiles on a given training setup and evaluate them. 
+    Parameters:
+        runID: any
+            Identifier for the training run.
+        trainsetup: ProfileFindingTrainingSetup
+            Training setup to use for training and evaluation.
+        evaluator: MultiTrainingEvaluation
+            To store the results of the training run.
+        outdir: str
+            Directory to save resulting plots to. Set to None for no saving.
+        outprefix: str
+            Prefix for output files.
+        # trainingWithReporting: bool
+        #     If True, training is done with reporting, otherwise with classic training.
+        do_not_train: bool
+            If True, the model is not trained, but only the best initial profiles are returned.
+        rand_seed: int
+            Random seed for reproducibility.
+        linkplot_splitthreshold: int
+            Number of genomes at which to split the link image into multiple parts.
+        linkplot_splitsize: int
+            Number of genomes per link image part.
+        linkplot_single_genecol: str
+            Optional single color to use for all genes in the link plots.
+        linkplot_single_linkcol: str
+            Optional single color to use for all links in the link plots.
+        linkplot_genewidth: int
+            Width of gene lines in the link plots.
+        linkplot_linkwidth: int
+            Width of link lines in the link plots.
+        linkplot_kwargs: dict
+            Additional keyword arguments for plotting.drawGeneLinks().
+
+    Returns:
+        None
+    """
+
+    assert trainsetup.initProfiles is not None, "[ERROR] >>> No seed profiles found in trainsetup."
+
+    # build and randomly initialize profile model
+    tf.keras.backend.clear_session()  # type: ignore # avoid memory cluttering by remains of old models
+    logging.info(f"[training.trainAndEvaluate] >>> Num GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
+    specProModel = model.SpecificProfile(setup = trainsetup,
+                                         rand_seed = rand_seed)
+
+    # start training
+    start = time()
+    try:
+        if not do_not_train:
+             specProModel.train(verbose_freq=10)
+        else:
+            # do not train, but return best initial profiles
+            for _ in range(trainsetup.n_best_profiles):
+                mean_losses = specProModel.get_mean_losses(specProModel.data.getDataset(withPosTracking = True), 
+                                                        specProModel.getP(), specProModel.P_logit) # (U)
+                best_profile = tf.argmin(mean_losses).numpy()
+                specProModel.profile_cleanup(best_profile, 0)
+
+        end = time()
+    except Exception as e:
+        end = time()
+        logging.error(f"[training.trainAndEvaluate] >>> Training failed after {end-start:.2f}.")
+        logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+        logging.debug(full_stack())
+        
+    training_time = end-start
+    logging.info(f"[training.trainAndEvaluate] >>> Training time: {training_time:.2f}")
+
+    # evaluate model (if possible)
+    try:
+        logging.info("[training.trainAndEvaluate] >>> Starting evaluation")
+        if outdir is not None:
+            # draw training history
+            fig, _ = plotting.plotHistory(specProModel.history)
+            fig.savefig(os.path.join(outdir, outprefix+"training_history.png"), dpi=300, bbox_inches="tight")
+            plt.close(fig)
+
+            fig, _ = plotting.plotProfileLossHeatmap(specProModel.profile_tracking)
+            fig.savefig(os.path.join(outdir, outprefix+"profile_loss_history_heat.png"), dpi=300, bbox_inches="tight")
+            plt.close(fig)
+
+            fig = plotting.plotBestProfileLossScatter(specProModel.profile_tracking)
+            fig.write_image(os.path.join(outdir, outprefix+"profile_loss_history_scat.png"), width=1920, height=1080)
+
+        # get match sites of profiles and create Links
+
+        profile_report = specProModel.profile_report
+        motifs = MotifWrapper(profile_report.P, trainsetup.data.alphabet,
+                              {'Pthresh': [float(pt) for pt in profile_report.threshold],  # type: ignore
+                               'Ploss': [float(pl) for pl in profile_report.loss]})
+        sites, sitescores = specProModel.get_profile_match_sites(trainsetup.data.getDataset(withPosTracking = True, 
+                                                                                            original_data=True),
+                                                                 profile_report.P, profile_report.threshold)
+        occurrences = trainsetup.data.convertModelSites(sites.numpy(), trainsetup.k) # type: ignore
+
+        #logging.debug(f"[training.trainAndEvaluate] >>> sites: {sites.numpy()[:20,]}") # type: ignore # (sites, (genomeID, contigID, pos, u, f))
+        mlinks = Links.multiLinksFromOccurrences(occurrences)
+        #logging.debug(f"[training.trainAndEvaluate] >>> mlinks[:{min(len(mlinks), 2)}] {mlinks[:min(len(mlinks), 2)]}")
+        # logging.debug(f"[training.trainAndEvaluate] >>> len(mlinks) {len(mlinks)}")
+        # logging.debug(f"[training.trainAndEvaluate] >>> number of unique links: {Links.nLinks(mlinks)}") # type: ignore
+
+        # add evaluation results to evaluator
+        hgGenome = [g for g in trainsetup.data.training_data.getGenomes() if g.species == 'Homo_sapiens']
+        assert len(hgGenome) <= 1, f"[ERROR] >>> found {len(hgGenome)} human genomes: {hgGenome}"
+        if len(hgGenome) == 1:
+            # do normal evaluation
+            hgGenome = hgGenome[0]
+            evaluator.add_result(runID, motifs, mlinks, hgGenome, training_time)
+        else:
+            # assume there is no exon data with human reference and everything, bypass evaluation but still store motifs
+            logging.warning("[training.trainAndEvaluate] >>> Training data does not contain human genomes, " \
+                            + "bypassing evaluation")
+            evaluator.trainings.append(
+                TrainingEvaluation(runID, motifs, mlinks, 0, 0, 0, 0, 0, training_time)
+            )
+
+        if outdir is not None:
+            # draw link image
+            kmerSites: list[Links.Occurrence] = []
+            for kmer in trainsetup.initKmerPositions:
+                kmerSites.extend(trainsetup.initKmerPositions[kmer])
+            maskSites = trainsetup.data.convertModelSites(specProModel.profile_report.masked_sites,
+                                                        sitelen = trainsetup.k)
+            # img = plotting.drawGeneLinks(mlinks,  # type: ignore
+            #                              trainsetup.data.training_data.getGenomes(), # not really needed, but defines genome order
+            #                              imname=os.path.join(outdir, outprefix+"links.png") if outdir is not None else None, 
+            #                              kmerSites=kmerSites, kmerCol='deeppink',
+            #                              maskingSites=maskSites, maskingCol='chocolate',
+            #                              show=False)
+            # img.close()
+            
+            try:
+                _linkImg(mlinks, trainsetup.data.training_data.getGenomes(),
+                        imname=os.path.join(outdir, outprefix+"links.png"),
+                        splitthreshold=linkplot_splitthreshold,
+                        splitsize=linkplot_splitsize,
+                        connectLinks=False, show=False,
+                        single_genecol=linkplot_single_genecol,
+                        single_linkcol=linkplot_single_linkcol,
+                        genewidth=linkplot_genewidth,
+                        linkwidth=linkplot_linkwidth,
+                        **linkplot_kwargs)
+            except Exception as e:
+                logging.error("[training.trainAndEvaluate] >>> Plotting link image failed.")
+                logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+                logging.debug(full_stack())
+
+        logging.info("[training.trainAndEvaluate] >>> Evaluation done.")
+                    
+    except Exception as e:
+        logging.error("[training.trainAndEvaluate] >>> Evaluation failed.")
+        logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+        logging.debug(full_stack())
+
 
 
 def trainAndTest(runID,

@@ -5,7 +5,7 @@ import pandas as pd
 
 def full_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs: pd.DataFrame, jolma: Path,
                     n: int, mem: int, partition: str, time: str):
-    (wd / 'slurmout').mkdir(exist_ok=True)
+    (wd / 'slurmout').mkdir(parents=True, exist_ok=True)
 
     # Create the SLURM script for an array job
     script = f"""#!/bin/bash

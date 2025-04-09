@@ -172,6 +172,7 @@ def readMemeFile(file: Path, motif_filter: list[str] = None, alph: str = 'ACGT')
         motif_site = None
         for line in f:
             line = line.strip()
+            # print(f"[DEBUG] >>> line: `{line}` | {alphabet_seen=} {motif_name_seen=} {motif_started=} {motif_finished=} {motif_site=}")
             if line.startswith('ALPHABET'):
                 m = re.match(r'ALPHABET= ([A-Z]+)', line)
                 assert m, f"[utils.readMemeFile] Error: no valid alphabet in line '{line}'"
@@ -198,10 +199,14 @@ def readMemeFile(file: Path, motif_filter: list[str] = None, alph: str = 'ACGT')
 
             if motif_name_seen:
                 if line.startswith('letter-probability matrix'):
-                    m = re.match(r'letter-probability matrix: alength= 4 w= (\d+).+', line)
+                    m = re.match(r'letter-probability matrix: alength= (\d+) w= (\d+).*', line)
                     assert m, f"[utils.readMemeFile] Error: expected motif details, got '{line}'"
-                    motif_length = int(m.group(1))
+                    alen = int(m.group(1))
+                    assert alen == len(alph), \
+                        f"[utils.readMemeFile] Error: expected alphabet length {len(alph)}, got {alen} in '{line}'"
+                    motif_length = int(m.group(2))
                     motif = np.zeros((motif_length, len(alph)))
+                    # print(f"[DEBUG] >>> new motif {motif.shape=} with {motif_length=} {alen=} {m=} {m.group(0)=} {m.group(1)=} {m.group(2)=}")
                     motif_started = True
                     motif_site = 0
                 else:
@@ -217,6 +222,7 @@ def readMemeFile(file: Path, motif_filter: list[str] = None, alph: str = 'ACGT')
                     else:
                         assert motif_site is not None, \
                             f"[utils.readMemeFile] Error: flag motif_site not set when encountering line '{line}'"
+                        # print(f"[DEBUG] >>> {motif.shape=} {motif_site} | line: `{line}`")
                         motif[motif_site] = list(map(float, line.split()))
                         motif_site += 1
 

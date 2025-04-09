@@ -302,8 +302,8 @@ def main():
     wd = Path(args.wd)
     wd.mkdir(exist_ok=True)
 
-    # datadir = Path("/home/ebelm/genomegraph/data/20250408_STREME_benchmark_revisited")
-    datadir = Path("/home/matthis/PhD/mnt/brain/genomegraph/data/20250408_STREME_benchmark_revisited")
+    datadir = Path("/home/ebelm/genomegraph/data/20250408_STREME_benchmark_revisited")
+    # datadir = Path("/home/matthis/PhD/mnt/brain/genomegraph/data/20250408_STREME_benchmark_revisited") # FOR LOCAL TESTING ONLY!
     assert datadir.exists(), f"Data directory {datadir} does not exist"
     assert (datadir / "target_reference_motifs.tsv").exists(), \
         f"Reference motifs file {datadir / 'target_reference_motifs.tsv'} does not exist"

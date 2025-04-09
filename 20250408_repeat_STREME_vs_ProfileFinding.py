@@ -307,20 +307,34 @@ def main():
     assert datadir.exists(), f"Data directory {datadir} does not exist"
     assert (datadir / "target_reference_motifs.tsv").exists(), \
         f"Reference motifs file {datadir / 'target_reference_motifs.tsv'} does not exist"
+    assert (datadir / "target_reference_motifs_hybrid.tsv").exists(), \
+        f"Reference motifs file {datadir / 'target_reference_motifs_hybrid.tsv'} does not exist"
+    assert (datadir / "target_reference_motifs_simulated.tsv").exists(), \
+        f"Reference motifs file {datadir / 'target_reference_motifs_simulated.tsv'} does not exist"
     assert (datadir / "jolma2013.meme").exists(), f"Jolma motifs file {datadir / 'jolma2013.meme'} does not exist"
+    # check principal existence of the data directories
     assert (datadir / "diluted_dataset" / "1.00" / "primary_sequences").exists(), \
         f"Data directory {datadir / 'diluted_dataset' / '1.00' / 'primary_sequences'} does not exist"
     assert (datadir / "diluted_dataset" / "1.00" / "control_sequences").exists(), \
         f"Control data directory {datadir / 'diluted_dataset' / '1.00' / 'control_sequences'} does not exist"
+    assert (datadir / "hybrid_dataset" / "00" / "primary_sequences").exists(), \
+        f"Data directory {datadir / 'hybrid_dataset' / '00' / 'primary_sequences'} does not exist"
+    assert (datadir / "hybrid_dataset" / "00" / "control_sequences").exists(), \
+        f"Control data directory {datadir / 'hybrid_dataset' / '00' / 'control_sequences'} does not exist"
+    assert (datadir / "simulated_dataset" / "0.00" / "primary_sequences").exists(), \
+        f"Data directory {datadir / 'simulated_dataset' / '0.00' / 'primary_sequences'} does not exist"
+    assert (datadir / "simulated_dataset" / "0.00" / "control_sequences").exists(), \
+        f"Control data directory {datadir / 'simulated_dataset' / '0.00' / 'control_sequences'} does not exist"
 
-    # Load the reference data
-    data = pd.read_csv(datadir / "target_reference_motifs.tsv", sep="\t", names=['file', 'ref'])
+    # Load the normal reference data
+    refs = pd.read_csv(datadir / "target_reference_motifs.tsv", sep="\t", names=['file', 'ref'])
     
+    # do a full run on undiluted data
     print(f"Running STREME vs ProfileFinding on {datadir / 'diluted_dataset' / '1.00'}")
     full_experiment(wd=wd / "full",
                     primary_data=datadir / "diluted_dataset" / "1.00" / "primary_sequences",
                     control_data=datadir / "diluted_dataset" / "1.00" / "control_sequences",
-                    ref_motifs=data,
+                    ref_motifs=refs,
                     jolma=datadir / "jolma2013.meme",
                     jobname="full_SvPF",
                     n=args.n,
@@ -331,6 +345,7 @@ def main():
                     run_streme=not args.skip_streme,
                     run_pf_init=not args.skip_pf_init)
     
+    # do sensitivity analysis on diluted data
     for i in (datadir / "diluted_dataset").iterdir():
         if i.is_dir():
             try:
@@ -339,11 +354,11 @@ def main():
                 print(f"Diluted experiments: Skipping {i} as it is not a valid dilution level")
                 continue
 
-            print(f"Running STREME vs ProfileFinding on {i.name}")
+            print(f"Running STREME vs ProfileFinding on {i}")
             full_experiment(wd=wd / "diluted" / i.name,
                             primary_data=i / "primary_sequences",
                             control_data=i / "control_sequences",
-                            ref_motifs=data,
+                            ref_motifs=refs,
                             jolma=datadir / "jolma2013.meme",
                             jobname=f"diluted_SvPF_{i.name}",
                             n=args.n,
@@ -353,8 +368,57 @@ def main():
                             run_pf=not args.skip_pf,
                             run_streme=not args.skip_streme,
                             run_pf_init=not args.skip_pf_init)
-    #hybrid_experiment()
-    #diluted_experiment()
+    
+    # do a specificity analysis on hybrid data
+    refs_hybrid = pd.read_csv(datadir / "target_reference_motifs_hybrid.tsv", sep="\t", names=['file', 'ref'])
+    for rep in (datadir / "hybrid_dataset").iterdir():
+        if rep.is_dir():
+            try:
+                int(rep.name)
+            except ValueError:
+                print(f"Hybrid experiments: Skipping {rep} as it is not a valid replicate number")
+                continue
+
+            print(f"Running STREME vs ProfileFinding on {rep}")
+            full_experiment(wd=wd / "hybrid" / rep.name,
+                            primary_data=rep / "primary_sequences",
+                            control_data=rep / "control_sequences",
+                            ref_motifs=refs_hybrid,
+                            jolma=datadir / "jolma2013.meme",
+                            jobname=f"hybrid_SvPF_{rep.name}",
+                            n=args.n,
+                            mem=args.mem,
+                            partition=args.partition,
+                            time=args.time,
+                            run_pf=not args.skip_pf,
+                            run_streme=not args.skip_streme,
+                            run_pf_init=not args.skip_pf_init)
+
+    # do an analysis on simulated data
+    refs_simulated = pd.read_csv(datadir / "target_reference_motifs_simulated.tsv", sep="\t", names=['file', 'ref'])
+    for mfreq in (datadir / "simulated_dataset").iterdir():
+        if mfreq.is_dir():
+            try:
+                float(mfreq.name)
+            except ValueError:
+                print(f"Simulated experiments: Skipping {mfreq} as it is not a valid motif frequency")
+                continue
+
+            print(f"Running STREME vs ProfileFinding on {mfreq}")
+            full_experiment(wd=wd / "simulated" / mfreq.name,
+                            primary_data=mfreq / "primary_sequences",
+                            control_data=mfreq / "control_sequences",
+                            ref_motifs=refs_simulated,
+                            jolma=datadir / "jolma2013.meme",
+                            jobname=f"simulated_SvPF_{mfreq.name}",
+                            n=args.n,
+                            mem=args.mem,
+                            partition=args.partition,
+                            time=args.time,
+                            run_pf=not args.skip_pf,
+                            run_streme=not args.skip_streme,
+                            run_pf_init=not args.skip_pf_init)
+
 
 if __name__ == "__main__":
     main()

@@ -109,70 +109,13 @@ source ~/Software/load_MEME.sh
         script += parts['pf']
     if run_streme:
         script += parts['streme']
-# # create working directories
-# mkdir -p {wd}/${{basename}}/profilefinding
-# pushd {wd}/${{basename}}
-
-# # run ProfileFinding
-# echo "Running ProfileFinding on $basename with ref motif $refmotif in $(pwd)"
-# echo ""
-
-# pushd /home/ebelm/genomegraph/learn_specific_profiles
-
-# python3 20241008_runModel.py \\
-#   --fasta {primary_data}/${{basename}}.fasta \\
-#   --out {wd}/${{basename}}/profilefinding \\
-#   --mode DNA \\
-#   --rand-seed 42 \\
-#   --n-best-profiles 5 \\
-#   --tiles-per-X 1 --tile-size 100 \\
-#   --k 12 \\
-#   --midK 8 \\
-#   --l2 0.1 \\
-#   --kld 0.0 \\
-#   --mellowmax-alpha 1.0
-
-# popd
-
-# source ~/Software/load_MEME.sh
-# tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme
-
-# # also store this command in a makefile to repeat it later (usually partly fails for some reason)
-# echo "source ~/Software/load_MEME.sh" > ./make_tomtom_profilefinding.sh
-# echo "tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme" >> ./make_tomtom_profilefinding.sh
-
-# # ---
-
-# # run STREME
-# echo "Running STREME on $basename with ref motif $refmotif in $(pwd)"
-
-# start=`date +%s`
-
-# # test run
-# streme \\
-#   --p {primary_data}/$basename.fasta \\
-#   --n {control_data}/$basename.shuf.fasta \\
-#   --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
-
-# tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
-
-# # also store this command in a makefile to repeat it later (usually partly fails for some reason)
-# echo "source ~/Software/load_MEME.sh" > ./make_tomtom_streme.sh
-# echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" >> ./make_tomtom_streme.sh
-
-# end=`date +%s`
-# runtime=$((end-start))
-# echo "Runtime: $runtime"
-
-# popd
-# """
 
     # Write the script to a file
     with open(wd / "run_STREME.sh", "w") as f:
         f.write(script)
 
     # Submit the job
-    #os.system(f"sbatch {wd / 'run_STREME.sh'}")
+    os.system(f"sbatch {wd / 'run_STREME.sh'}")
 
 # ----------------------------------------------------------------------------------------------------------------------
 

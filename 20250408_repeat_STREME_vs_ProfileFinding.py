@@ -4,8 +4,74 @@ from pathlib import Path
 import pandas as pd
 
 def full_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs: pd.DataFrame, jolma: Path,
-                    jobname: str, n: int, mem: int, partition: str, time: str):
+                    jobname: str, n: int, mem: int, partition: str, time: str,
+                    run_pf: bool = True, run_streme: bool = True, run_pf_init: bool = True):
     (wd / 'slurmout').mkdir(parents=True, exist_ok=True)
+
+    parts = {
+        'streme': None,
+        'pf': None,
+        'pf_init': None
+    }
+    for k, add_wd, add_opt in [('pf', '', ''), ('pf_init', '_init', '\\\n  --do-not-train')]:
+        parts[k] = f"""# run ProfileFinding{add_wd}
+
+mkdir -p {wd}/${{basename}}/profilefinding{add_wd}
+pushd {wd}/${{basename}}
+
+echo "Running ProfileFinding{add_wd} on $basename with ref motif $refmotif in $(pwd)"
+echo ""
+
+pushd /home/ebelm/genomegraph/learn_specific_profiles
+python3 20241008_runModel.py \\
+  --fasta {primary_data}/${{basename}}.fasta \\
+  --out {wd}/${{basename}}/profilefinding{add_wd} \\
+  --mode DNA \\
+  --rand-seed 42 \\
+  --n-best-profiles 5 \\
+  --tiles-per-X 1 --tile-size 100 \\
+  --k 12 \\
+  --midK 8 \\
+  --l2 0.1 \\
+  --kld 0.0 \\
+  --mellowmax-alpha 1.0 {add_opt}
+popd
+
+tomtom -oc ./profilefinding{add_wd}/tomtom -m ${{refmotif}} -png {jolma} profilefinding{add_wd}/profiles.meme
+
+# also store this command in a makefile to repeat it later (usually partly fails for some reason)
+echo "source ~/Software/load_MEME.sh" > ./make_tomtom_profilefinding{add_wd}.sh
+echo "tomtom -oc ./profilefinding{add_wd}/tomtom -m ${{refmotif}} -png {jolma} profilefinding{add_wd}/profiles.meme" >> ./make_tomtom_profilefinding{add_wd}.sh
+
+popd
+
+"""
+
+    parts['streme'] = f"""# run STREME
+
+mkdir -p {wd}/${{basename}}/streme
+pushd {wd}/${{basename}}
+
+echo "Running STREME on $basename with ref motif $refmotif in $(pwd)"
+echo ""
+
+start=`date +%s`
+
+# test run
+streme \\
+  --p {primary_data}/$basename.fasta \\
+  --n {control_data}/$basename.shuf.fasta \\
+  --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
+
+tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
+
+# also store this command in a makefile to repeat it later (usually partly fails for some reason)
+echo "source ~/Software/load_MEME.sh" > ./make_tomtom_streme.sh
+echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" >> ./make_tomtom_streme.sh
+
+popd
+
+"""
 
     # Create the SLURM script for an array job
     script = f"""#!/bin/bash
@@ -32,70 +98,81 @@ basename=${{basenames[$SLURM_ARRAY_TASK_ID]}}
 refmotifs=({ref_motifs['ref'].str.cat(sep=' ')})
 refmotif=${{refmotifs[$SLURM_ARRAY_TASK_ID]}}
 
-# create working directories
-mkdir -p {wd}/${{basename}}/profilefinding
-pushd {wd}/${{basename}}
-
-# run ProfileFinding
-echo "Running ProfileFinding on $basename with ref motif $refmotif in $(pwd)"
-echo ""
-
-pushd /home/ebelm/genomegraph/learn_specific_profiles
-
-python3 20241008_runModel.py \\
-  --fasta {primary_data}/${{basename}}.fasta \\
-  --out {wd}/${{basename}}/profilefinding \\
-  --mode DNA \\
-  --rand-seed 42 \\
-  --n-best-profiles 5 \\
-  --tiles-per-X 1 --tile-size 100 \\
-  --k 12 \\
-  --midK 8 \\
-  --l2 0.1 \\
-  --kld 0.0 \\
-  --mellowmax-alpha 1.0
-
-popd
-
 source ~/Software/load_MEME.sh
-tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme
 
-# also store this command in a makefile to repeat it later (usually partly fails for some reason)
-echo "source ~/Software/load_MEME.sh" > ./make_tomtom_profilefinding.sh
-echo "tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme" >> ./make_tomtom_profilefinding.sh
-
-# ---
-
-# run STREME
-echo "Running STREME on $basename with ref motif $refmotif in $(pwd)"
-
-start=`date +%s`
-
-# test run
-streme \\
-  --p {primary_data}/$basename.fasta \\
-  --n {control_data}/$basename.shuf.fasta \\
-  --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
-
-tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
-
-# also store this command in a makefile to repeat it later (usually partly fails for some reason)
-echo "source ~/Software/load_MEME.sh" > ./make_tomtom_streme.sh
-echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" >> ./make_tomtom_streme.sh
-
-end=`date +%s`
-runtime=$((end-start))
-echo "Runtime: $runtime"
-
-popd
 """
+    
+    # Add the parts to the script
+    if run_pf_init:
+        script += parts['pf_init']
+    if run_pf:
+        script += parts['pf']
+    if run_streme:
+        script += parts['streme']
+# # create working directories
+# mkdir -p {wd}/${{basename}}/profilefinding
+# pushd {wd}/${{basename}}
+
+# # run ProfileFinding
+# echo "Running ProfileFinding on $basename with ref motif $refmotif in $(pwd)"
+# echo ""
+
+# pushd /home/ebelm/genomegraph/learn_specific_profiles
+
+# python3 20241008_runModel.py \\
+#   --fasta {primary_data}/${{basename}}.fasta \\
+#   --out {wd}/${{basename}}/profilefinding \\
+#   --mode DNA \\
+#   --rand-seed 42 \\
+#   --n-best-profiles 5 \\
+#   --tiles-per-X 1 --tile-size 100 \\
+#   --k 12 \\
+#   --midK 8 \\
+#   --l2 0.1 \\
+#   --kld 0.0 \\
+#   --mellowmax-alpha 1.0
+
+# popd
+
+# source ~/Software/load_MEME.sh
+# tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme
+
+# # also store this command in a makefile to repeat it later (usually partly fails for some reason)
+# echo "source ~/Software/load_MEME.sh" > ./make_tomtom_profilefinding.sh
+# echo "tomtom -oc ./profilefinding/tomtom -m ${{refmotif}} -png {jolma} profilefinding/profiles.meme" >> ./make_tomtom_profilefinding.sh
+
+# # ---
+
+# # run STREME
+# echo "Running STREME on $basename with ref motif $refmotif in $(pwd)"
+
+# start=`date +%s`
+
+# # test run
+# streme \\
+#   --p {primary_data}/$basename.fasta \\
+#   --n {control_data}/$basename.shuf.fasta \\
+#   --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
+
+# tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
+
+# # also store this command in a makefile to repeat it later (usually partly fails for some reason)
+# echo "source ~/Software/load_MEME.sh" > ./make_tomtom_streme.sh
+# echo "tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt" >> ./make_tomtom_streme.sh
+
+# end=`date +%s`
+# runtime=$((end-start))
+# echo "Runtime: $runtime"
+
+# popd
+# """
 
     # Write the script to a file
     with open(wd / "run_STREME.sh", "w") as f:
         f.write(script)
 
     # Submit the job
-    os.system(f"sbatch {wd / 'run_STREME.sh'}")
+    #os.system(f"sbatch {wd / 'run_STREME.sh'}")
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -273,12 +350,17 @@ def main():
                         default = 72)
     parser.add_argument('--time', help = 'Time to allocate for the job, as string accepted by `#SBATCH --time=`', 
                         required = False, type = str, default = '3-00:00:00')
+    parser.add_argument('--skip-pf-init', help = 'Skip the ProfileFinding do-not-train run', action='store_true',
+                        default = False)
+    parser.add_argument('--skip-pf', help = 'Skip the ProfileFinding run', action='store_true', default = False)
+    parser.add_argument('--skip-streme', help = 'Skip the STREME run', action='store_true', default = False)
     args = parser.parse_args()
 
     wd = Path(args.wd)
     wd.mkdir(exist_ok=True)
 
-    datadir = Path("/home/ebelm/genomegraph/data/20250408_STREME_benchmark_revisited")
+    # datadir = Path("/home/ebelm/genomegraph/data/20250408_STREME_benchmark_revisited")
+    datadir = Path("/home/matthis/PhD/mnt/brain/genomegraph/data/20250408_STREME_benchmark_revisited")
     assert datadir.exists(), f"Data directory {datadir} does not exist"
     assert (datadir / "target_reference_motifs.tsv").exists(), \
         f"Reference motifs file {datadir / 'target_reference_motifs.tsv'} does not exist"
@@ -301,7 +383,10 @@ def main():
                     n=args.n,
                     mem=args.mem,
                     partition=args.partition,
-                    time=args.time)
+                    time=args.time,
+                    run_pf=not args.skip_pf,
+                    run_streme=not args.skip_streme,
+                    run_pf_init=not args.skip_pf_init)
     
     for i in (datadir / "diluted_dataset").iterdir():
         if i.is_dir():
@@ -321,7 +406,10 @@ def main():
                             n=args.n,
                             mem=args.mem,
                             partition=args.partition,
-                            time=args.time)
+                            time=args.time,
+                            run_pf=not args.skip_pf,
+                            run_streme=not args.skip_streme,
+                            run_pf_init=not args.skip_pf_init)
     #hybrid_experiment()
     #diluted_experiment()
 

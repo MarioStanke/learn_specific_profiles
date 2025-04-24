@@ -148,7 +148,7 @@ class ProfileFindingOptions:
                 else:
                     cmd += f"  --{key.replace('_', '-')} {value} \\\n"
 
-        cmd += "popd\n"
+        cmd += "\npopd\n"
         return cmd
     
 

@@ -643,6 +643,18 @@ def combinePlots(plots: list,
     im.close()
 
 
+def _numConversion(df: pd.DataFrame, col: str) -> pd.DataFrame:
+        """Try to convert `col` in df to numeric. Returns a copy of df. Raises an exception if conversion fails."""
+        df = df.copy()
+        try:
+            df[col] = pd.to_numeric(df[col])
+        except Exception as e:
+            print(f"[ERROR] >>> Could not convert '{col}' to numeric:")
+            raise e
+
+        return df
+
+
 def scatter(
     df: pd.DataFrame,
     columnX: str,
@@ -682,16 +694,6 @@ def scatter(
     #         if byColumn is None
     #         else _removeNAs(df, [columnX, columnY, byColumn])
     #     )
-    def _numConversion(df: pd.DataFrame, col: str) -> pd.DataFrame:
-        """Try to convert `col` in df to numeric. Returns a copy of df. Raises an exception if conversion fails."""
-        df = df.copy()
-        try:
-            df[col] = pd.to_numeric(df[col])
-        except Exception as e:
-            print(f"[ERROR] >>> Could not convert '{col}' to numeric:")
-            raise e
-
-        return df
     
     def _combineByColumns(df: pd.DataFrame, byColumns: list[str]) -> list[str]:
         """ Given a list of column names for categorical columns, returns a new column that contains as categories all
@@ -791,6 +793,80 @@ def scatter(
             "xaxis": {"title": xlab if xlab is not None else columnX},
         }
     )
+    if title:
+        fig.update_layout({"title": title})
+
+    return fig
+
+
+def boxplotNumColumn(
+    df: pd.DataFrame,
+    column: str,
+    byColumn: str = None,
+    title: str = None,
+    label: str = None,
+    ylab: str = None,
+    # removeNAs: bool = True,
+    fig: go.Figure = None,
+    row=None,
+    col=None,
+) -> go.Figure:
+    """
+    Create a boxplot for a numeric DataFrame column.
+
+    Arguments:
+        df: Pandas DataFrame
+        column: str, column name
+        byColumn: str, column name of a categorical column to group the numeric data, optional
+        title: str, plot title (if None, no title)
+        label: str, x-axis label (if None, column name is used), ignored if byColumn is given
+        ylab: str, y-axis label (if None, column name is used)
+        # removeNAs: bool, removes all NA elements in the relevant columns if True
+        fig: Plotly GraphObjects Figure, optional, add traces to this figure instead of creating a new one
+        row: int, optional, only relevant if `fig` is a Plotly Subplots Figure
+        col: int, optional, only relevant if `fig` is a Plotly Subplots Figure
+    """
+    df = _numConversion(df, column)
+    # if removeNAs:
+    #     df = (
+    #         _removeNAs(df, [column])
+    #         if byColumn is None
+    #         else _removeNAs(df, [column, byColumn])
+    #     )
+
+    if label is None:
+        label = column
+    if ylab is None:
+        ylab = column
+
+    if fig is None:
+        fig = go.Figure()
+    fig.add_trace(
+        go.Box(
+            y=df[column],
+            boxpoints="all",
+            pointpos=-2,
+            jitter=0.3,
+            name=label if byColumn is None else "Gesamt",
+        )
+    )
+
+    if byColumn is not None:
+        categories = sorted(set(df[byColumn]))
+        for cat in categories:
+            fig.add_trace(
+                go.Box(
+                    y=df[df[byColumn] == cat][column],
+                    boxpoints="all",
+                    pointpos=-2,
+                    jitter=0.3,
+                    name=cat,
+                ),
+                col=col,
+                row=row,
+            )
+
+    fig.update_layout({"yaxis": {"title": ylab}})
     if title:
         fig.update_layout({"title": title})
 

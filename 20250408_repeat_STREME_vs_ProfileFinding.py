@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 def run_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs: pd.DataFrame, jolma: Path,
-                   jobname: str, n: int, mem: int, partition: str, time: str,
+                   jobname: str, n: int, mem: int, partition: str, time: str, pf_config: Path = None,
                    run_pf: bool = True, run_streme: bool = True, run_pf_init: bool = True):
     (wd / 'slurmout').mkdir(parents=True, exist_ok=True)
 
@@ -13,6 +13,7 @@ def run_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs:
         'pf': None,
         'pf_init': None
     }
+    confstr = '' if pf_config is None else f"  --config {pf_config}"
     for k, add_wd, add_opt in [('pf', '', ''), ('pf_init', '_init', '\\\n  --do-not-train')]:
         parts[k] = f"""# run ProfileFinding{add_wd}
 
@@ -27,14 +28,8 @@ python3 20241008_runModel.py \\
   --fasta {primary_data}/${{basename}}.fasta \\
   --out {wd}/${{basename}}/profilefinding{add_wd} \\
   --mode DNA \\
-  --rand-seed 42 \\
-  --n-best-profiles 5 \\
-  --tiles-per-X 1 --tile-size 100 \\
-  --k 12 \\
-  --midK 8 \\
-  --l2 0.1 \\
-  --kld 0.0 \\
-  --mellowmax-alpha 1.0 {add_opt}
+  {confstr}{add_opt}
+
 popd
 
 tomtom -oc ./profilefinding{add_wd}/tomtom -m ${{refmotif}} -png {jolma} profilefinding{add_wd}/profiles.meme
@@ -132,6 +127,11 @@ def main():
     #                     + 'line arguments overwrite the values in the config file. For arguments neither supplied ' \
     #                     + 'via command line call nor the config file, the default values are used.', 
     #                     required = False, type = str)
+    parser.add_argument("--config", metavar="PATH", type=str, required=False, 
+                        help="JSON object with training configuration. Allowed keys: all arguments to " \
+                        + "20241008_runModel.py except `fasta` and `out`. " \
+                        + "Keys may not start with dashes (`--`), otherwise there is no distinction between dashes " \
+                        + "and underscores (`_`) and they are converted as needed.")
     parser.add_argument('--mem', help = 'Memory to allocate for the job', required = False, type = int, 
                         default = 189000)
     parser.add_argument('--partition', help = 'Partition to use for the job', required = False, type = str,
@@ -172,7 +172,10 @@ def main():
         f"Data directory {datadir / 'simulated_dataset' / '0.00' / 'primary_sequences'} does not exist"
     assert (datadir / "simulated_dataset" / "0.00" / "control_sequences").exists(), \
         f"Control data directory {datadir / 'simulated_dataset' / '0.00' / 'control_sequences'} does not exist"
-
+    # check if config file exists
+    config = Path(args.config) if args.config else None
+    if config:
+        assert config.exists(), f"Config file '{config}' does not exist"
     # Load the normal reference data
     refs = pd.read_csv(datadir / "target_reference_motifs.tsv", sep="\t", names=['file', 'ref'])
     
@@ -188,6 +191,7 @@ def main():
                    mem=args.mem,
                    partition=args.partition,
                    time=args.time,
+                   pf_config=config,
                    run_pf=not args.skip_pf,
                    run_streme=not args.skip_streme,
                    run_pf_init=not args.skip_pf_init)
@@ -212,6 +216,7 @@ def main():
                            mem=args.mem,
                            partition=args.partition,
                            time=args.time,
+                           pf_config=config,
                            run_pf=not args.skip_pf,
                            run_streme=not args.skip_streme,
                            run_pf_init=not args.skip_pf_init)
@@ -237,6 +242,7 @@ def main():
                            mem=args.mem,
                            partition=args.partition,
                            time=args.time,
+                           pf_config=config,
                            run_pf=not args.skip_pf,
                            run_streme=not args.skip_streme,
                            run_pf_init=not args.skip_pf_init)
@@ -262,6 +268,7 @@ def main():
                            mem=args.mem,
                            partition=args.partition,
                            time=args.time,
+                           pf_config=config,
                            run_pf=not args.skip_pf,
                            run_streme=not args.skip_streme,
                            run_pf_init=not args.skip_pf_init)

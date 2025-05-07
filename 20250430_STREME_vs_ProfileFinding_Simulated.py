@@ -3,6 +3,7 @@
 - uses all simulated data sets (all orders, all modes) """
 
 import argparse
+import json
 import os
 from pathlib import Path
 import pandas as pd
@@ -17,7 +18,18 @@ def run_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs:
         'pf': None,
         'pf_init': None
     }
-    confstr = '' if pf_config is None else f"  --config {pf_config}"
+    if pf_config is None:
+        confstr = ''
+        streme_confstr = ''
+    else:
+        confstr = f"  --config {pf_config}"
+        with open(pf_config, 'r') as f:
+            config = json.load(f)
+        if 'n_best_profiles' in config:
+            streme_confstr = f" --nmotifs {config['n_best_profiles']}"
+        else:
+            streme_confstr = ''
+
     for k, add_wd, add_opt in [('pf', '', ''), ('pf_init', '_init', '\\\n  --do-not-train')]:
         parts[k] = f"""# run ProfileFinding{add_wd}
 
@@ -45,6 +57,7 @@ echo "tomtom -oc ./profilefinding{add_wd}/tomtom -m ${{refmotif}} -png {jolma} p
 popd
 
 """
+    # /for
 
     parts['streme'] = f"""# run STREME
 
@@ -60,7 +73,7 @@ start=`date +%s`
 streme \\
   --p {primary_data}/$basename.fasta \\
   --n {control_data}/$basename.shuf.fasta \\
-  --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
+  --oc ./streme --order 2 --minw 8 --maxw 12 {streme_confstr}
 
 tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
 

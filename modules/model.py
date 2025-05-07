@@ -721,6 +721,14 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                 # identify matches, i.e. match score >= score_threshold
                 M = tf.greater_equal(Z, score_threshold) # (tilesPerX, N, f, T-k+1, U)
 
+                # TODO: to use this in cleanup during training, add an argument to the function to switch this on/off
+                #       also, if this prevents an OOM during profile cleanup, we also need to use this in the remaining
+                #       code for evaluation etc, otherwise we might get an OOM there and runs still crash.
+                # # get a tensor of same shape as Z where only the argmax of dimension 3 (T-k+1) is True
+                # # not ideal as O(memory) might still be worst case if all values are the same, 
+                # #   but let's hope this never happens
+                # M = tf.logical_and(M, tf.equal(Z, tf.reduce_max(Z, axis=3, keepdims=True))) # (tilesPerX, N, f, T-k+1, U)
+
                 # index tensor -> 2D tensor with shape (sites, 5) where each row is a match and the columns are indices:
                 I = tf.cast(tf.where(M), tf.int32)       # (sites, <tilesPerX_idx, N_idx, f_idx, T-k+1_idx, U_idx>)
 

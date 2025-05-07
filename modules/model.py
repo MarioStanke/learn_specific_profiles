@@ -245,9 +245,10 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             Pt_logit = tf.gather(self.P_logit, self.setup.trackProfiles, axis=2)
             scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), Pt), axis=1 ).numpy()
             losses = self.get_mean_losses(self.data.getDataset(withPosTracking=True), Pt, Pt_logit).numpy()
-            sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking=True), Pt, 
-                                                              self.setup.match_score_factor * scores)
-            self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy()) # type: ignore
+            # sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking=True), Pt, 
+            #                                                   self.setup.match_score_factor * scores)
+            # self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy()) # type: ignore
+            self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses) # do not track sites, possiblyt responsible for OOM
 
     
 
@@ -473,10 +474,12 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                 Pt = tf.gather(self.getP(), self.profile_tracking.tracking_ids, axis=2)
                 scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), P = Pt), axis=1 ).numpy()
                 losses = tf.gather(mean_losses, self.profile_tracking.tracking_ids, axis=0).numpy()
-                sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), Pt, 
-                                                                  self.setup.match_score_factor * scores)
-                self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses, 
-                                               sites.numpy(), site_scores.numpy()) # type: ignore
+                # sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), Pt, 
+                #                                                   self.setup.match_score_factor * scores)
+                # self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses, 
+                #                                sites.numpy(), site_scores.numpy()) # type: ignore
+                # vvv do not track sites, possibly responsible for OOM
+                self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses)
 
             # check if a profile can be reported and report it
             if profilePerfCache.epoch_count >= self.setup.profile_plateau \

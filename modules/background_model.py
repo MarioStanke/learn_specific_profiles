@@ -234,6 +234,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
         D4 = tf.reduce_sum(D3, axis=-1) # shape: (batch_size, ntiles, N, f), sum over K dimension
         D5 = tf.math.log(tf.clip_by_value(D4, 1e-10, tf.reduce_max(D4))) # shape: (batch_size, ntiles, N, f), log to avoid numerical issues
         S = tf.add(M, D5) # shape: (batch_size, ntiles, N, f), add max back to get the final score
+        # logging.debug(f"[background_model.call] >>> Q:\n{Qt}\n\nX:\n{X}\n\nC:\n{C}\n\nC1:\n{C1}\n\nD:\n{D}\n\nD1:\n{D1}\n\nM:\n{M}\n\nD2\n{D2}\n\nm:\n{m}\n\nD3\n{D3}\n\nD4\n{D4}\n\nD5\n{D5}\n\nS:\n{S}")
+        # logging.debug(f"[background_model.call] >>> P:\n{tf.reduce_sum(S)}\n\nloss:\n{-tf.math.log(tf.reduce_sum(S))}") # preview on loss
 
         return S
 
@@ -266,7 +268,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
     def lossfun(self, S):
         P = tf.reduce_sum(S)
-        return -tf.math.log(tf.clip_by_value(P, 1e-10, tf.reduce_max(P))) # add small value to avoid log(0)
+        #return -tf.math.log(tf.clip_by_value(P, 1e-10, tf.reduce_max(P))) # add small value to avoid log(0)
+        return -P # P already in log space
 
 
     @tf.function()
@@ -277,6 +280,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
             loss = self.lossfun(S)
             
         grad = tape.gradient(loss, [self.Q_logit, self.m_logit])
+        #logging.debug(f"[background_model.train_step] >>> S:\n{S}\n\nloss:\n{loss}\n\ngrad:\n{grad}")
         # logging.debug(f"[background_model.train_step] >>> grad shape: {[g.shape for g in grad]}")
         self.opt.apply(grad, [self.Q_logit, self.m_logit])
         
@@ -290,11 +294,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
             self.opt.learning_rate.assign(learning_rate)
 
         max_epochs = epochs
-        genome_sizes = [sum([len(s[0]) for s in genome]) for genome in data.getRawData()]
-        # one training step: using batch_size*tiles_per_X*tile_size characters from each genome,
-        # thus estimate an epoch via the mean genome size (sum of sequence lengths) and the characters used per step
-        steps_per_epoch = max(1, 
-                              np.mean(genome_sizes) // (data.batch_size*data.tiles_per_X*data.tile_size))
+        steps_per_epoch = data.getStepsPerEpoch() # use the steps_per_epoch from the dataset, this should be accurate
         learning_rate = lr # gets altered during training
         setLR(learning_rate) # reset learning rate to initial value for safety
 
@@ -308,11 +308,13 @@ class TrainedQ(tf.keras.Model): # type: ignore
             # run an epoch
             steps = 0
             ds_train = data.getDataset(repeat = True)
+            _bshape = None
             for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
                 # for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size)
                 #     assert len(X.shape) == 5, str(X.shape)
                 #     self.train_step(X)
                 assert len(batch.shape) == 6, str(batch.shape)
+                _bshape = batch.shape
                 self.train_step(batch)
 
                 steps += 1
@@ -337,6 +339,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
                 tnow = time()
                 logging.info(f"[background_model.train] >>> epoch {epoch_count:>5} mean loss = {losses[-1]:<.4f}," + \
                              f" time: {tnow-training_start_time:.2f}s") 
+                logging.debug(f"[background_model.train] >>> batch shape: {_bshape}")
 
             # check if learning rate should decrease
             lr_reduction_cooldown -= 1

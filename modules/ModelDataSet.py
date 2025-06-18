@@ -522,6 +522,14 @@ class ModelDataSet:
 
         tiles_per_batch = self.tiles_per_X * self.batch_size
         steps_per_epoch = math.ceil(max_tiles / tiles_per_batch)
+
+        # warn if max_tiles / tiles_per_batch is less than 0.5, 
+        # as this will lead to many all-0 tiles in the last batch(es)
+        if (max_tiles / tiles_per_batch) <= 0.5:
+            logging.warning(f"[ModelDataSet.getStepsPerEpoch] >>> {max_tiles=} / {tiles_per_batch=} = " \
+                            + f"{max_tiles / tiles_per_batch} <= 0.5, consider adapting {self.tiles_per_X=} " \
+                            + f"or {self.batch_size=} to get closer to one or more than one step per epoch")
+            
         return steps_per_epoch
     
 

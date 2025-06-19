@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 import logging
+import math
 import numpy as np
 import tensorflow as tf
 
@@ -163,8 +164,10 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
             posTrack = np.array([], dtype=np.int32)
 
         for t in range(ntiles):
+            _nexhausted = 0
             for g in range(N):
                 if state[g]['exhausted']:
+                    _nexhausted += 1
                     continue
                     
                 sidx: int = state[g]['sequence_idx']
@@ -202,6 +205,12 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                     if state[g]['sequence_idx'] == len(genomes[g]):
                         state[g]['exhausted'] = True
                         state[g]['sequence_idx'] = None
+
+            if _nexhausted == N:
+                logging.debug(f"[ModelDataSet.createBatch] >>> All genomes exhausted")
+
+        # logging.debug(f"[ModelDataSet.createBatch] >>> Yielding batch with {ntiles} tiles, {N} genomes, " \
+        #               + f"{frame_dimension_size} frames, {tile_size} tile size, {len(alphabet)} alphabet size")
                         
         yield X, posTrack
 
@@ -497,6 +506,31 @@ class ModelDataSet:
         6 frames for translated data). If fromSource is False (default), uses the internal copy. Otherwise, a new 
         extraction from the untouched source data is returned. """
         return self.training_data.getTrainingData(fromSource=fromSource)
+    
+
+    def getStepsPerEpoch(self) -> int:
+        """ Returns the number of required steps per epoch for the training data. If batch size is None, returns 0. """
+        if self.batch_size is None:
+            return 0
+        
+        # Determine the number of tiles in the training data. Each Genome can have multiple sequences, each Sequence
+        # can be of arbitrary length. The number of tiles is determined by the longest genome.
+        data = self.getRawData(fromSource=True)
+        max_tiles = max([sum([ 
+            math.ceil( max([len(f) for f in sequences]) / self.tile_size ) \
+                for sequences in genome ]) for genome in data])
+
+        tiles_per_batch = self.tiles_per_X * self.batch_size
+        steps_per_epoch = math.ceil(max_tiles / tiles_per_batch)
+
+        # warn if max_tiles / tiles_per_batch is less than 0.5, 
+        # as this will lead to many all-0 tiles in the last batch(es)
+        if (max_tiles / tiles_per_batch) <= 0.5:
+            logging.warning(f"[ModelDataSet.getStepsPerEpoch] >>> {max_tiles=} / {tiles_per_batch=} = " \
+                            + f"{max_tiles / tiles_per_batch} <= 0.5, consider adapting {self.tiles_per_X=} " \
+                            + f"or {self.batch_size=} to get closer to one or more than one step per epoch")
+            
+        return steps_per_epoch
     
 
     def softmask(self, genome_idx: int, sequence_idx: int, frame_idx: int, start_pos: int, masklen: int) -> str:

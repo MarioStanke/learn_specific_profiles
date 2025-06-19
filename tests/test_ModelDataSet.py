@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+from pathlib import Path
 import unittest
 
 logger = logging.getLogger()
@@ -12,7 +13,9 @@ from modules import utils
 class TestModelDataSite(unittest.TestCase):
     def setUp(self):
         self.rng = np.random.default_rng(seed=42)
-        self.testdatapath = "/home/ebelm/genomegraph/learn_specific_profiles/tests/testdata.json"
+        self.basepath = Path(__file__).parent
+        self.testdatapath = self.basepath / "testdata.json"
+        # self.testdatapath = "/home/ebelm/genomegraph/learn_specific_profiles/tests/testdata.json"
         self.genomes = sr.loadJSONGenomeList(self.testdatapath)
         self.rawSeqs_DNA: list[list[list[str]]] = []
         self.rawSeqs_Translated: list[list[list[str]]] = []
@@ -41,13 +44,13 @@ class TestModelDataSite(unittest.TestCase):
 
         
         forbidden = set() # track already taken sites so kmers don't overlap
-        kmers = []
+        kmers: list[str] = []
         sites = []
         while len(kmers) < n:
             g = self.rng.choice(len(rawSeqs), 1)[0]       # choose a genome index
             s = self.rng.choice(len(rawSeqs[g]), 1)[0]    # random sequence from that genome
             f = self.rng.choice(len(rawSeqs[g][s]), 1)[0] # random frame from that sequence
-            seq = rawSeqs[g][s][f]
+            seq: str = rawSeqs[g][s][f]
             assert len(seq) >= k, f"[TestModelDataSite._sampleKmers] Sequence in {(g,s,f)} too short for {k=}-mer"
             start = self.rng.integers(0, len(seq)-k+1, 1)[0]
             if not any([(g,s,f,start+i) in forbidden for i in range(k)]):
@@ -63,7 +66,8 @@ class TestModelDataSite(unittest.TestCase):
     def test_DataMode(self):
         self.assertEqual(mds.DataMode.DNA.value, 1)
         self.assertEqual(mds.DataMode.Translated.value, 2)
-        self.assertEqual(len(mds.DataMode), 2)
+        self.assertEqual(mds.DataMode.Translated_noStop.value, 3)
+        self.assertEqual(len(mds.DataMode), 3)
 
 
     def test_Alphabet(self):
@@ -110,7 +114,8 @@ class TestModelDataSite(unittest.TestCase):
                 f = 2
                 dummydata = dummydata_dna
             else:
-                alphabet = mds._TRANSLATED_ALPHABET
+                alphabet = mds._TRANSLATED_ALPHABET if datamode == mds.DataMode.Translated \
+                    else mds._TRANSLATED_ALPHABET[:-1] # no stop codon
                 f = 6
                 dummydata = [
                     [sr.TranslatedSequence(sr.Sequence("x","x","+",0,sequence=seq), 0).getSequence() for seq in genome] 
@@ -169,6 +174,9 @@ class TestModelDataSite(unittest.TestCase):
                             else:
                                 concatseq = concatseq + rawseq
 
+                    if datamode == mds.DataMode.Translated_noStop:
+                        concatseq = concatseq.replace("*", "") # this gets lost in restored_data below
+
                     expected_data[g].append(concatseq)
 
             for X, _ in data.getDataset():
@@ -185,7 +193,8 @@ class TestModelDataSite(unittest.TestCase):
                                 tileseql.append(alphabet[cidx])
 
                         tileseq = "".join(tileseql)
-                        if (datamode==mds.DataMode.DNA and s >= 1) or (datamode==mds.DataMode.Translated and s >= 3):
+                        if (datamode==mds.DataMode.DNA and s >= 1) \
+                            or (datamode in [mds.DataMode.Translated, mds.DataMode.Translated_noStop] and s >= 3):
                             restored_data[g][s] = tileseq + restored_data[g][s] # reverse tiling
                         else:
                             restored_data[g][s] = restored_data[g][s] + tileseq
@@ -199,6 +208,9 @@ class TestModelDataSite(unittest.TestCase):
             if datamode == mds.DataMode.DNA:
                 alphabet = mds._DNA_ALPHABET
                 rawSeqs = self.rawSeqs_DNA
+            elif datamode == mds.DataMode.Translated_noStop:
+                alphabet = mds._TRANSLATED_ALPHABET[:-1] # no stop codon
+                rawSeqs = self.rawSeqs_Translated
             else:
                 alphabet = mds._TRANSLATED_ALPHABET
                 rawSeqs = self.rawSeqs_Translated
@@ -222,17 +234,17 @@ class TestModelDataSite(unittest.TestCase):
             kmers, sites = self._sampleKmers(rawSeqs, k, n)
             for i in range(n):
                 kmer = kmers[i]
-                kmer_lower = kmer.lower()
-                if '*' in kmer_lower:
-                    kmer_lower = kmer_lower.replace('*', ' ')
                 site = sites[i]
-                kmer_at_site_before_sm = data.softmask(site[0], site[1], site[2], site[3], k)
+                kmer_at_site_before_sm = data.softmask(site[0], site[1], site[2], site[3], k) 
                 self.assertEqual(kmer_at_site_before_sm, kmer)
+                # kmer in raw data now softmasked, * got replaced with " "
+                kmer_nostop = kmer.replace('*', ' ') if '*' in kmer else kmer
                 softmasked_kmer = data.getRawData()[site[0]][site[1]][site[2]][site[3]:site[3]+k]
                 if kmer == kmer.lower(): # catch case where randomly chosen site was already softmasked in the raw data
-                    self.assertEqual(softmasked_kmer, kmer)
+                    self.assertEqual(softmasked_kmer, kmer_nostop)
                 else:
-                    self.assertNotEqual(softmasked_kmer, kmer)
+                    kmer_lower = kmer_nostop.lower()
+                    self.assertNotEqual(softmasked_kmer, kmer_nostop)
                     self.assertEqual(softmasked_kmer, kmer_lower)
 
             # now, training sequences should be softmasked -> check if batches (i.e. one hot encoded training tensors)
@@ -341,8 +353,9 @@ class TestModelDataSite(unittest.TestCase):
             tiles_per_X = 1
             batch_size = 1
             N = len(self.genomes)
-            f = 6 if datamode == mds.DataMode.Translated else 2
-            alphabet = mds._TRANSLATED_ALPHABET if datamode == mds.DataMode.Translated else mds._DNA_ALPHABET
+            f = 6 if datamode in [mds.DataMode.Translated, mds.DataMode.Translated_noStop] else 2
+            alphabet = mds._TRANSLATED_ALPHABET if datamode == mds.DataMode.Translated \
+                else mds._TRANSLATED_ALPHABET[:-1] if datamode == mds.DataMode.Translated_noStop else mds._DNA_ALPHABET
 
             data = mds.ModelDataSet(self.genomes, datamode, tile_size=tile_size, tiles_per_X=tiles_per_X,
                                     batch_size=batch_size, prefetch=1)
@@ -442,4 +455,6 @@ class TestModelDataSite(unittest.TestCase):
                 else:
                     extracted_kmer = occ.getSite()
                     extracted_kmer_translated = utils.sequence_translation(extracted_kmer)
+                    if datamode == mds.DataMode.Translated_noStop:
+                        extracted_kmer_translated = extracted_kmer_translated.replace("*", " ") # no stop codon in this mode
                     self.assertEqual(extracted_kmer_translated, kmer)

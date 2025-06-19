@@ -72,7 +72,7 @@ def _get_uniform_model(order: int):
     return model, freqs, alphabet
 
 
-def get_background_model(order: int, model_type: str = "uniform", src: Path = None):
+def get_background_model(order: int, model_type: str = "uniform", src: Path | list[str] = None):
     """
     Get a background model for a given order and model type. The model can be either
     'uniform', 'data' or 'augustus'. The uniform model is a uniform distribution of nucleotides,
@@ -96,11 +96,19 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path = No
         return _get_augustus_model()
     elif model_type == "data":
         alphabet = "ACGT"
-        assert src is not None, "Source file must be provided for data model"
-        assert src.exists(), f"Source file {src} does not exist"
-        records = [r for r in SeqIO.parse(src, "fasta")]
-        assert len(records) > 0, f"Source file {src} is empty or contains no records"
-        assert all(len(r.seq) > 0 for r in records), f"Source file {src} contains empty sequences"
+        assert src is not None, "Source file or list of sequence strings must be provided for data model"
+        assert isinstance(src, (Path, list)), "Source must be a Path or a list of sequence strings"
+        if isinstance(src, list):
+            assert src.exists(), f"Source file {src} does not exist"
+            records = [str(r.seq) for r in SeqIO.parse(src, "fasta")]
+            assert len(records) > 0, f"Source file {src} is empty or contains no records"
+            assert all(len(r) > 0 for r in records), f"Source file {src} contains empty sequences"
+        else:
+            records = src
+            assert len(records) > 0, f"Source list is empty"
+            assert all(isinstance(r, str) for r in records), \
+                f"Source list must contain strings, got {set([type(r) for r in records])} instead"
+            assert all(len(r) > 0 for r in records), f"Source list contains empty sequences"
         freqs = {}
         k = order + 1
         # it's possible that not all k-mers are present in the sequences, so we need to
@@ -112,8 +120,7 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path = No
                 kmer = "".join([alphabet[i // (len(alphabet)**j) % len(alphabet)] for j in range(k)])
                 freqs[kmer] = 0
         # count the frequencies of k-mers in the sequences
-        for record in records:
-            seq = str(record.seq)
+        for seq in records:
             for i in range(len(seq) - k):
                 kmer = seq[i:i + k]
                 # ignore ambiguous or softmasked nucleotides
@@ -144,9 +151,9 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path = No
                 o_idcs = tuple([alphabet.index(c) for c in o_nt])
                 s = sum(freqs[o_nt + alphabet[i]] for i in range(size))
                 # print(f"[DEBUG] >>> {o_nt=}, {o_idcs=}, {s=}")
-                for i in range(size):
-                    kmer = o_nt + alphabet[i]
-                    idcs = o_idcs + (i,)
+                for j in range(size):
+                    kmer = o_nt + alphabet[j]
+                    idcs = o_idcs + (j,)
                     if s == 0:
                         model[idcs] = 1/size # k-mer was not found in the sequences, use uniform distribution
                     else:
@@ -169,6 +176,7 @@ import tensorflow as tf
 class TrainedQ(tf.keras.Model): # type: ignore
     def __init__(self, 
                  num_models: int = 2, # K
+                 order: int = 0, # k-1, i.e. order of the models
                  rand_seed: int = None, **kwargs): # type: ignore
         """
         Set up model and most metaparamters
@@ -177,6 +185,9 @@ class TrainedQ(tf.keras.Model): # type: ignore
                 rand_seed (int): optional set a seed for tensorflow's rng
         """
         super().__init__(**kwargs)
+
+        assert num_models > 0, f"Number of models must be greater than 0, got {num_models}"
+        assert order >= 0, f"Order must be greater than or equal to 0, got {order}"
 
         self.opt = tf.keras.optimizers.Adam(learning_rate=float(2))
 
@@ -190,7 +201,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
         # === DRAFT ===
 
         self.num_models = num_models
-        self.order = 0 # order of the models, i.e. k-mer-length - 1 # FOR NOW: only allow 0, higher oder needs carification: how to use it in model.py?
+        self.order = order # order of the models, i.e. k-mer-length - 1 # TODO: adapt usage of this in model.py!
         self.alphabet = "ACGT"
 
         self.Q_logit = tf.Variable(tf.random.uniform(shape=(len(self.alphabet)**(self.order+1), self.num_models),
@@ -215,15 +226,15 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
 
     def call(self, X):
-        """ Input X is a tensor of shape (batch_size, ntiles, N, f, tile_size, alphabet_size) """
+        """ Input X is a tensor of shape (batch_size, ntiles, N, f, tile_size, alphabet_size**(order+1)) """
         Q = self.getQ() # shape: (alphabet_size**(order+1), K)
         m = self.getM() # shape: (K,)
 
-        batch_dims = len(X.shape) - 2 # number of batch dimensions, e.g. 4 for (batch_size, ntiles, N, f, tile_size, alphabet_size)
+        batch_dims = len(X.shape) - 2 # number of batch dimensions, e.g. 4 for (batch_size, ntiles, N, f, tile_size, alphabet_size**(order+1)
 
         Qt = tf.transpose(Q, [1, 0]) # shape: (K, alphabet_size**(order+1))
         Qr = tf.reshape(Qt, ((1,)*batch_dims)+(1,)+Qt.shape) # shape: (1,          1,      1, 1,         1, K, alphabet_size**(order+1))
-        X1 = tf.expand_dims(X, -2) #                           shape: (batch_size, ntiles, N, f, tile_size, 1, alphabet_size)
+        X1 = tf.expand_dims(X, -2) #                           shape: (batch_size, ntiles, N, f, tile_size, 1, alphabet_size**(order+1))
         C = tf.multiply(X1, Qr) # shape: (batch_size, ntiles, N, f, tile_size, K, alphabet_size**(order+1))
         C1 = tf.reduce_sum(C, axis=-1) # shape: (batch_size, ntiles, N, f, tile_size, K), sum over alphabet_size dimension
         D = tf.math.log(tf.clip_by_value(C1, 1e-10, tf.reduce_max(C1))) # shape: (batch_size, ntiles, N, f, tile_size, K), log to avoid numerical issues
@@ -274,7 +285,6 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
     @tf.function()
     def train_step(self, X):
-        # TODO: müsste hier nicht erst einmal ein ganzer Batch trainiert werden, bevor Gradient berechnet wird?
         with tf.GradientTape() as tape:
             S = self.call(X)
             loss = self.lossfun(S)
@@ -307,10 +317,10 @@ class TrainedQ(tf.keras.Model): # type: ignore
         while run:
             # run an epoch
             steps = 0
-            ds_train = data.getDataset(repeat = True)
+            ds_train = data.getDataset(k = self.order+1, repeat = True)
             _bshape = None
-            for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
-                # for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size)
+            for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size**(order+1)
+                # for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size**(order+1)
                 #     assert len(X.shape) == 5, str(X.shape)
                 #     self.train_step(X)
                 assert len(batch.shape) == 6, str(batch.shape)
@@ -322,9 +332,9 @@ class TrainedQ(tf.keras.Model): # type: ignore
                     break
                     
             lossls = []
-            ds_loss = data.getDataset(repeat = False)
-            for batch, _ in ds_loss: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
-                # for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size)
+            ds_loss = data.getDataset(k = self.order+1, repeat = False)
+            for batch, _ in ds_loss: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size**(order+1)
+                # for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size**(order+1)
                 #     assert len(X.shape) == 5, str(X.shape)
                 #     S = self.call(X)
                 #     lossls.append(self.lossfun(S))

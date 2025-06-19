@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import itertools
 import logging
 import math
 import numpy as np
@@ -113,7 +114,7 @@ def backgroundFreqs(sequences: list[list[list[str]]], alphabet: list[str], verbo
 
 # Use a generator to get genome batches, simplified position handling
 def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimension_size: int,
-                rawgenomes: list[list[list[str]]], reverse_tiling_ids: list[int],
+                rawgenomes: list[list[list[str]]], reverse_tiling_ids: list[int], k: int = 1,
                 withPosTracking: bool = False):
     """ Generator function to create batches of tiles from a list of list of sequence strings. 
         Returns a tuple of (X, Y) where X is a numpy array of shape 
@@ -124,12 +125,24 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
         Y[a,b,c,:] is a list of [genome_idx, sequence_idx, frame_idx, tile_start_position] for the tile `a` in 
         genome `b` at frame `c` in X.
 
+        k: return data as a sequence of overlapping k-mers, by default 1-mer (i.e. single characters, sequence as is). 
+           This can be increased if models of higher order are trained, esp. for background models. For order 0, 
+           leave k=1. For order 1, set k=2. For order 2, set k=3, etc. The k-mers overlap by k-1 characters. 
+           Higher `k` also exponentiates the alphabet size dimension, i.e. for k=2, the alphabet size is 
+           len(alphabet)**2, for k=3, it is len(alphabet)**3, etc., to account for one-hot encoding of k-mers.
+           The `tile_size` is reduced to `tile_size - k + 1` to account for the k-mer size.
+
         Set `withPosTracking` to true to be able to restore the position of a k-mer in the genome from the tile. """
     assert tile_size >= 1, f"[ERROR] >>> tile_size must be positive, non-zero (is: {tile_size})"
+    assert k >= 1, f"[ERROR] >>> k must be positive, non-zero (is: {k})"    
 
     # convert back from bytestring to unicode, otherwise one-hot does not work!
     rawgenomes = rawgenomes.astype('U')   # type: ignore
     alphabet = list(alphabet.astype('U'))  # type: ignore
+
+    if len(alphabet) == 0:
+        raise ValueError(f"[ERROR] >>> alphabet must not be empty, got {alphabet}")
+
     # convert rawgenomes to TileableSequence objects
     genomes = [ 
         [ 
@@ -138,6 +151,16 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
         ] \
         for genome in rawgenomes
     ]
+
+    # adjust tile size and alphabet if overlapping k-mer sequences are requested
+    if k > 1:
+        # adjust tile size to account for k-mer size
+        tile_size = tile_size - k + 1
+        if tile_size <= 0:
+            raise ValueError(f"[ERROR] >>> tile_size {tile_size} is too small for k={k}, must be at least {k}")
+        # adjust alphabet to account for k-mer size
+        new_alphabet = [''.join(p) for p in itertools.product(alphabet, repeat=k)]
+        alphabet = new_alphabet
 
     #logging.debug(f"[ModelDataSet.createBatch] >>> {[[[len(f) for f in seq] for seq in genome] for genome in genomes]}")
     #logging.debug(f"[ModelDataSet.createBatch] >>> {genomes[0][0][0][:min(10, len(genomes[0][0][0]))]=}")
@@ -181,10 +204,17 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
 
                 for f, seq in enumerate(sequences):
                     tileseq, start = seq.next_tile()
-                    assert len(tileseq) <= tile_size, f"[ERROR] >>> {len(tileseq)} > {tile_size}, "
-                    for i, c in enumerate(tileseq):
-                        if c in alphabet:
-                            X[t,g,f,i,alphabet.index(c)] = 1.0
+                    assert len(tileseq) <= (tile_size+k-1), f"[ERROR] >>> {len(tileseq)} > {tile_size+k-1}, "
+                    if k == 1:
+                        for i, c in enumerate(tileseq):
+                            if c in alphabet:
+                                X[t,g,f,i,alphabet.index(c)] = 1.0
+                    else:
+                        # k > 1, tileseq is a k-mer
+                        for i in range(len(tileseq) - k + 1):
+                            kmer = tileseq[i:i+k]
+                            if kmer in alphabet:
+                                X[t,g,f,i,alphabet.index(kmer)] = 1.0
 
                     if withPosTracking:
                         posTrack[t,g,f,2] = f
@@ -195,7 +225,7 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                     if len(tileseq) > 0 and not (tileseq.lower() == tileseq or \
                                                  not set(tileseq).issubset(set(alphabet))):
                         if (X[t,g,f] == 0).all(): 
-                            logging.warning(f"[ModelDataSet.createBatch] >>> {alphabet=} {start=} {tile_size=} {len(tileseq)=}")
+                            logging.warning(f"[ModelDataSet.createBatch] >>> {alphabet=} {start=} {(tile_size+k-1)=} {len(tileseq)=}")
                             logging.warning(f"[ModelDataSet.createBatch] >>> tileseq={tileseq[:min(10, len(tileseq))]}")
                             logging.warning(f"[ModelDataSet.createBatch] >>> X[t,g,f,:,:]={X[t,g,f,:min(10, len(tileseq)),:]}")
                             raise ValueError(f"Tile {t} in genome {g} at frame {f} was not one-hot encoded")
@@ -462,10 +492,21 @@ class ModelDataSet:
     
 
     def getDataset(self, 
+                   k: int = 1,
                    repeat: bool = False,
                    withPosTracking: bool = False, 
                    original_data: bool = False):
-        """ Returns a tensorflow dataset that yields batches of tiles from the given genomes. """
+        """ Returns a tensorflow dataset that yields batches of tiles from the given genomes. 
+
+        k: return data as a sequence of overlapping k-mers, by default 1-mer (i.e. single characters, sequence as is). 
+           This can be increased if models of higher order are trained, esp. for background models. For order 0, 
+           leave k=1. For order 1, set k=2. For order 2, set k=3, etc. The k-mers overlap by k-1 characters. 
+           Higher `k` also exponentiates the alphabet size dimension, i.e. for k=2, the alphabet size is 
+           len(alphabet)**2, for k=3, it is len(alphabet)**3, etc., to account for one-hot encoding of k-mers.
+           The `tile_size` is reduced to `tile_size - k + 1` to account for the k-mer size.
+        """
+        assert k >= 1, f"[ModelDataSet.getDataset] >>> k must be positive, non-zero (is: {k})"
+
         genomes = self.training_data.getTrainingData(fromSource=original_data)
 
         second_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 4),  # type: ignore
@@ -481,9 +522,10 @@ class ModelDataSet:
                     self.frame_dimension_size(),
                     genomes, 
                     self.training_data.reverse_frame_ids,
+                    k,
                     withPosTracking),
             output_signature = (tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(),  # type: ignore
-                                                       self.tile_size, self.alphabet_size()), 
+                                                       (self.tile_size-k+1), (self.alphabet_size()**k)), 
                                               dtype = tf.float32),  # type: ignore
                                 second_out_sig)
         )
@@ -563,7 +605,7 @@ class ModelDataSet:
         rseq = tseq[start_pos:end_pos] # return this
         softmasked = tseq[start_pos:end_pos].lower()
         # remove * if Translated and softmasked contains it
-        if self.training_data.datamode == DataMode.Translated and '*' in softmasked:
+        if self.training_data.datamode in [DataMode.Translated, DataMode.Translated_noStop] and '*' in softmasked:
             softmasked = softmasked.replace('*', ' ') if not self.training_data.replaceSpaceWithX \
                             else softmasked.replace('*', 'X')
             

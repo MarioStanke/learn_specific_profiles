@@ -1,3 +1,5 @@
+import copy
+import itertools
 import logging
 import numpy as np
 from pathlib import Path
@@ -61,6 +63,37 @@ class TestModelDataSite(unittest.TestCase):
         assert len(kmers) == n
         assert len(sites) == n
         return kmers, sites
+    
+
+    def _from_one_hot(self, X, k, alphabet: list[str]):
+        """ Convert one-hot encoded tensor to string representation. Returns a nested list of sequences, from outer to
+        inner: (batch, tiles_per_X, genome/sequence, frame) with the elements being strings of the sequences. """
+        assert len(X.shape) == 6, \
+            f"Input tensor must be 6D: (batch_size, tiles_per_X, N, f, tile_size, alphabet_size), got {X.shape}"
+        
+        new_alphabet = [''.join(p) for p in itertools.product(alphabet, repeat=k)]
+        assert len(new_alphabet) == len(alphabet)**k, \
+            f"Alphabet size must be {len(alphabet)}^{k}={len(alphabet)**k} for k-mer encoding, got {len(new_alphabet)}"
+        assert X.shape[-1] == len(new_alphabet), \
+            f"Last dimension must match {len(alphabet)}^{k}={len(alphabet)**k} for {k}-mer encoding"
+        
+        sequences: list[list[list[list[str]]]] = [] # (batch, tile, genome/sequence, frame)
+        for b in range(X.shape[0]):
+            sequences.append([])
+            for t in range(X.shape[1]):
+                sequences[b].append([])
+                for n in range(X.shape[2]):
+                    sequences[b][t].append([])
+                    for f in range(X.shape[3]):
+                        oh = X[b, t, n, f, :, :]
+                        idcs = [np.argmax(oh[j,:]) if np.max(oh[j,:]) != 0 else -1 \
+                                for j in range(oh.shape[0])]
+                        seq = ''.join([ new_alphabet[i] if i != -1 else ' '*k for i in idcs ])
+                        # print(f"Batch {b}, Tile {t}, Sequence {n}, Frame {f}: {seq}")
+                        sequences[b][t][n].append(seq)
+
+        return sequences
+        
 
 
     def test_DataMode(self):
@@ -407,7 +440,7 @@ class TestModelDataSite(unittest.TestCase):
                 start = self.rng.integers(0, tilelen-k+1, 1)[0]
                 tilesites.append((t, g, s, start))
                     
-            assert len(tilesites) == 100
+            self.assertEqual(len(tilesites), 100)
 
             # get k-mers from tiles
             kmers = []
@@ -458,3 +491,64 @@ class TestModelDataSite(unittest.TestCase):
                     if datamode == mds.DataMode.Translated_noStop:
                         extracted_kmer_translated = extracted_kmer_translated.replace("*", " ") # no stop codon in this mode
                     self.assertEqual(extracted_kmer_translated, kmer)
+
+
+    def test_ModelDataSet_kmer_ds(self):
+        # test if k-mer dataset can be created and iterated over, and if the k-mers are correct
+        for datamode in mds.DataMode:
+            if datamode == mds.DataMode.DNA:
+                alphabet = mds._DNA_ALPHABET
+                rawSeqs = self.rawSeqs_DNA
+            elif datamode == mds.DataMode.Translated_noStop:
+                alphabet = mds._TRANSLATED_ALPHABET[:-1] # no stop codon
+                rawSeqs = self.rawSeqs_Translated
+            else:
+                alphabet = mds._TRANSLATED_ALPHABET
+                rawSeqs = self.rawSeqs_Translated
+
+            # training tensor X fits each sequence (all frames) in a single tile:
+            tile_size = max([max([max([len(fseq) for fseq in seq]) for seq in genome]) for genome in rawSeqs])
+            tiles_per_X = max([len(genome) for genome in rawSeqs]) # one tile per sequence, all sequences in one X
+            # below: only consider first tile of X to make comparison easier
+            batch_size = 1
+            print(f"[test_ModelDataSet_kmer_ds] tile_size: {tile_size}, tiles_per_X: {tiles_per_X}")
+
+            data = mds.ModelDataSet(self.genomes, datamode, tile_size=tile_size, tiles_per_X=tiles_per_X,
+                                    batch_size=batch_size, prefetch=1)
+            self.assertEqual(data.training_data.datamode, datamode)
+            self.assertEqual(data.alphabet, alphabet)
+            self.assertEqual(data.alphabet_size(), len(alphabet))
+
+            for k in [1, 2, 3]: # these are realistic values for k in practice
+                # alter raw sequences to also represent overlapping k-mers
+                # reconstruction inserts spaces for every character that is not in the alphabet, so do the same here
+                rawKmerSeqs = copy.deepcopy(rawSeqs)
+                if k == 1:
+                     # do nothing k-mer-wise, make sure that k=1 does not alter anything
+                    for g, genome in enumerate(rawKmerSeqs):
+                        for s, seq in enumerate(genome):
+                            for f, fseq in enumerate(seq):
+                                new_fseq = ''.join([c if c in alphabet else ' ' for c in fseq])
+                                rawKmerSeqs[g][s][f] = new_fseq
+                else:
+                    for g, genome in enumerate(rawSeqs):
+                        for s, seq in enumerate(genome):
+                            for f, fseq in enumerate(seq):
+                                kmerseq = ''.join([fseq[i:i+k] if all([c in alphabet for c in fseq[i:i+k]]) else ' '*k \
+                                                   for i in range(len(fseq)-k+1)])
+                                rawKmerSeqs[g][s][f] = kmerseq
+
+                ds = data.getDataset(k=k)
+                for X, _ in ds:
+                    self.assertEqual(X.shape, 
+                                     (batch_size, tiles_per_X, len(rawSeqs), data.frame_dimension_size(), 
+                                      (tile_size-k+1), len(alphabet)**k))
+                    sequences = self._from_one_hot(X.numpy(), k, alphabet)
+                    for b in range(X.shape[0]):
+                        t = 0 # only first tile (first sequence of a genome) per X
+                        for g in range(X.shape[2]):
+                            for f in range(X.shape[3]):
+                                seq = sequences[b][t][g][f]
+                                self.assertGreaterEqual(len(seq), len(rawKmerSeqs[g][t][f])) # tile_size is fixed, so seq can be longer
+                                L = len(rawKmerSeqs[g][t][f])
+                                self.assertEqual(seq[:L], rawKmerSeqs[g][t][f])

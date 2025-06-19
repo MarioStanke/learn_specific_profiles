@@ -98,7 +98,7 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path | li
         alphabet = "ACGT"
         assert src is not None, "Source file or list of sequence strings must be provided for data model"
         assert isinstance(src, (Path, list)), "Source must be a Path or a list of sequence strings"
-        if isinstance(src, list):
+        if isinstance(src, Path):
             assert src.exists(), f"Source file {src} does not exist"
             records = [str(r.seq) for r in SeqIO.parse(src, "fasta")]
             assert len(records) > 0, f"Source file {src} is empty or contains no records"

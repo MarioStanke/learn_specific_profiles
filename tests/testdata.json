@@ -1,0 +1,447 @@
+[
+  [
+    {
+      "id": "Homo_sapiens:chr10:100,354,642-100,357,642",
+      "species": "Homo_sapiens",
+      "chromosome": "chr10",
+      "strand": "+",
+      "genome_start": 100354642,
+      "genome_end": 100357642,
+      "length": 3000,
+      "classname": "Sequence",
+      "sequence": "CCCTGATGGAGGTGGGGATATGGCCCTGGCACCTGGTCATTAGGGACCCCATTTTTTCTCCTGAGACTTTCAAAATATAAGCTGAGAAATTTGCTGGGTTTGCATGTTCACAATCTTAATTTAAAATCCCAATTTTTAACATCCCACGGGCCCGTAGCCATAGACTATtgctccatttctttctctctgactaTCTTAATTAAACCCATTACATTCAAGAGATGTTTATTGTCCTAGGACAGTCATAGATTCAAAGATGATTATAGCCTAGTTGcctaggtttgtttgtttgtttttgtgtttgtgtttcaacagtctttctctcttgcccaggctggagtgcagtggcacaatcatggctcactgcagccttgacttcccaggctcaagcaatccttctacctcaacctcctgagtatctgggactacaggcacacaccgccatgcctggctaattttttgtggggacaaggtctcactcactatattgcccaggccggtAGCTTAGTTCTTACCTTCAAAAAGTTTGTAGCCTATCGGGGTGGAGAGATAAGCCAAGTATCCAGATAACCATGGCATAAGGCAGAATATTTTCTGTACTATGAGAGGTACAAAGGGGAGGGAGATTGCTCAATGGGCAACACCAAGGAAGTGATATGAAATAAATAGTGTTGGAATCCACCAACGGATAGAAATTTTTACAACTATGTGTGGGGAGAGACAGTGCAAACAGAAGAAACAGAATGAGCTAAAACACGAAGCATGTTCCAGCAATAGAGTCCTTTTGCTTGAAGTATAGGGTATGGGAAGAAGTAAGACTGGAGAGACTAATGCCATTCTTGTCGAGTCCTAAAAGCAGACTTAGGACTTAATTCAATAAGCAATAGGAAGCCATTACATCTTTTGAACTGCAATGTGGCATAGTTACGGACGTGCTTTAGGAAGGCTGCTTTTAGAACAAGTGTAAGAAACCACTGAGCCAAAGTGAGAGGTAGGGACATAAGTTAGGTAATGAGGACCCCTGCTAGCGAAGCAGtggcagaaatggagaaaagagttGGGTGCAGGGAATGTCAGTGATGTAAAAGTCAAAGACTTGACTGCTGAAGGAATGTAGGGAATCAGTGCCCTTGGAATGTCAATGGCCTGGTCTACATTGAGAATGAAGACTGAGAAAGGGCTTCCTGAGGGACAGAGAGCTGCAGGTGATCAAGGACACTCAATGGGTCTCTGAGGGAAAAGAAGACCAAAGAATTAGGGAGTAGCTAGCAGAAAATGGAGGCATGACACTAAACACAGACTGAAAAAGAGTGCTGATTAGAAAGAGAAAGGAGCCCAAAGGCAGATGGGAAAACCAGCCAAGGATGGAGAGACGTCTGTTCATTAGTTTGTAGTTTGGACCTCACCTATCTTACCAATGTGGTATTATGCTCTAGTAAAAAGTCAGcgatggccgggcatggtggctcatgcccgtaatcccagcactttgggaggctgaggcgggaggattgctggaaagttcaggcattcgagaccagcctgggcaacatagtgagacctcatctctacaaaaaattaaaaactaaatgggcacgatggttcatgcctgtggtcccagctactcaggaggctggggtgggaggatctcttggcccaggagttcaaggctgtggtgaactaaggtcacgccactgcactccagccttggcaacagagtgagaccctgtcaaaaaaaacaaacaaaaataaataaaacaatgaactTAGAGTCAGACAAGCAATTCAACATGGAAGAAAGACAGCCCATCCCCTCCCAATTAGTGTGGAAGATCCATGTAGGTGTGGAGTCCCCCTCCATTGACCTGGTGTCTGGTCTGTCAATGTAGGTACTACAAACCTGGCTTGCTGATGATGTGCTTCATCCTGCCCACGCTTGTGCCCTGGTATTTCTGGGGTGAAACTTTTCAAAACAGTGTGTTCGTTGCCACTTTCTTGCGATATGCTGTGGTGCTTAATGCCACCTGGCTGGTGAACAGTGCTGCCCACCTCTTCGGATATCGTCCTTATGACAAGAACATTAGCCCCCGGGAGAATATCCTGGTTTCACTTGGAGCTGTGGGTAAGTCAGCTGTCCAAGTAAGACTACATCCAGTGGTCTGCTGATTAGGGGATTAGGCTAGGAGCCAGAAAAACTAGATAAATCTGTTTTTTATGGCTACTTTGTATCTCAGTTTTTCCACTATAAAATTAGGGGGCAGTATACTGGAAAACGCTTTTGAGAGTCAGGCAACAtgttttatgtaaaaatgaaaggataagaaacaaaacacaaaaaaacactgaTTTTGATTCCAGGTTCTAAAACAATTTCCAAATGCCATGTATGCTccgggcccggcggctcatgcctgtaatcccagcactttgggaggctgaggcgggcaggtcacctgaggtcaggagtttgagaccagtctggccaacacggtgaaaccctgtttctattaaaaagcaaaacaaacaaacaaaaaagaaaaccaaatgccatacATGATGAGCACCTtagagttttcctttctttcatcaaCTCTGGGCTGGACTGCAGTCTTGCTTGAGGCAAGGAATGCATAAATAGAACAATGGGATCATCTGAGTGGCCAGTAAGCCTGGTGTTTTATGAACTTCAAGTATGCACACAaagtattttttatctttccacTCTACTCAGATATGCCTTGCTTTAAGAGTGTGCCGTGCCTTACTGTTTGGTGATGCCATTATGAAGGGCATCAAAATAACTGCTGGTGGCCCTTTACTACCACCTACCCTCTTGTCTCCTCTTGTcctctatttttctctcttctacttcTATTCTGGGCTAGGAACATCCCTTCCCCCAACATGCCTTCAGGAATCTCCCAATAAAGCAGTGTGATCACAAGTTCCTGCTCAATTCTCTAATGTTGatcttatcttttctcttttctttcctttcat",
+      "type": "sequence",
+      "genomic_elements": [
+        {
+          "id": "Homo_sapiens:chr10:100,356,531-100,356,764",
+          "species": "Homo_sapiens",
+          "chromosome": "chr10",
+          "strand": "+",
+          "genome_start": 100356531,
+          "genome_end": 100356764,
+          "length": 233,
+          "classname": "Sequence",
+          "sequence": "GTACTACAAACCTGGCTTGCTGATGATGTGCTTCATCCTGCCCACGCTTGTGCCCTGGTATTTCTGGGGTGAAACTTTTCAAAACAGTGTGTTCGTTGCCACTTTCTTGCGATATGCTGTGGTGCTTAATGCCACCTGGCTGGTGAACAGTGCTGCCCACCTCTTCGGATATCGTCCTTATGACAAGAACATTAGCCCCCGGGAGAATATCCTGGTTTCACTTGGAGCTGTGG",
+          "type": "CDS",
+          "source": {
+            "Index": 1627394,
+            "seqname": "chr10",
+            "source": "BestRefSeq",
+            "feature": "CDS",
+            "start": 100356531,
+            "end": 100356764,
+            "score": NaN,
+            "strand": "+",
+            "frame": 1,
+            "attribute": "gene_id \"gene-SCD\"; transcript_id \"rna-NM_005063.4\"; cds_type \"Internal\"; count \"5_6\";"
+          },
+          "homology": []
+        }
+      ],
+      "homology": [
+        {
+          "id": "Homo_sapiens:chr10:100,354,617-100,360,748",
+          "species": "Homo_sapiens",
+          "chromosome": "chr10",
+          "strand": "+",
+          "genome_start": 100354617,
+          "genome_end": 100360748,
+          "length": 6131,
+          "classname": "Sequence",
+          "type": "sequence",
+          "genomic_elements": [
+            {
+              "id": "Homo_sapiens:chr10:100,354,617-100,354,632",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100354617,
+              "genome_end": 100354632,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "left_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,360,733-100,360,748",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100360733,
+              "genome_end": 100360748,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "right_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,356,531-100,356,764",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100356531,
+              "genome_end": 100356764,
+              "length": 233,
+              "classname": "Sequence",
+              "type": "exon"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "id": "Felis_catus:CM001388.2:59,141,373-59,144,373",
+      "species": "Felis_catus",
+      "chromosome": "CM001388.2",
+      "strand": "+",
+      "genome_start": 59141373,
+      "genome_end": 59144373,
+      "length": 3000,
+      "classname": "Sequence",
+      "sequence": "GGATAACGGGGCTGGGCATCGAGTGTTTGGGGAACCCCCTTTTTTCCCCTAGGGCTTATAAACCGAAGCTGAGTAATTTAGTGAGTTTGCACGTTGCGAATTTAACTTAAAACCCTCATACTTAACGGCCCACAGGCCCCTGCCCATGGACTGTTGTTCTTTCTCTCAGAGCTCTCTTAATTAAACCAATTagattcaacaaatgcttattggcctaggacattcacagatacaacgatgactgtgtcacaatccttgccttcaaggagtttgtagcctgttgggaagtggagggagagtcaaagatctggacagccatgacacatgcaagatgttttctataccaatgaggggcccaaaggagagggaggttgtgtagtggggggcatgggggaagggttaatgcagaagatagctttggaatcccctgacggatagagattttcacaggtgtgtgtgggaagggaaagtacaaacacagagaagagaaggagctaaagcatgaaagcacattccagccacaaagtccttttgcttgaagcacagggtgtggtggcaataagactagaaagagaggctgacgctattcttgtagagccttaaaagcaaaagtagggcttaattccataggcaacgggaaaccattacaagttttttgaacagcagtgtggcatgaccagaggtgttctttagaaaggtcactctcgggatggtcgaaaaaaaaaaaccaaaaaccattgagtcagagagctgagaagcaggaccacgagtgaggagTTAACAGGGAGCCAGTTAACATGGCAGGAACGCAAAGTTTGATGCGGGGAATACTAATGATAGGAGAGTAGAGAACACTGGCCACTGAAGAGAAGCAGGAAACCAGTTCCCTAGAGATGTCAATGGCGTAGCCTACGCTGGAGAGAGTGAAGAATGGCACGGAGCCTCCAGAGGGCCTGCGGGCGTCAAGGACGCTCTGTGCCTGGCTCAGGAAGGAGAGGGATGATTAGAGGGGTGGCCAGCAGGACGTGGAGGCAAGACACAGAGCACAGACTCTCAGAAACCAtggacaggaaagagaaaggagcctACAAGGCAGGATGGAAAAACAGCCTGGGAAGGAGGACTGAGTTTATTAAGTTGGTAATTGGGACCTCACCTGTCTTACcgaggtgatattaggctacagtcaaaaagaacattggatgcagacgctggagacaagcattccaatccttgctccaccggttcctactggtgcgatcctagaaaagtcagttcacctgtcattacctcattttcTAACCCCGGAGACATTCTCAGAACATTTCCCCACCCCGTTCCCTCTTGCTTTGACTTCTGCTATGTTGTACCCCATAGAAGGAAAGAGCCCCACCGGTGACAGTGGGAAAATCAGGCAGATCTGGGAGTCCTCTCCCCTCTGACTCAGCGTATGGTCTCTCAATGTAGGTACTACAAACCCGGCATCCTGTTGATGTGCTTCATCCTGCCCACTCTTGTGCCCTGGTATTTCTGGGGTGAAACTTTTATACACAGCTTGTGCGTGGCCACTTTCTTGCGTTACGCCATTGTGCTCAATGCCACCTGGCTGGTGAACAGCGCTGCCCACCTCTACGGATATCGCCCTTATGACACCACCATTAGCCCCCGAGAGAATATCCTGGTTTCCCTGGGAGCTGTAGGTAAGTCAGCAGTCTGCAGCAAGACCCCTTCTAGTGGTCCGCCGGTTAGGGTGTTAGGCTAGGAGCCAGGAAACCCAGAGTAACCTGTTTTAGGACTTCTTTCTGTCTGGGATCCCACTGCAAAACTAAGGGTCAATATATTAGACAACTTTTCAGAGTCAGGCAACAGATTTTCGGTGGGAAGAAAAGGGTAAAAAACCAACAGTGCACCTGATTTCACATTCCAGAACATTCCCAAACGCTATGTATAATGAGCCCctttgggttttcctttttccagTCACCTCTGGGCTGGATTGCAGGTCTTGCTTGGGGCAGGGAATGCATAAACGGGCCAACAGGATCATTTGGGTGGGCAGTAAGCCTAGGGTGTTCTATGCAAACGTGCCGTATACAGTGTAGACTAAGTCCTTGTGATTTAATTGCACCAACTTCTATTTTATCTTCTTGCTGTATTCAGGGAGGCCACATCTGAAGCATGTGCCACGCCTTATTCTTTGGTGATGCCAACATGAAGGGCATCAAAGCAATTGTCGGTGACCCTTTGCCACCACTCATCAGTCCTATCTCTTgccctttatctttctctctcctgcttctcctctgtgCTAGGAACACACCTTCCCCACAACGTGGCTTAGGGAACCATGAGTAAAGTGGTTAGTTTGATCACAAGTACCTGCTCACTGATCTAATGCTGACtattcatgaatttatttctatGATTCCAGTCTTAATAGCCAGAGGCTAAGACAACAGGCTTCTAACCATCTGACTCCCCCCGCTTTTTTTCCCCGTCACTGTTTTCAACTAAATATAGACCTTGACCGAGGcctggaatttattttcctgAAGCAGACCCCGTGACCTCTTCCTCACCAATGACCAGTGCTGTTGGTCATCCGGTATATCTAGGCAACTTCACCGTTCCACATATTTGTGCCCACTGTGGCCTAACCTTCACTTTTTCGCTTTAAAACCTCCCATTAGATTCTCAATCCTCATCATCTTTACTATCGGTACTAGGgcgttttttttccccatctcttcGGAACTTTCCTGCGCCTCCTGCGCCTCGCAGGCACCGTCTACCAGTGCGCCCGCTCAGACTCTGAACCATGCTTGAAATCAGTCACCTAGGCGATGCAAGTCTGAGACTTTCACAGAAATGGAAGTTTCTGGAATGACACTTGTCCGCTCCTGGCGCTGGGTCTATGGCGAGCTTCCCCAACTGCAGCCTCTTGCTGAGCACGACTTCAGAGCGGCTGCCAGTATCTTACTTTGTCTCGGCTCTCATTCG",
+      "type": "sequence",
+      "genomic_elements": [
+        {
+          "id": "Felis_catus:CM001388.2:59,142,840-59,143,073",
+          "species": "Felis_catus",
+          "chromosome": "CM001388.2",
+          "strand": "+",
+          "genome_start": 59142840,
+          "genome_end": 59143073,
+          "length": 233,
+          "classname": "Sequence",
+          "sequence": "GTACTACAAACCCGGCATCCTGTTGATGTGCTTCATCCTGCCCACTCTTGTGCCCTGGTATTTCTGGGGTGAAACTTTTATACACAGCTTGTGCGTGGCCACTTTCTTGCGTTACGCCATTGTGCTCAATGCCACCTGGCTGGTGAACAGCGCTGCCCACCTCTACGGATATCGCCCTTATGACACCACCATTAGCCCCCGAGAGAATATCCTGGTTTCCCTGGGAGCTGTAG",
+          "type": "CDS",
+          "source": {
+            "Index": 918997,
+            "seqname": "CM001388.2",
+            "source": "Gnomon",
+            "feature": "CDS",
+            "start": 59142840,
+            "end": 59143073,
+            "score": NaN,
+            "strand": "+",
+            "frame": 1,
+            "attribute": "gene_id \"gene23982\"; transcript_id \"rna49175\"; cds_type \"Internal\"; count \"5_6\";"
+          },
+          "homology": []
+        }
+      ],
+      "homology": [
+        {
+          "id": "Homo_sapiens:chr10:100,354,617-100,360,748",
+          "species": "Homo_sapiens",
+          "chromosome": "chr10",
+          "strand": "+",
+          "genome_start": 100354617,
+          "genome_end": 100360748,
+          "length": 6131,
+          "classname": "Sequence",
+          "type": "sequence",
+          "genomic_elements": [
+            {
+              "id": "Homo_sapiens:chr10:100,354,617-100,354,632",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100354617,
+              "genome_end": 100354632,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "left_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,360,733-100,360,748",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100360733,
+              "genome_end": 100360748,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "right_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,356,531-100,356,764",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100356531,
+              "genome_end": 100356764,
+              "length": 233,
+              "classname": "Sequence",
+              "type": "exon"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "id": "Canis_lupus_familiaris:chr28:13,120,485-13,123,485",
+      "species": "Canis_lupus_familiaris",
+      "chromosome": "chr28",
+      "strand": "+",
+      "genome_start": 13120485,
+      "genome_end": 13123485,
+      "length": 3000,
+      "classname": "Sequence",
+      "sequence": "CGATAATGGAGCTGAGCATCTAAGTGTTTGGGgaacccccttttttctcctagAGCTTATAAACCTAAGCTGAGGAATTTACTGGGTTTGTGTGTTCCAAATTAAGTTTAAAACCCTAACATTTAGTAGCCAACATGCCCATGGTTATGGactattgttctttctttctctcagagCTCTCTGAATTAAACCAATTTAAatccaataaatacttattgacttagggacagtcgcagatacaaagatgattgtgtcacagtccttaccttcaaggagcctgtagcctattgggaagcagagggaaaactaaggacctgaataactatgacacgtggcaacatattttctatgccaacgagaggcacaaaggaaagagattatgtggtgagggaacattggggaagggtttatgaagaaggtagctttggaatccactgatggatagagattctcacaggtgtgtatggggagggaacatacaaacataacagaatgagcatgaaagcatgTTCCAACAATAAAGGCCTTTTGCTTGAAGCATAGGGTGTGGTCGAAGTAAGGCCAGAAAGAGGTTGATGCTATTCCTACAGAGGCTTAATAGCAGATTTAGGTTTTAATTCACTAGGCAACAGGAAACCATTACAAGTTTTTTGAGCAGGAAGGTGTGCTTTAGAAAGGTCACTCTCGGGATGGTTGAGAGAAATGGAGCCAAAGAGGTGAGAAGCAGGGCCACAAGGTAGATAGGAGCTAATGGGGATTTGTGCTTGGGAAGCAGCAGCAGGAATGGAAAGTTTGATGCAGAGAATACTAATGATATGAGTATAAGACTTGGCTGTtgaagaaaagcaggaaatcCGTTCCCTAGGAATGTCAATGGCACAGTCTACATTTGAGACAGTGAAGAATGGTGTAGGGCCTCCAGAGGGTCTGCGCGCATCAAGGACACTCTGTGCCTctctgaggaaggagaagaatgatTTTGGGGTGGCTGGCGGAACATAGAGGCAAGGCACAAAACCTAGACTCTGCAAAAAACATGAAcgggaaagagaaaggaacctAAAGGCAGAATGGAAAAAAAGCCTGCGAAGGAGGACTTGGGTTATAAGTTGATAATTTGGACCTCACCTGTTTCACCAAGGTggtattatgctatagtcagaaagaacaatggattcagaggctggagacaagccttctaatccttgctccaccagttcctacctgtgtgatcctagaaaaatcagttaaccccatgttacctcattttcTAAAGACTGGGACATTCTTCAAAGGTTCCCACCCCCAttccctctggctctgtctcctgCCACACTGTACTTGAGTAGAAGGAAAGATAGCCCCACCAGTGACTGAGGAAAATCAGATGGGACTAAGAGTCCTTTCTACCCTGACACGGAGTCTGGTCTCTTGATGTAGGTACTACAAACCTGGCATCCTGTTGATGTGCTTCATCCTGCCCACCTTTGTGCCCTGGTATTTCTGGGGTGAAACTTTTCTACACAGTGTGTGCGTTGCTACTCTCCTGCGTTACGCCATTGTGCTCAATGCCACATGGCTGGTGAACAGTGCTGCCCACCTCTACGGATATCGCCCTTACGACAAGAATATTAGCCCCCGAGAGAATATCCTGGTTTCCCTGGGAGCTGCAGGTGAGTCAACAGACCACAGCGAGACCCTTTCTGGTGGTCTGCTGGTGAGGGTTTTAGGCGAGGAGCCAGAAAAACCAGATTAACCTGTTTTATGACTTCTTTCTGTCTGGTTTTCCATTACAAAACTAGGGGACAAATTATAAGAAAGTTGGGCAACAGGTCTTATGTAGAAAGGAAAGGGTAAAAAACAACGGGGCATTTGATTATAGATTCCAGAACCTTTGCAAATGCTATGTATAATAAACCCCTTTGGGTGTTCCTTTTTCCAGTCCTTTCTGGGCTGGACTGAAAGTCTTGCGTGGGGCAGGGAATGCATAAATGGAACAACAGGATCATCTGGGTGGGCAGTGAGCCTAGGATCTTATATTTAAATACcctatataggggcacctgggtggcacagtccattaggcatccaactcttgggttcagcaaacagtcatgttctcagagtcctgagaccaaAGAAGTGCTTTGATGTCATTCGTATTGGCACCACCAAGCACTTGTTTGTGGCCCTTAACTGCCACATACCAGTCTtatctcttgtcctttctttttctctctcctgcttctatTCTGTGCAAGGAGCACCCCCTTCCCCACAACAATGGCTTAGGGAACCACCAGTAAAGCAATTACTTTGCTCACAAGTACCTGCTTCGCTGATCTAATGCTGACTCTTGATGAATTTATTTCTATCTTTCCAGTCCCACTAGCCAGAGCTGAAGACAACAGGCTTTTGCCATCTGTCTCCATTCTTTTTCTGTCACAGTTTTCAACTAAATATAGACCTTGACCAAGGCCTGGAATCTGTTTTCCTTAAGCAGACCCTATGGCCTTTCCTCACCAGTGATCAGTGCCAGTGGTCATCCAGGATATCTAGGCAACCTCACTGTTGCACATGTTTATGCACACCATGGCCtcacactcactttctctctttaaaatcttcCTCTAGACTTTCAACCCCAATCATCTCTACTATCTGGactaaggcattttttttctcctttacaccTTCATGCATCTCACCTTCCCCCATTGTGCCTGTCCTTACTTTGAACCACATTTGAAATCAATCTCCTCAACTCTGTCAACGTGAGATTTTCAGAGACATGGAAGTTTCTGGAATGAGATTTGTCCTGTGCCACCACGGGATCTAGAGCAAGCTTCCCGGACTCCAGCCTCTTTGTGAGCATCAGCACTGAGAGGCTGCCAACACCTTCATCTCAGTTACCATTCAGCTGTGCTCCCTGTCATCTCCCTTATCACCTCCACCTTCATTCTCCTGGAGCTTGTTTCTCTGCCACTCCCATCTTTTCTT",
+      "type": "sequence",
+      "genomic_elements": [
+        {
+          "id": "Canis_lupus_familiaris:chr28:13,121,925-13,122,158",
+          "species": "Canis_lupus_familiaris",
+          "chromosome": "chr28",
+          "strand": "+",
+          "genome_start": 13121925,
+          "genome_end": 13122158,
+          "length": 233,
+          "classname": "Sequence",
+          "sequence": "GTACTACAAACCTGGCATCCTGTTGATGTGCTTCATCCTGCCCACCTTTGTGCCCTGGTATTTCTGGGGTGAAACTTTTCTACACAGTGTGTGCGTTGCTACTCTCCTGCGTTACGCCATTGTGCTCAATGCCACATGGCTGGTGAACAGTGCTGCCCACCTCTACGGATATCGCCCTTACGACAAGAATATTAGCCCCCGAGAGAATATCCTGGTTTCCCTGGGAGCTGCAG",
+          "type": "CDS",
+          "source": {
+            "Index": 1252982,
+            "seqname": "chr28",
+            "source": "Gnomon",
+            "feature": "CDS",
+            "start": 13121925,
+            "end": 13122158,
+            "score": NaN,
+            "strand": "+",
+            "frame": 1,
+            "attribute": "gene_id \"gene-SCD\"; transcript_id \"rna-XM_543968.6\"; cds_type \"Internal\"; count \"5_6\";"
+          },
+          "homology": []
+        }
+      ],
+      "homology": [
+        {
+          "id": "Homo_sapiens:chr10:100,354,617-100,360,748",
+          "species": "Homo_sapiens",
+          "chromosome": "chr10",
+          "strand": "+",
+          "genome_start": 100354617,
+          "genome_end": 100360748,
+          "length": 6131,
+          "classname": "Sequence",
+          "type": "sequence",
+          "genomic_elements": [
+            {
+              "id": "Homo_sapiens:chr10:100,354,617-100,354,632",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100354617,
+              "genome_end": 100354632,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "left_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,360,733-100,360,748",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100360733,
+              "genome_end": 100360748,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "right_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,356,531-100,356,764",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100356531,
+              "genome_end": 100356764,
+              "length": 233,
+              "classname": "Sequence",
+              "type": "exon"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "id": "Bos_taurus:CM000202.7:21,261,000-21,264,000",
+      "species": "Bos_taurus",
+      "chromosome": "CM000202.7",
+      "strand": "-",
+      "genome_start": 21261000,
+      "genome_end": 21264000,
+      "length": 3000,
+      "classname": "Sequence",
+      "sequence": "agcagagaaaagttAAGCAGCTATACTGTGGATTGCTGGATTCTTGATCTTGGCACTCTGGTTCcctagcagaatgcctcacacctagtagaaacctgttgctgttgaatgaatgaatgcagctAGTCTTTTAAACTCTGAACCAAATAGATCCCCTCAGAGGCATCTTAAGAAATGACTGGGGAGAACCTGGTCACCATGGCTCTCTGGGAACCTTTGTGGGAGAAGGGCTGGCAGTTTCTCTGAGAAAAtaagatgatttgagagaaactGCTATCAGTAGGAATGGGGTTTAGACTAGAAAACCCCAGAGCCTCACTACATATTTGTATAAGACCCTAAAGGCTctgtgcatatgtgcatgtgttAGAGCGGACAGAGTCCAGAATGAAGAACTTTTACTGGGTTTCTTACAAAGATGAGCAAAGAAGCACACTTTCCCCCACCGCATGGGCACTCTCTCCAAGGGTTGAAGGTACCAAGAGAACTGGGCGACACAGTCAAAAGTCAGAAGAAAGGAGGCCTAGCCCAGGGGCCTAAGTTTCCTTGCCTCTACTGGTTCAGAGTGGACTGTTTTGGCTCCTAATTCTTTGAGCTTTCACCCTGGGGTGATGCTGATAAAACAGAAGCTCTCTGAGGGAATAAGAATCAAAAAGCTTAGGTATTCCTTCCAGCCTCTAAAATTCTGAAACGAGCAGTTCACTTTGCTGGACAGAGGAAAATCAAAGAAATTCTAGATTCAGAATAATTTCTGTAATGAGTCAAGCTGTggaaactccatagacagagttCTCCAGTCCTAGGCAGGCTCTTCTTTGTGAACCACATTCAATAACAATACCCTTATGAGGCTGGGGTAAAGAATAGCTAATAAAAGAGTGTACTGAACCCTTTGAAGATGAAAGAGCCCCAGTACAGTAATAGTGACATTAATAACCAACAAGGAAGGAAGTCCTGTGACGGGAATAACACCATCCAGGGCACCATCTCAAGGTTTGTTCACAGTGTGGCTCATCAGTTTATTCAATGAGAACTGAGTAGGAGGGTAGGATAACCCCAAGGCTAAAGGTACTGATGGAAGATCGCTAATTTCCATAAATGACTTTGCAACTAGGCTCTGTCTAAGCACTAGCTAGGCCCACACTTATCAGATTTAAAACAATCAGACACACACACGGTgccaagagaggaaagaaagcgGAGGAAGGTTAGTGGGCAAAAGAAGGATGAGACTCTGTAACTGGAACAGCAAGATAGAGCCAAGAGAGGCTCAAGCAGGGAGGTTAGCTCTGGCAGAGAGAAGATGAGCATgtgactgggggtggggaggtaatTCAAGAAGAACAAGATTAGAATGGCAGGCAAGCAGGGGAAACAGGCGACCAGAGAACAAAGGGTGAGGTGATAAACAGGGAGCAACAGGGATGAAGGAACGAATGGTAAGTGACATACTGACAGCCACTCTGAATAGGGGAAGCTCACAACAGATCTGTTTGCAGTACAGGACTGATCTCATTCCAGAAACCTTCCATGACATTCACTGGTTTTCTATGAAAATAGCCTATAATGTGATTGATTTCAAACATGGTTCAGAGTAAGAACATGTAAACAGTACACGGTGTCTGGAAGGAGGGAAAGatgcatgaaaattaaaaaggaatgaaaaagatgTCTTTAGTACagagaataataaaaaagacaaagatggtCAGGGTTGAGAGTATAAAGGAAGGTTTTAAAGAGAACTGAGTGACGGCTAGGCCATggcacatgtatatgtgtggagCAGGGAGGTTGCCTATCTGTGCTGGATGACCAGAGGCCCTGATCACTGGAAGAGGCCGTGGGGTCTGCCTAAGGAAACCTAATTCCAGGCCTTAGTCAAGGTCTATATTTAGCTGAAAAGAGtgacagaccaaaaaaaaagaaaaagaaaatggagacagATGGCAGAACCCTACTGTCTGGCTATTAGAACaggaatggtagaaataaattccTGAATAGTCAGCATTAGGTCAGTGAGTGAGTGCTTTATGGTAGTTTCCTAAGtcacactgtggggagggagtgTTCCCAGCAcagcagagaaacagaagagagaaaaataaaggataagagaagagaGTGGTAGGTGGTGATAAAGGGCCACCAACAGTTGCTTTGATGTCCTTCATACTGGCATCACCAGGTAGTAAGGCATGTAATACACTTCAAATATTGCCCCTCTGAATACAGGAAGGTGATAAAAGAGAAGCTTAGTGAGTTAAATGACAAGTATTTGTTCTGTATATCACAACTAAATGTAAAATACTAGGCTTTCTGGCCACCCAGATGACCCTACTCTTCTATTTATGCATTCCCTGCCCCAAGCAAGACTACCACCCAGATCAGAGATGACTGGGAAGAGAACAGCCCAAAGGGGTTCATCATACATAGCATTTGTGGCTTGCTCTTAAACCTGGAATTAAAGGCATTGTCATTTTTCACCCTTTTCTCTTTACATAGGACTTGTTGCTTAACTTTCAAGGGTTTTCTAATACTGTCCCTTAGTTTTATAGTGGAATGACATATGGAGAGGGGTCATAAAACAGGTAAATCTAGTTTTTCTGGCACGTAACCTAATACCCTAAGCAGCAGACCACTAGACGTGGTCTTGCTGTGGACTGCTGACTTACCCGCAGCTCCCAGGGAAACCAGAATATTCTCTCGGGGGTTGATGGTCTTGTCATAAGGGCGGTATCCATACATATGGGCAGCACTATTCACCAGCCAGGTGACGTTGAGCCCAAGGGCATAACGGAATAAGGTGGCAAAAAACAGGCTGTTTTGAAACGTTTCATCCCACAGATACCATGGCACGAGtgtgggcaggatgaagcacaacaACAGGACACCAGGTTTGTAGTACCTGCATTGAGAGATCACAGGCTCAGTGAGTGGAGAGGGGACGCTGAGACCTACCTGATTTTCCACTCTCACAGGGCGGGGCTGTCCCTT",
+      "type": "sequence",
+      "genomic_elements": [
+        {
+          "id": "Bos_taurus:CM000202.7:21,263,678-21,263,911",
+          "species": "Bos_taurus",
+          "chromosome": "CM000202.7",
+          "strand": "-",
+          "genome_start": 21263678,
+          "genome_end": 21263911,
+          "length": 233,
+          "classname": "Sequence",
+          "sequence": "CCGCAGCTCCCAGGGAAACCAGAATATTCTCTCGGGGGTTGATGGTCTTGTCATAAGGGCGGTATCCATACATATGGGCAGCACTATTCACCAGCCAGGTGACGTTGAGCCCAAGGGCATAACGGAATAAGGTGGCAAAAAACAGGCTGTTTTGAAACGTTTCATCCCACAGATACCATGGCACGAGtgtgggcaggatgaagcacaacaACAGGACACCAGGTTTGTAGTAC",
+          "type": "CDS",
+          "source": {
+            "Index": 588460,
+            "seqname": "CM000202.7",
+            "source": "BestRefSeq",
+            "feature": "CDS",
+            "start": 21263678,
+            "end": 21263911,
+            "score": NaN,
+            "strand": "-",
+            "frame": 1,
+            "attribute": "gene_id \"gene28647\"; transcript_id \"rna34831\"; cds_type \"Internal\"; count \"2_4\";"
+          },
+          "homology": []
+        }
+      ],
+      "homology": [
+        {
+          "id": "Homo_sapiens:chr10:100,354,617-100,360,748",
+          "species": "Homo_sapiens",
+          "chromosome": "chr10",
+          "strand": "+",
+          "genome_start": 100354617,
+          "genome_end": 100360748,
+          "length": 6131,
+          "classname": "Sequence",
+          "type": "sequence",
+          "genomic_elements": [
+            {
+              "id": "Homo_sapiens:chr10:100,354,617-100,354,632",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100354617,
+              "genome_end": 100354632,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "left_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,360,733-100,360,748",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100360733,
+              "genome_end": 100360748,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "right_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,356,531-100,356,764",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100356531,
+              "genome_end": 100356764,
+              "length": 233,
+              "classname": "Sequence",
+              "type": "exon"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  [
+    {
+      "id": "Sus_scrofa:CM000825.4:120,972,176-120,975,176",
+      "species": "Sus_scrofa",
+      "chromosome": "CM000825.4",
+      "strand": "+",
+      "genome_start": 120972176,
+      "genome_end": 120975176,
+      "length": 3000,
+      "classname": "Sequence",
+      "sequence": "TGGTGGTGGAGCTGGGCGCCTGGTGTTTGGGgacaccctctcccctccctgttttttcttctaggacttgTCCACATAAGCTGGGAAACTGACAGGGTCTGCTTACCCCAAATCATAATTCAAAACCCTTCTTTTATGGGCCACAGCCATAGACTGTTGTTGATTCTTTCTCtctgagctaaaaaaaaaaaccagttaagGTCAACAATGTGTGTTGACCTGTTACAGTCATggatacaaagctacatgttgtcatagtccttaccttcaagaagttcatagcctgttggggATGGGAGCACTAAGCCAGGTGTCCAAATACCTATGACatggcaaaatatttttctgtccccaGGAAAGGCACAGAGGGGAGGGAGACTGTGGAGTGGGGAACATTAGAGAAGGGTTTTATGAGAAGGTAGCTTAGGAATCCACTGGTAGCTTAGGAATCCACTTAGGAATCTTTGTAAGATTTTCACAAGTGTTGGCGGAGCGGGAGGCAGTGCAAACAGAAAGAATGAGCTAAAGCATGAAGCATGTTCCAGCAATAGAGTCCCTCTGCTTAAAGTACAGGGTGTGGTAGGAAATAAAGACTAGAGAGACCGAGACCTTTCTTGTGGGGCCTTAAGAGCAGACAGGGTTTAATTCAACTCCAGCAATAGGAAACCATGGAAGGGTTTTTGAGCCGGAATGTGGTCAGAGGTGTGCTCTGGAGAGGTCACCCTGCAGATAGGTGAAAGAAACCGTTGGGCTGAAGAGGTGAGCTGCAGGGCCCCAGGTGAGGAGGTAGTGGGCATCCATGCTGGGGAAGTGGTGGCACGGAGAGGAGGCGAAATGTGGGGACACACGTGATCCAAGAGTAGCAGACTTGACTGCTGAAGAGGTGCAGGAAATCAGCTCCCTCGGAATGTCAGTAGCCTGTTTTACTTTGGGAGAATGAAGAATGGGCCAGGGCCTCCAGAGGGACAGCCTGCAGGCATCCGGGACACTCGGTGTGCCCCtgaggggaaaagaagagaaaggatcaGAAGGCTTGCTGGCTAGCAAGAGAGGAAGGCAAGATACCAAACACAGATTCTGCAAAGAGCACTGACACCAAGAGAGGAGCAGGCAGAATGGAAAGACCTGGGCAGGAGAACTCAGTTCAGTAATCTGTAATTTGGGCCGCCCCTGTTGTGGTACGATTAGGCtgtggtcaaagagagcaatggatggagagtcgggagacaaggcattccagcccttgctccactggttcctggtggtatgaccctagaaaagtcatttagcccctccttaccttacctcatcaaaaaagtatgataataacactgccttctCAAAAGACTACCCACCCCATCCCTCTTGCTCTGTTTCCTGCCACCTTGTGCTCACAGCGTAGAGGGTAGGGGACAGCTCAGCCCCATGAAAGGACAAAGTCAGAGTCCCCTCCATGAATGGGGTGTGTGATCTCTCCCTGTAGGTACTACAAACCCGGTATCCTGTTGATGTGCTTCATCCTGCCCACGATCGTGCCCTGGTATTGCTGGGGTGAAGCTTTTCCCCAAAGCCTGTTCGTCGCCACCTTTCTTCGTTACGCCATCGTGCTCAATGCCACCTGGCTGGTAAACAGTGCTGCCCACCTATACGGATATCGCCCTTATGACAAGACTATTAGCCCCCGGGAGAATATCCTGGTTTCATTGGGAGCTGTGGGTAAGTTAGCAGTCCATAGCAAGACCCCATCTAGTGGGCTGCTGGTTAAGAGTATTAGACTAGGAGCCAGAAAAACCAGATTAACCTGCTTTATGacccctctctgtttctctgctaTAAAACTAAGGTGCAATAGTAGATACCCCTTGAGAGTTGGGCAGCAAGTCTTATATAAAGAGAATTGGGCTAAAAAATAACAATGTCTCTGAGTCCAGGTTCCAAAAAAGATCCCCAGGTGCTCTGGATGAGGAACCGCTTTGGCTTGTCCTTTTTCCAGTCATCTCTGGGCTGGCACATGGTCTGGCTAGGGGCAGGGACTGCATGAATAGAACAGTAGGGTCTTCTGGGTGGCCAGTAAGCCTAGTGTTTTATATTTAGACATGCTATACAAAATGCAGAACAAATCCTTAACATTTCAACAAGCTTCTCTTTTATCACCTTGCTATATTCAGAGAGGCTGAACTCAAAGTGTATTTCATGCCTTATTGTTTGGTGATGCCAACATGAAGGACCTCAAAGCAACTGTTGGTGGCCCTTTTATCACCACCGACCGCTCTCATCTCTTGTCCTTTATTCTTCTCTTGTCCTTTATTCTTCTCTAACCCGTGCTGGGAACACCCGCTCCCCTTAACATGGCTTGGAGAACTCCTGATAAAGCAGTTAATTTGATCACAAGTCTCTGCTCACTGATCTAATGCTGACTATTCAAGaatatctttctaaaaaaaaaaaaaagttgtatcttTCTCTCATTCCAGTTTCAATAGCCAGAATCTAAGACAACAGTGTTCTACCATCtgtctcccttttattttttcctctgccaCTCTTTTCAACTAAACATAGATCTTGACTAACGCCTGGAAGCAGTTTTCCTTAAGCAGCGCCTGTGACCTCTTCCACGCTAGTGATCAGTGCCACTGGTTGTCTGGCATATCTAGGCAACCTCCCTGCTCCCCACATGTGTGTACACTGCGGCCTAGCTTTTGCTTTGTTCTCTTTAAAACCTTTCTTTATGTGCTCAAccctgagcatcttttttttttacaatctgTACTAAAGAcatttcatttgtatctttttttttttttttttttttttagtgccgcacctgtgccatatggaagttcccaggctaggggtccaatccgagctacagctgctggcctccaccacagccacggcaatgccagatccaagcaacctacaccacagctcatggcaatgctggatccttaacccactgagcaaggccagggattgaacccacaacctcatggttcc",
+      "type": "sequence",
+      "genomic_elements": [
+        {
+          "id": "Sus_scrofa:CM000825.4:120,973,659-120,973,892",
+          "species": "Sus_scrofa",
+          "chromosome": "CM000825.4",
+          "strand": "+",
+          "genome_start": 120973659,
+          "genome_end": 120973892,
+          "length": 233,
+          "classname": "Sequence",
+          "sequence": "GTACTACAAACCCGGTATCCTGTTGATGTGCTTCATCCTGCCCACGATCGTGCCCTGGTATTGCTGGGGTGAAGCTTTTCCCCAAAGCCTGTTCGTCGCCACCTTTCTTCGTTACGCCATCGTGCTCAATGCCACCTGGCTGGTAAACAGTGCTGCCCACCTATACGGATATCGCCCTTATGACAAGACTATTAGCCCCCGGGAGAATATCCTGGTTTCATTGGGAGCTGTGG",
+          "type": "CDS",
+          "source": {
+            "Index": 762674,
+            "seqname": "CM000825.4",
+            "source": "BestRefSeq",
+            "feature": "CDS",
+            "start": 120973659,
+            "end": 120973892,
+            "score": NaN,
+            "strand": "+",
+            "frame": 1,
+            "attribute": "gene_id \"gene29432\"; transcript_id \"rna51580\"; cds_type \"Internal\"; count \"5_6\";"
+          },
+          "homology": []
+        }
+      ],
+      "homology": [
+        {
+          "id": "Homo_sapiens:chr10:100,354,617-100,360,748",
+          "species": "Homo_sapiens",
+          "chromosome": "chr10",
+          "strand": "+",
+          "genome_start": 100354617,
+          "genome_end": 100360748,
+          "length": 6131,
+          "classname": "Sequence",
+          "type": "sequence",
+          "genomic_elements": [
+            {
+              "id": "Homo_sapiens:chr10:100,354,617-100,354,632",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100354617,
+              "genome_end": 100354632,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "left_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,360,733-100,360,748",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100360733,
+              "genome_end": 100360748,
+              "length": 15,
+              "classname": "Sequence",
+              "type": "right_anchor"
+            },
+            {
+              "id": "Homo_sapiens:chr10:100,356,531-100,356,764",
+              "species": "Homo_sapiens",
+              "chromosome": "chr10",
+              "strand": "+",
+              "genome_start": 100356531,
+              "genome_end": 100356764,
+              "length": 233,
+              "classname": "Sequence",
+              "type": "exon"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+]

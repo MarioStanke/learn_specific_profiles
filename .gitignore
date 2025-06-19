@@ -11,6 +11,9 @@ run_STREME/
 *_test/
 .brain_mnt
 
+# [Matthis] exceptions
+!testdata.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

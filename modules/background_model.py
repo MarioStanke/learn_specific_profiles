@@ -250,8 +250,6 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
         return S
 
-        # TODO: underflow loesen
-
         # ==============================================================================================================
 
         Q1 = tf.expand_dims(Q, 0) # shape: (1, alphabet_size**(order+1), K)

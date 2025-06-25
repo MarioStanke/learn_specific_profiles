@@ -108,19 +108,27 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path | li
         freqs = {}
         for i in range(size**order):
             # get indices of first k-1 dimensions of model
-            j_idcs = tuple([i // (size**j) % size for j in range(order)])
+            j_idcs = np.unravel_index(i, (size,)*order)
+            # jmer = "".join([alphabet[j] for j in j_idcs]) # construct the j-mer from the indices
             # logging.debug(f"[DEBUG] >>> {i=}, {j_idcs=}, {size=}, {k=}, {model.shape=}")
             abs_freq = np.random.uniform(0, 1, size=4)
             rel_freq = abs_freq / abs_freq.sum() # normalize frequencies to sum to 1
             model[j_idcs] = rel_freq # fill the last dimension with random frequencies
-            jmer = "".join([alphabet[j_idcs[j]] for j in range(order)]) # construct the k-mer from the indices
-            for k in range(size):
-                kmer = jmer + alphabet[k]
-                freqs[kmer] = rel_freq[k]
+        #     for k_idx in range(size):
+        #         kmer = jmer + alphabet[k_idx]
+        #         freqs[kmer] = rel_freq[k_idx]
+        
+        # # normalize the frequencies to sum to 1
+        # freqsum = sum(freqs.values())
+        # freqs = {kmer: fr / freqsum for kmer, fr in freqs.items()}
 
-        # normalize the frequencies to sum to 1
-        freqsum = sum(freqs.values())
-        freqs = {k: v / freqsum for k, v in freqs.items()}
+        freqs_arr = model.reshape((size**k))
+        freqs_arr = freqs_arr / freqs_arr.sum() # normalize frequencies to sum to 1
+        freqs = {}
+        for i in range(size**k):
+            # kmer = "".join([alphabet[i // (size**j) % size] for j in range(k)])
+            kmer = "".join([alphabet[c] for c in np.unravel_index(i, (size,)*k)]) # construct the k-mer from the indices
+            freqs[kmer] = freqs_arr[i]
         return model, freqs, alphabet
     elif model_type == "data":
         alphabet = "ACGT"

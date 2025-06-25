@@ -72,10 +72,10 @@ def _get_uniform_model(order: int):
     return model, freqs, alphabet
 
 
-def get_background_model(order: int, model_type: str = "uniform", src: Path | list[str] = None):
+def get_background_model(order: int, model_type: str = "uniform", src: Path | list[str] = None, seed: int = None):
     """
     Get a background model for a given order and model type. The model can be either
-    'uniform', 'data' or 'augustus'. The uniform model is a uniform distribution of nucleotides,
+    'uniform', 'random', 'data' or 'augustus'. The uniform model is a uniform distribution of nucleotides,
     while the data model is based on the dinucleotide frequencies from a given file.
     The Augustus model is based on the dinucleotide frequencies from Augustus for
     human intergenic regions and is restricted to order 1.
@@ -83,7 +83,8 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path | li
     and the alphabet used (str 'ACGT').
     """
     assert order >= 0, "Order must be greater than or equal to 0"
-    assert model_type in ["uniform", "data", "augustus"], "Model type must be either 'uniform', 'data' or 'augustus'"
+    assert model_type in ["uniform", "random", "data", "augustus"], \
+        f"Model type must be either 'uniform', 'random', 'data' or 'augustus'. Got {model_type} instead."
 
     if model_type == "uniform":
         if src is not None:
@@ -94,6 +95,33 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path | li
         if src is not None:
             print(f"[Warning] >>> Source file {src} is ignored for uniform model")
         return _get_augustus_model()
+    elif model_type == "random":
+        if src is not None:
+            print(f"[Warning] >>> Source file {src} is ignored for random model")
+        if seed is not None:
+            np.random.seed(seed)
+            # logging.debug(f"[DEBUG] >>> Setting random seed to {seed}")
+        alphabet = "ACGT"
+        size = len(alphabet)
+        k = order + 1
+        model = np.zeros((size,)*k)
+        freqs = {}
+        for i in range(size**order):
+            # get indices of first k-1 dimensions of model
+            j_idcs = tuple([i // (size**j) % size for j in range(order)])
+            # logging.debug(f"[DEBUG] >>> {i=}, {j_idcs=}, {size=}, {k=}, {model.shape=}")
+            abs_freq = np.random.uniform(0, 1, size=4)
+            rel_freq = abs_freq / abs_freq.sum() # normalize frequencies to sum to 1
+            model[j_idcs] = rel_freq # fill the last dimension with random frequencies
+            jmer = "".join([alphabet[j_idcs[j]] for j in range(order)]) # construct the k-mer from the indices
+            for k in range(size):
+                kmer = jmer + alphabet[k]
+                freqs[kmer] = rel_freq[k]
+
+        # normalize the frequencies to sum to 1
+        freqsum = sum(freqs.values())
+        freqs = {k: v / freqsum for k, v in freqs.items()}
+        return model, freqs, alphabet
     elif model_type == "data":
         alphabet = "ACGT"
         assert src is not None, "Source file or list of sequence strings must be provided for data model"

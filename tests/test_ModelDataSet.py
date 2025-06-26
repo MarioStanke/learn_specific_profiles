@@ -65,32 +65,67 @@ class TestModelDataSite(unittest.TestCase):
         return kmers, sites
     
 
-    def _from_one_hot(self, X, k, alphabet: list[str]):
+    def _from_one_hot(self, X, k, alphabet: list[str], flattened_kmers: bool):
         """ Convert one-hot encoded tensor to string representation. Returns a nested list of sequences, from outer to
         inner: (batch, tiles_per_X, genome/sequence, frame) with the elements being strings of the sequences. """
-        assert len(X.shape) == 6, \
-            f"Input tensor must be 6D: (batch_size, tiles_per_X, N, f, tile_size, alphabet_size), got {X.shape}"
-        
-        new_alphabet = [''.join(p) for p in itertools.product(alphabet, repeat=k)]
-        assert len(new_alphabet) == len(alphabet)**k, \
-            f"Alphabet size must be {len(alphabet)}^{k}={len(alphabet)**k} for k-mer encoding, got {len(new_alphabet)}"
-        assert X.shape[-1] == len(new_alphabet), \
-            f"Last dimension must match {len(alphabet)}^{k}={len(alphabet)**k} for {k}-mer encoding"
-        
-        sequences: list[list[list[list[str]]]] = [] # (batch, tile, genome/sequence, frame)
-        for b in range(X.shape[0]):
-            sequences.append([])
-            for t in range(X.shape[1]):
-                sequences[b].append([])
-                for n in range(X.shape[2]):
-                    sequences[b][t].append([])
-                    for f in range(X.shape[3]):
-                        oh = X[b, t, n, f, :, :]
-                        idcs = [np.argmax(oh[j,:]) if np.max(oh[j,:]) != 0 else -1 \
-                                for j in range(oh.shape[0])]
-                        seq = ''.join([ new_alphabet[i] if i != -1 else ' '*k for i in idcs ])
-                        # print(f"Batch {b}, Tile {t}, Sequence {n}, Frame {f}: {seq}")
-                        sequences[b][t][n].append(seq)
+        if flattened_kmers:
+            assert len(X.shape) == 6, \
+                f"Input tensor must be 6D: (batch_size, tiles_per_X, N, f, tile_size, alphabet_size), got {X.shape}"
+            
+            new_alphabet = [''.join(p) for p in itertools.product(alphabet, repeat=k)]
+            assert len(new_alphabet) == len(alphabet)**k, \
+                f"Alphabet size must be {len(alphabet)}^{k}={len(alphabet)**k} for k-mer encoding, " \
+                    + f"got {len(new_alphabet)}"
+            assert X.shape[-1] == len(new_alphabet), \
+                f"Last dimension must match {len(alphabet)}^{k}={len(alphabet)**k} for {k}-mer encoding"
+            
+            sequences: list[list[list[list[str]]]] = [] # (batch, tile, genome/sequence, frame)
+            for b in range(X.shape[0]):
+                sequences.append([])
+                for t in range(X.shape[1]):
+                    sequences[b].append([])
+                    for n in range(X.shape[2]):
+                        sequences[b][t].append([])
+                        for f in range(X.shape[3]):
+                            oh = X[b, t, n, f, :, :]
+                            idcs = [np.argmax(oh[j,:]) if np.max(oh[j,:]) != 0 else -1 \
+                                    for j in range(oh.shape[0])]
+                            seq = ''.join([ new_alphabet[i] if i != -1 else ' '*k for i in idcs ])
+                            # print(f"Batch {b}, Tile {t}, Sequence {n}, Frame {f}: {seq}")
+                            sequences[b][t][n].append(seq)
+
+        else:
+            assert len(X.shape) == 5 + k, \
+                f"Input tensor must be {5+k}D: (batch_size, tiles_per_X, N, f, tile_size)+(alphabet_size,)*{k}, "\
+                    + f"got {X.shape}"
+            assert all([d == len(alphabet) for d in X.shape[5:]]), \
+                f"Alphabet size and dimension mismatch: {len(alphabet)=} vs. {X.shape=}"
+
+            sequences: list[list[list[list[str]]]] = [] # (batch, tile, genome/sequence, frame)
+            for b in range(X.shape[0]):
+                sequences.append([])
+                for t in range(X.shape[1]):
+                    sequences[b].append([])
+                    for n in range(X.shape[2]):
+                        sequences[b][t].append([])
+                        for f in range(X.shape[3]):
+                            oh = X[b, t, n, f]
+                            assert oh.shape == X.shape[4:], f"Shape mismatch: {oh.shape=} vs. {X.shape[4:]=}"
+                            kmers = []
+                            for i in range(oh.shape[0]):
+                                # returns a tuple of indices of the nonzero-elements, expect only one per dimension:
+                                idcs = oh[i].nonzero()
+                                if all([len(idx) == 1 for idx in idcs]):
+                                    kmer = ''.join([alphabet[idx[0]] for idx in idcs])
+                                elif any([len(idx) > 1 for idx in idcs]):
+                                    raise RuntimeError(f"[ERROR] >>> Illegal encoding in tile {[b,t,n,f,i]=}: " \
+                                                       + f"{X[b,t,n,f,i]=}")
+                                else:
+                                    kmer = ' '*k # at least one character missing, skip
+                                kmers.append(kmer)
+                            seq = ''.join(kmers)
+                            # print(f"Batch {b}, Tile {t}, Sequence {n}, Frame {f}: {seq}")
+                            sequences[b][t][n].append(seq)
 
         return sequences
         
@@ -538,17 +573,24 @@ class TestModelDataSite(unittest.TestCase):
                                                    for i in range(len(fseq)-k+1)])
                                 rawKmerSeqs[g][s][f] = kmerseq
 
-                ds = data.getDataset(k=k)
-                for X, _ in ds:
-                    self.assertEqual(X.shape, 
-                                     (batch_size, tiles_per_X, len(rawSeqs), data.frame_dimension_size(), 
-                                      (tile_size-k+1), len(alphabet)**k))
-                    sequences = self._from_one_hot(X.numpy(), k, alphabet)
-                    for b in range(X.shape[0]):
-                        t = 0 # only first tile (first sequence of a genome) per X
-                        for g in range(X.shape[2]):
-                            for f in range(X.shape[3]):
-                                seq = sequences[b][t][g][f]
-                                self.assertGreaterEqual(len(seq), len(rawKmerSeqs[g][t][f])) # tile_size is fixed, so seq can be longer
-                                L = len(rawKmerSeqs[g][t][f])
-                                self.assertEqual(seq[:L], rawKmerSeqs[g][t][f])
+                for flatten_kmers in [True, False]:
+                    # either the last X dimension is len(alphabet)**k (True) or (len(alphabet),)*k:
+                    ds = data.getDataset(k=k, flatten_kmers=flatten_kmers)
+                    for X, _ in ds:
+                        if flatten_kmers:
+                            self.assertEqual(X.shape, 
+                                            (batch_size, tiles_per_X, len(rawSeqs), data.frame_dimension_size(), 
+                                            (tile_size-k+1), len(alphabet)**k))
+                        else:
+                            self.assertEqual(X.shape, 
+                                            (batch_size, tiles_per_X, len(rawSeqs), data.frame_dimension_size(), 
+                                            (tile_size-k+1))+(len(alphabet),)*k)
+                        sequences = self._from_one_hot(X.numpy(), k, alphabet, flatten_kmers)
+                        for b in range(X.shape[0]):
+                            t = 0 # only first tile (first sequence of a genome) per X
+                            for g in range(X.shape[2]):
+                                for f in range(X.shape[3]):
+                                    seq = sequences[b][t][g][f]
+                                    self.assertGreaterEqual(len(seq), len(rawKmerSeqs[g][t][f])) # tile_size is fixed, so seq can be longer
+                                    L = len(rawKmerSeqs[g][t][f])
+                                    self.assertEqual(seq[:L], rawKmerSeqs[g][t][f])

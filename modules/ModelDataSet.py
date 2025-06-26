@@ -114,7 +114,8 @@ def backgroundFreqs(sequences: list[list[list[str]]], alphabet: list[str], verbo
 
 # Use a generator to get genome batches, simplified position handling
 def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimension_size: int,
-                rawgenomes: list[list[list[str]]], reverse_tiling_ids: list[int], k: int = 1,
+                rawgenomes: list[list[list[str]]], reverse_tiling_ids: list[int], 
+                k: int = 1, flatten_kmers: bool = False,
                 withPosTracking: bool = False):
     """ Generator function to create batches of tiles from a list of list of sequence strings. 
         Returns a tuple of (X, Y) where X is a numpy array of shape 
@@ -131,6 +132,11 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
            Higher `k` also exponentiates the alphabet size dimension, i.e. for k=2, the alphabet size is 
            len(alphabet)**2, for k=3, it is len(alphabet)**3, etc., to account for one-hot encoding of k-mers.
            The `tile_size` is reduced to `tile_size - k + 1` to account for the k-mer size.
+        flatten_kmers: if True, the k-mers are flattened to a single dimension, i.e. the alphabet size is 
+                       len(alphabet)**k, and the tiles are of shape (ntiles, N, frame_dimension_size, tile_size, 
+                       alphabet_size**k). Otherwise, the tiles are of shape (ntiles, N, frame_dimension_size, tile_size)
+                       + (alphabet_size,)*k, i.e. there are k-1 additional dimensions for the additional k-mer 
+                       characters if k > 1.
 
         Set `withPosTracking` to true to be able to restore the position of a k-mer in the genome from the tile. """
     assert tile_size >= 1, f"[ERROR] >>> tile_size must be positive, non-zero (is: {tile_size})"
@@ -139,9 +145,9 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
     # convert back from bytestring to unicode, otherwise one-hot does not work!
     rawgenomes = rawgenomes.astype('U')   # type: ignore
     alphabet = list(alphabet.astype('U'))  # type: ignore
-
     if len(alphabet) == 0:
         raise ValueError(f"[ERROR] >>> alphabet must not be empty, got {alphabet}")
+    alphabet_dim = (len(alphabet),)*k
 
     # convert rawgenomes to TileableSequence objects
     genomes = [ 
@@ -152,15 +158,17 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
         for genome in rawgenomes
     ]
 
-    # adjust tile size and alphabet if overlapping k-mer sequences are requested
+    # adjust tile size and alphabet_dim if overlapping k-mer sequences are requested
     if k > 1:
         # adjust tile size to account for k-mer size
         tile_size = tile_size - k + 1
         if tile_size <= 0:
             raise ValueError(f"[ERROR] >>> tile_size {tile_size} is too small for k={k}, must be at least {k}")
-        # adjust alphabet to account for k-mer size
-        new_alphabet = [''.join(p) for p in itertools.product(alphabet, repeat=k)]
-        alphabet = new_alphabet
+        # # adjust alphabet to account for k-mer size
+        # new_alphabet = [''.join(p) for p in itertools.product(alphabet, repeat=k)]
+        # alphabet = new_alphabet
+        if flatten_kmers:
+            alphabet_dim = (len(alphabet)**k,)
 
     #logging.debug(f"[ModelDataSet.createBatch] >>> {[[[len(f) for f in seq] for seq in genome] for genome in genomes]}")
     #logging.debug(f"[ModelDataSet.createBatch] >>> {genomes[0][0][0][:min(10, len(genomes[0][0][0]))]=}")
@@ -176,7 +184,8 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                           'exhausted': all([s.finished for s in seqs[0]]) if len(seqs) == 1 else False})
 
     while not all(s['exhausted'] for s in state):
-        X = np.zeros([ntiles, N, frame_dimension_size, tile_size, len(alphabet)], dtype=np.float32)
+        # X = np.zeros([ntiles, N, frame_dimension_size, tile_size, len(alphabet)], dtype=np.float32)
+        X = np.zeros((ntiles, N, frame_dimension_size, tile_size)+alphabet_dim, dtype=np.float32)
         if withPosTracking:
             # [:,:,:,0] - genome idx, 
             # [:,:,:,1] - sequence idx, 
@@ -213,8 +222,21 @@ def createBatch(ntiles: int, tile_size: int, alphabet: list[str], frame_dimensio
                         # k > 1, tileseq is a k-mer
                         for i in range(len(tileseq) - k + 1):
                             kmer = tileseq[i:i+k]
-                            if kmer in alphabet:
-                                X[t,g,f,i,alphabet.index(kmer)] = 1.0
+                            kmer_idcs = [alphabet.index(c) for c in kmer if c in alphabet]
+                            # if kmer in alphabet:
+                            if len(kmer_idcs) == k: # otherwise: unknown characters in k-mer, leave it as all-0
+                                if flatten_kmers:
+                                    # X[t,g,f,i,alphabet.index(kmer)] = 1.0
+                                    # ravel_multi_index is used to convert the k-mer indices to a single index of the
+                                    #   one-hot encoded k-mer in a flattened array (shape (len(alphabet)**k,))., 
+                                    #   e.g. for k=2 and alphabet=['A', 'C', 'G', 'T'], the k-mer 'AC' would be encoded 
+                                    #   as index 0*4 + 1 = 1, 'GC' as 2*4 + 1 = 9, etc.
+                                    X[t,g,f,i,np.ravel_multi_index(kmer_idcs, (len(alphabet),)*k, mode='raise')] = 1.0
+                                else:
+                                    X[(t,g,f,i)+tuple(kmer_idcs)] = 1.0
+
+                            # DEBUG, consiger removing this later for runtime improvement
+                            # assert np.sum(X[t,g,f,i]) in [0,1], f"[ERROR] >>> {kmer=} was encoded to {X[t,g,f,i]=}"
 
                     if withPosTracking:
                         posTrack[t,g,f,2] = f
@@ -493,6 +515,7 @@ class ModelDataSet:
 
     def getDataset(self, 
                    k: int = 1,
+                   flatten_kmers: bool = False,
                    repeat: bool = False,
                    withPosTracking: bool = False, 
                    original_data: bool = False):
@@ -509,11 +532,16 @@ class ModelDataSet:
 
         genomes = self.training_data.getTrainingData(fromSource=original_data)
 
+        out_alphabet_dim = (self.alphabet_size()**k,) if flatten_kmers else (self.alphabet_size(),)*k
+        first_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(),  # type: ignore
+                                            #    (self.tile_size-k+1), (self.alphabet_size()**k)), 
+                                               (self.tile_size-k+1))+out_alphabet_dim, 
+                                      dtype = tf.float32)
         second_out_sig = tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(), 4),  # type: ignore
                                        dtype = tf.int32  # type: ignore
                                        ) if withPosTracking \
                             else tf.TensorSpec(shape = (0,), dtype = tf.int32)  # type: ignore
-        
+
         ds = tf.data.Dataset.from_generator(
             createBatch,
             args = (self.tiles_per_X, 
@@ -523,11 +551,14 @@ class ModelDataSet:
                     genomes, 
                     self.training_data.reverse_frame_ids,
                     k,
+                    flatten_kmers,
                     withPosTracking),
-            output_signature = (tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(),  # type: ignore
-                                                       (self.tile_size-k+1), (self.alphabet_size()**k)), 
-                                              dtype = tf.float32),  # type: ignore
-                                second_out_sig)
+            # output_signature = (tf.TensorSpec(shape = (self.tiles_per_X, self.N(), self.frame_dimension_size(),  # type: ignore
+            #                                         #    (self.tile_size-k+1), (self.alphabet_size()**k)), 
+            #                                            (self.tile_size-k+1))+out_alphabet_dim, 
+            #                                   dtype = tf.float32),  # type: ignore
+            #                     second_out_sig)
+            output_signature=(first_out_sig, second_out_sig)
         )
         
         if repeat:

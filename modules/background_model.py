@@ -238,11 +238,15 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
         self.num_models = num_models
         self.order = order # order of the models, i.e. k-mer-length - 1 # TODO: adapt usage of this in model.py!
+        self.k_dims = self.order + 1 # number of dimensions for k-mer encoding
         self.alphabet = "ACGT"
 
-        self.Q_logit = tf.Variable(tf.random.uniform(shape=(len(self.alphabet)**(self.order+1), self.num_models),
+        # self.Q_logit = tf.Variable(tf.random.uniform(shape=(len(self.alphabet)**(self.order+1), self.num_models),
+        #                                              minval=-0.1, maxval=0.1, dtype=tf.float32), 
+        #                            trainable=True, name="Q_logit") # shape: (alphabet_size**(order+1), K)
+        self.Q_logit = tf.Variable(tf.random.uniform(shape=(self.num_models,)+(len(self.alphabet),)*(self.order+1),
                                                      minval=-0.1, maxval=0.1, dtype=tf.float32), 
-                                   trainable=True, name="Q_logit") # shape: (alphabet_size**(order+1), K)
+                                   trainable=True, name="Q_logit") # shape: (K,)+(alphabet_size,)*(order+1)
         self.m_logit = tf.Variable(tf.random.uniform(shape=(self.num_models,),
                                                      minval=-0.1, maxval=0.1, dtype=tf.float32), 
                                     trainable=True, name="m_logit") # shape: (K,)
@@ -250,8 +254,10 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
 
     def getQ(self):
-        """ Returns softmaxed Q (alphabet_size**(order+1), K). """
-        Q = tf.nn.softmax(self.Q_logit, axis=0, name="Q")
+        # """ Returns softmaxed Q (alphabet_size**(order+1), K). """
+        # Q = tf.nn.softmax(self.Q_logit, axis=0, name="Q")
+        """ Returns softmaxed Q (K,)+(alphabet_size,)*(order+1). """
+        Q = tf.nn.softmax(self.Q_logit, axis=-1, name="Q")
         return Q
 
 
@@ -262,29 +268,52 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
 
     def call(self, X):
-        """ Input X is a tensor of shape (batch_size, ntiles, N, f, tile_size, alphabet_size**(order+1)) """
-        Q = self.getQ() # shape: (alphabet_size**(order+1), K)
+        """ Input X is a tensor of shape (batch_size, ntiles, N, f, tile_size)+(alphabet_size,)*(order+1) """
+        Q = self.getQ() # shape: (K,)+(alphabet_size,)*(order+1)
         m = self.getM() # shape: (K,)
 
-        batch_dims = len(X.shape) - 2 # number of batch dimensions, e.g. 4 for (batch_size, ntiles, N, f, tile_size, alphabet_size**(order+1)
+        batch_dims = len(X.shape) - (1+self.k_dims) # number of batch dimensions, e.g. 4 for (batch_size, ntiles, N, f, tile_size)+(alphabet_size,)*(order+1)
 
-        Qt = tf.transpose(Q, [1, 0]) # shape: (K, alphabet_size**(order+1))
-        Qr = tf.reshape(Qt, ((1,)*batch_dims)+(1,)+Qt.shape) # shape: (1,          1,      1, 1,         1, K, alphabet_size**(order+1))
-        X1 = tf.expand_dims(X, -2) #                           shape: (batch_size, ntiles, N, f, tile_size, 1, alphabet_size**(order+1))
-        C = tf.multiply(X1, Qr) # shape: (batch_size, ntiles, N, f, tile_size, K, alphabet_size**(order+1))
-        C1 = tf.reduce_sum(C, axis=-1) # shape: (batch_size, ntiles, N, f, tile_size, K), sum over alphabet_size dimension
-        D = tf.math.log(tf.clip_by_value(C1, 1e-10, tf.reduce_max(C1))) # shape: (batch_size, ntiles, N, f, tile_size, K), log to avoid numerical issues
+        Qr = tf.reshape(Q, ((1,)*batch_dims)+(1,)+Q.shape) # shape: (1,          1,      1, 1,         1, K)+(alphabet_size,)*(order+1)
+        X1 = tf.expand_dims(X, -(self.k_dims+1)) #                shape: (batch_size, ntiles, N, f, tile_size, 1)+(alphabet_size,)*(order+1)
+        C = tf.multiply(X1, Qr) # shape: (batch_size, ntiles, N, f, tile_size, K)+(alphabet_size,)*(order+1)
+        C1 = tf.reduce_sum(C, axis=list(range(-self.k_dims,0))) # shape: (batch_size, ntiles, N, f, tile_size, K), sum over alphabet_size dimensions
+        D = tf.math.log(tf.maximum(C1, 1e-10)) # shape: (batch_size, ntiles, N, f, tile_size, K), log to avoid numerical issues
         D1 = tf.reduce_sum(D, axis=-2) # shape: (batch_size, ntiles, N, f, K), sum over tile_size dimension
         M = tf.reduce_max(D1, axis=-1) # shape: (batch_size, ntiles, N, f), max over K dimension
         D2 = D1 - tf.expand_dims(M, -1) # shape: (batch_size, ntiles, N, f, K), subtract max to avoid numerical issues
         D3 = tf.multiply(tf.exp(D2), m) # shape: (batch_size, ntiles, N, f, K), multiply by model weights
         D4 = tf.reduce_sum(D3, axis=-1) # shape: (batch_size, ntiles, N, f), sum over K dimension
-        D5 = tf.math.log(tf.clip_by_value(D4, 1e-10, tf.reduce_max(D4))) # shape: (batch_size, ntiles, N, f), log to avoid numerical issues
+        D5 = tf.math.log(tf.maximum(D4, 1e-10)) # shape: (batch_size, ntiles, N, f), log to avoid numerical issues
         S = tf.add(M, D5) # shape: (batch_size, ntiles, N, f), add max back to get the final score
         # logging.debug(f"[background_model.call] >>> Q:\n{Qt}\n\nX:\n{X}\n\nC:\n{C}\n\nC1:\n{C1}\n\nD:\n{D}\n\nD1:\n{D1}\n\nM:\n{M}\n\nD2\n{D2}\n\nm:\n{m}\n\nD3\n{D3}\n\nD4\n{D4}\n\nD5\n{D5}\n\nS:\n{S}")
         # logging.debug(f"[background_model.call] >>> P:\n{tf.reduce_sum(S)}\n\nloss:\n{-tf.math.log(tf.reduce_sum(S))}") # preview on loss
 
         return S
+
+        # """ Input X is a tensor of shape (batch_size, ntiles, N, f, tile_size, alphabet_size**(order+1)) """
+        # Q = self.getQ() # shape: (alphabet_size**(order+1), K)
+        # m = self.getM() # shape: (K,)
+
+        # batch_dims = len(X.shape) - 2 # number of batch dimensions, e.g. 4 for (batch_size, ntiles, N, f, tile_size, alphabet_size**(order+1)
+
+        # Qt = tf.transpose(Q, [1, 0]) # shape: (K, alphabet_size**(order+1))
+        # Qr = tf.reshape(Qt, ((1,)*batch_dims)+(1,)+Qt.shape) # shape: (1,          1,      1, 1,         1, K, alphabet_size**(order+1))
+        # X1 = tf.expand_dims(X, -2) #                           shape: (batch_size, ntiles, N, f, tile_size, 1, alphabet_size**(order+1))
+        # C = tf.multiply(X1, Qr) # shape: (batch_size, ntiles, N, f, tile_size, K, alphabet_size**(order+1))
+        # C1 = tf.reduce_sum(C, axis=-1) # shape: (batch_size, ntiles, N, f, tile_size, K), sum over alphabet_size dimension
+        # D = tf.math.log(tf.clip_by_value(C1, 1e-10, tf.reduce_max(C1))) # shape: (batch_size, ntiles, N, f, tile_size, K), log to avoid numerical issues
+        # D1 = tf.reduce_sum(D, axis=-2) # shape: (batch_size, ntiles, N, f, K), sum over tile_size dimension
+        # M = tf.reduce_max(D1, axis=-1) # shape: (batch_size, ntiles, N, f), max over K dimension
+        # D2 = D1 - tf.expand_dims(M, -1) # shape: (batch_size, ntiles, N, f, K), subtract max to avoid numerical issues
+        # D3 = tf.multiply(tf.exp(D2), m) # shape: (batch_size, ntiles, N, f, K), multiply by model weights
+        # D4 = tf.reduce_sum(D3, axis=-1) # shape: (batch_size, ntiles, N, f), sum over K dimension
+        # D5 = tf.math.log(tf.clip_by_value(D4, 1e-10, tf.reduce_max(D4))) # shape: (batch_size, ntiles, N, f), log to avoid numerical issues
+        # S = tf.add(M, D5) # shape: (batch_size, ntiles, N, f), add max back to get the final score
+        # # logging.debug(f"[background_model.call] >>> Q:\n{Qt}\n\nX:\n{X}\n\nC:\n{C}\n\nC1:\n{C1}\n\nD:\n{D}\n\nD1:\n{D1}\n\nM:\n{M}\n\nD2\n{D2}\n\nm:\n{m}\n\nD3\n{D3}\n\nD4\n{D4}\n\nD5\n{D5}\n\nS:\n{S}")
+        # # logging.debug(f"[background_model.call] >>> P:\n{tf.reduce_sum(S)}\n\nloss:\n{-tf.math.log(tf.reduce_sum(S))}") # preview on loss
+
+        # return S
 
         # ==============================================================================================================
 
@@ -357,7 +386,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
                 # for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size**(order+1)
                 #     assert len(X.shape) == 5, str(X.shape)
                 #     self.train_step(X)
-                assert len(batch.shape) == 6, str(batch.shape)
+                # assert len(batch.shape) == 6, str(batch.shape)
+                assert len(batch.shape) == 5+self.k_dims, f"Expected shape of length {5+self.k_dims}, got {batch.shape}"
                 _bshape = batch.shape
                 self.train_step(batch)
 
@@ -372,7 +402,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
                 #     assert len(X.shape) == 5, str(X.shape)
                 #     S = self.call(X)
                 #     lossls.append(self.lossfun(S))
-                assert len(batch.shape) == 6, str(batch.shape)
+                # assert len(batch.shape) == 6, str(batch.shape)
+                assert len(batch.shape) == 5+self.k_dims, f"Expected shape of length {5+self.k_dims}, got {batch.shape}"
                 S = self.call(batch)
                 lossls.append(self.lossfun(S))
 

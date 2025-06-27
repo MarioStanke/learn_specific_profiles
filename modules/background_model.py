@@ -122,8 +122,14 @@ def get_background_model(order: int, model_type: str = "uniform", src: Path | li
         # freqsum = sum(freqs.values())
         # freqs = {kmer: fr / freqsum for kmer, fr in freqs.items()}
 
-        freqs_arr = model.reshape((size**k))
-        freqs_arr = freqs_arr / freqs_arr.sum() # normalize frequencies to sum to 1
+        if order > 0:
+            eq_dist = np.linalg.matrix_power(model, 50)
+            pair_prob = eq_dist * model
+
+            freqs_arr = pair_prob.reshape((size**k))
+            # freqs_arr = freqs_arr / freqs_arr.sum() # normalize frequencies to sum to 1
+        else:
+            freqs_arr = model.reshape((size,)) # for 0-mers, i.e. the frequencies of the nucleotides
         freqs = {}
         for i in range(size**k):
             # kmer = "".join([alphabet[i // (size**j) % size] for j in range(k)])

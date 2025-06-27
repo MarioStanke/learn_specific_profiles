@@ -381,7 +381,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
         Args:
             window_size (int): size of the sliding window to use for scanning the data
         Returns:
-            np.ndarray: scores for each tile in the dataset, shape (batch_size, ntiles, N, f, tile_size-width+1)
+            np.ndarray: scores for each tile in the dataset, shape (batches, ntiles, N, f, tile_size-window_size+1, K)
         """ 
         assert window_size > 0, f"Window size must be greater than 0, got {window_size}"
         assert window_size <= self.data.tile_size, \

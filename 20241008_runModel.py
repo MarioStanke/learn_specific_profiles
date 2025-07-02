@@ -37,6 +37,8 @@ def main():
                         required = False, action = 'store_true')
     parser.add_argument('--do-not-train', help = 'Do not train the model, only evaluate the profiles', required = False,
                         action = 'store_true')
+    parser.add_argument('--legacy-Z', help = 'Use legacy method to calculate Z during training', required = False, 
+                        action = 'store_true')
     parser.add_argument('--rand-seed', help = 'Random seed for reproducibility', required = False, type = int)
     # add arguments for model dataset and setup options
     dataset_args = parser.add_argument_group('Dataset options')
@@ -217,6 +219,7 @@ def main():
         training.trainAndEvaluate(fasta.name, trainsetup, evaluator, 
                                   outdir,  # type: ignore
                                   do_not_train=args.do_not_train,
+                                  legazy_Z=args.legacy_Z,
                                   rand_seed=SEED,
                                   linkplot_single_genecol="lightgray",
                                   linkplot_single_linkcol="indigo",

@@ -192,6 +192,10 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         """
         super().__init__(**kwargs)
 
+        # === ONLY FOR DEVELOPMENT PURPOSES ===
+        self.legacy_Z = False # manually set to True if the legacy Z calculation should be used
+        # =====================================
+
         self.setup = setup
         self.data = setup.data
         self.opt = tf.keras.optimizers.Adam(learning_rate=float(self.setup.learning_rate)) # type: ignore
@@ -304,7 +308,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
 
 
-    def getZ(self, X, P):
+    def getZ_legacy(self, X, P):
         """ Performs the convolution. Returns Z (ntiles, N, f, tile_size-k+1, U) and R (k, alphabet_size, U). 
             Argument `P` must be _softmaxed_, don't pass the logits! """
         R = self.getR(P)
@@ -329,11 +333,59 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         return Z, R
 
 
+    
+    def getZ(self, X, P):
+        """ Performs the convolution. Returns Z (ntiles, N, f, tile_size-k+1, U). 
+            Argument `P` must be _softmaxed_, don't pass the logits! """
+        
+        assert P.shape == (self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U), \
+            f"{P.shape=} != {(self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U)}"
+        assert self.data.Q.shape == (self.data.alphabet_size(),), \
+            f"{self.data.Q.shape=} != {(self.data.alphabet_size(),)}"
+        
+        Q = tf.repeat(tf.expand_dims(self.data.Q, axis=0), P.shape[0], axis=0) # shape: (k+2s, alphabet_size)
+        Q = tf.expand_dims(Q, -1) # shape: (k+2s, alphabet_size, 1)
+
+        assert P.shape[:-1] == Q.shape[:-1], \
+            f"{P.shape[:-1]=} != {Q.shape[:-1]=}, {self.setup.k=}, {self.setup.s=}, {self.data.alphabet_size()=}"
+        
+        P = tf.math.log(tf.maximum(P, self.epsilon)) # avoid log(0)
+        Q = tf.math.log(tf.maximum(Q, self.epsilon)) # avoid log(0)
+        
+        X1 = tf.expand_dims(X,-1) # 1 input channel   shape: (ntiles, N, 6, tile_size, alphabet_size, 1)
+        P1 = tf.expand_dims(P,-2) # 1 input channel   shape: (k, alphabet_size, 1, U)
+        Q1 = tf.expand_dims(Q,-2) # 1 input channel   shape: (k, alphabet_size, 1, 1)
+
+        # X1: (batch_shape (ntiles, N, 6), in_height (tile_size),     in_width (alphabet_size), in_channels (1))
+        # R1:                                 (filter_height (k), filter_width (alphabet_size), in_channels (1), out_channels (U))
+        # Z1: (batch_shape (ntiles, N, 6), tile_size-k+1, 1, U)
+        Z1 = tf.nn.conv2d(X1, P1, strides=1,
+                          padding='VALID', data_format="NHWC", name="Z")
+        Z2 = tf.nn.conv2d(X1, Q1, strides=1,
+                          padding='VALID', data_format="NHWC", name="Z")
+        
+        Z_P = tf.squeeze(Z1, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, U)
+        Z_Q = tf.squeeze(Z2, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, 1)
+
+        Z = Z_P - Z_Q # shape (ntiles, N, 6, tile_size-k+1, U)
+
+        if tf.reduce_any(tf.math.is_nan(X)):
+            logging.debug("[model.getZ] >>> nan in X")
+        if tf.reduce_any(tf.math.is_nan(Z)):
+            logging.debug("[model.getZ] >>> nan in Z")
+        
+        return Z
+
+
 
     def call(self, X, P):
         """ Returns S, R, Z; shapes are (ntiles, N, U), (k, alphabet_size, U) and (ntiles, N, f, tile_size-k+1, U). 
             Argument `P` must be _softmaxed_, don't pass the logits! """
-        Z, R = self.getZ(X, P)
+        if self.legacy_Z:
+            Z, R = self.getZ(X, P)
+        else:
+            Z = self.getZ(X, P)
+            R = np.zeros(P.shape, dtype=P.dtype) # placeholder for R, not used in legacy mode
 
         S = tf.reduce_max(Z, axis=[2,3])   # shape (ntiles, N, U)
         return S, R, Z

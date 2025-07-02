@@ -428,6 +428,7 @@ def trainAndEvaluate(runID,
                      outdir: str, outprefix: str = "",
                      # trainingWithReporting: bool = True,
                      do_not_train: bool = False,
+                     legacy_Z: bool = False,
                      rand_seed: int = None,
                      linkplot_splitthreshold: int = 150,
                      linkplot_splitsize: int = 100,
@@ -481,6 +482,10 @@ def trainAndEvaluate(runID,
     logging.info(f"[training.trainAndEvaluate] >>> Num GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
     specProModel = model.SpecificProfile(setup = trainsetup,
                                          rand_seed = rand_seed)
+    
+    if legacy_Z:
+        specProModel.legacy_Z = True
+        logging.info("[training.trainAndEvaluate] >>> Using legacy Z-score calculation for training.")
 
     # start training
     start = time()

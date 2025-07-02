@@ -168,14 +168,7 @@ def main():
         f"Data directory {datadir / 'diluted_dataset' / '1.00' / 'primary_sequences'} does not exist"
     assert (datadir / "diluted_dataset" / "1.00" / "control_sequences").exists(), \
         f"Control data directory {datadir / 'diluted_dataset' / '1.00' / 'control_sequences'} does not exist"
-    assert (datadir / "hybrid_dataset" / "00" / "primary_sequences").exists(), \
-        f"Data directory {datadir / 'hybrid_dataset' / '00' / 'primary_sequences'} does not exist"
-    assert (datadir / "hybrid_dataset" / "00" / "control_sequences").exists(), \
-        f"Control data directory {datadir / 'hybrid_dataset' / '00' / 'control_sequences'} does not exist"
-    assert (datadir / "simulated_dataset" / "0.00" / "primary_sequences").exists(), \
-        f"Data directory {datadir / 'simulated_dataset' / '0.00' / 'primary_sequences'} does not exist"
-    assert (datadir / "simulated_dataset" / "0.00" / "control_sequences").exists(), \
-        f"Control data directory {datadir / 'simulated_dataset' / '0.00' / 'control_sequences'} does not exist"
+    
     # check if config file exists
     config = Path(args.config) if args.config else None
     if config:
@@ -228,6 +221,11 @@ def main():
                             run_pf_init=not args.skip_pf_init)
     
     if not args.skip_hybrid:
+        assert (datadir / "hybrid_dataset" / "00" / "primary_sequences").exists(), \
+            f"Data directory {datadir / 'hybrid_dataset' / '00' / 'primary_sequences'} does not exist"
+        assert (datadir / "hybrid_dataset" / "00" / "control_sequences").exists(), \
+            f"Control data directory {datadir / 'hybrid_dataset' / '00' / 'control_sequences'} does not exist"
+        
         # do a specificity analysis on hybrid data
         refs_hybrid = pd.read_csv(datadir / "target_reference_motifs_hybrid.tsv", sep="\t", names=['file', 'ref'])
         for rep in (datadir / "hybrid_dataset").iterdir():
@@ -255,6 +253,13 @@ def main():
                             run_pf_init=not args.skip_pf_init)
 
     if not args.skip_simulated:
+        assert (datadir / "simulated_dataset" / "order_0" / "wgEncodeAwgTfbsSydhK562Gata1UcdUniPk.narrowPeak" / \
+                "0.00" / "primary_sequences").exists(), \
+            f"Data directory {datadir / 'simulated_dataset' / 'order_0' / 'wgEncodeAwgTfbsSydhK562Gata1UcdUniPk.narrowPeak' / '0.00' / 'primary_sequences'} does not exist"
+        assert (datadir / "simulated_dataset" / "order_0" / "wgEncodeAwgTfbsSydhK562Gata1UcdUniPk.narrowPeak" / \
+                "0.00" / "control_sequences").exists(), \
+            f"Control data directory {datadir / 'simulated_dataset' / 'order_0' / 'wgEncodeAwgTfbsSydhK562Gata1UcdUniPk.narrowPeak' /'0.00' / 'control_sequences'} does not exist"
+        
         # do an analysis on simulated data
         refs_simulated = pd.read_csv(datadir / "target_reference_motifs_simulated.tsv", sep="\t", names=['file', 'ref'])
         for mfreq in \

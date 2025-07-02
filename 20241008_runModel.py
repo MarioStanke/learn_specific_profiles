@@ -219,7 +219,7 @@ def main():
         training.trainAndEvaluate(fasta.name, trainsetup, evaluator, 
                                   outdir,  # type: ignore
                                   do_not_train=args.do_not_train,
-                                  legazy_Z=args.legacy_Z,
+                                  legacy_Z=args.legacy_Z,
                                   rand_seed=SEED,
                                   linkplot_single_genecol="lightgray",
                                   linkplot_single_linkcol="indigo",

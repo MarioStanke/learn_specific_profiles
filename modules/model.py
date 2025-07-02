@@ -385,7 +385,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             Z, R = self.getZ(X, P)
         else:
             Z = self.getZ(X, P)
-            R = np.zeros(P.shape, dtype=P.dtype) # placeholder for R, not used in legacy mode
+            R = np.zeros(P.shape, dtype=np.float32) # placeholder for R, not used in legacy mode
 
         S = tf.reduce_max(Z, axis=[2,3])   # shape (ntiles, N, U)
         return S, R, Z

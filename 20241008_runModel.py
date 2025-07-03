@@ -50,6 +50,20 @@ def main():
                               default=1)
     dataset_args.add_argument('--prefetch', help = 'Number of batches to prefetch', required = False, type = int,
                               default=3)
+    bgmodel_args = parser.add_argument_group('Background model options')
+    bgmodel_args.add_argument('--Q-order', help = 'Order of the background model', required = False, type = int, 
+                              default=0)
+    bgmodel_args.add_argument('--Q-num-models', help = 'Number of background models to use', required = False, 
+                              type = int, default=1)
+    bgmodel_args.add_argument('--Q-learning-rate', help = 'Learning rate for the background model', required = False, 
+                              type = float, default=0.01)
+    bgmodel_args.add_argument('--Q-lr-patience', help = 'Number of epochs to wait for loss decrease before trigger ' \
+                              + 'learning rate reduction for the background model', required = False, type = int, 
+                              default=10)
+    bgmodel_args.add_argument('--Q-lr-factor', help = 'Factor to reduce learning rate by for the background model', 
+                              required = False, type = float, default=0.75)
+    bgmodel_args.add_argument('--Q-epochs', help = 'Number of epochs for the background model', required = False, 
+                              type = int, default=50)
     model_args = parser.add_argument_group('Model options')
     model_args.add_argument('--n-best-profiles', help = 'Number of best profiles to report', required = False, 
                             type = int, default = 2)
@@ -209,7 +223,13 @@ def main():
                                                                  profile_plateau = args.profile_plateau,
                                                                  profile_plateau_dev = args.profile_plateau_dev,
                                                                  n_best_profiles = args.n_best_profiles,
-                                                                 phylo_t = args.phylo_t)
+                                                                 phylo_t = args.phylo_t,
+                                                                 Q_order = args.Q_order,
+                                                                 Q_num_models = args.Q_num_models,
+                                                                 Q_learning_rate = args.Q_learning_rate,
+                                                                 Q_lr_patience = args.Q_lr_patience,
+                                                                 Q_lr_factor = args.Q_lr_factor,
+                                                                 Q_epochs = args.Q_epochs)
     trainsetup.initializeProfiles_kmers(enforceU=args.enforceU, 
                                         minU=args.minU, minOcc=args.minOcc,
                                         overlapTilesize=args.overlapTilesize,

@@ -220,6 +220,9 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             self.P_logit_init = self.setup.initProfiles # shape: (k, alphabet_size, U)
             self.P_logit = tf.Variable(self.P_logit_init, trainable=True, name="P_logit")
 
+        # do a one-time scan of the data with the background models
+        self.Z_Q = self.setup.Q.scan_data(window_size=self.P_logit.shape[0]) # shape (batches, ntiles, N, 6, tile_size-k+1, 1)
+
         # initialize phylogenetic model
         if self.setup.phylo_t > 0.0:
             if self.setup.k != 20:
@@ -260,7 +263,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
     def _getRandomProfiles(self):
         """ Returns a random profile matrix of shape (k+(2*s), alphabet_size, U). """
-        Q = tf.maximum(self.data.Q, self.epsilon) # avoid log(0)
+        # Q = tf.maximum(self.data.Q, self.epsilon) # avoid log(0)
+        Q = tf.maximum(self.setup.Q.get_avg_Q(), self.epsilon) # avoid log(0) # TODO: is this sensible?
         Q1 = tf.expand_dims(Q, 0)
         Q2 = tf.expand_dims(Q1, -1) # shape: (1, alphabet_size, 1)
         
@@ -294,7 +298,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
     def getR(self, P):
         """ Returns R (k, alphabet_size, U). Argument `P` must be _softmaxed_, don't pass the logits! """
-        Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by 0
+        # Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by 0
+        Q = tf.maximum(self.setup.Q.get_avg_Q(), self.epsilon) # avoid division by 0 TODO: is this sensible?
         Q1 = tf.expand_dims(Q, 0)
         Q2 = tf.expand_dims(Q1, -1)
         # Limit the odds-ratio, to prevent problem with log(0).
@@ -343,34 +348,34 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         assert len(P.shape) == 3, f"{P.shape=}, expected shape (k, alphabet_size, U)"
         assert P.shape[:-1] == (self.setup.k+(2*self.setup.s), self.data.alphabet_size()), \
             f"{P.shape=} != {(self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U)}" # not necessarily U in last dimension (e.g. during cleanup)
-        assert self.data.Q.shape == (self.data.alphabet_size(),), \
-            f"{self.data.Q.shape=} != {(self.data.alphabet_size(),)}"
+        # assert self.data.Q.shape == (self.data.alphabet_size(),), \
+        #     f"{self.data.Q.shape=} != {(self.data.alphabet_size(),)}"
         
-        Q = tf.repeat(tf.expand_dims(self.data.Q, axis=0), P.shape[0], axis=0) # shape: (k+2s, alphabet_size)
-        Q = tf.expand_dims(Q, -1) # shape: (k+2s, alphabet_size, 1)
+        # Q = tf.repeat(tf.expand_dims(self.data.Q, axis=0), P.shape[0], axis=0) # shape: (k+2s, alphabet_size)
+        # Q = tf.expand_dims(Q, -1) # shape: (k+2s, alphabet_size, 1)
 
-        assert P.shape[:-1] == Q.shape[:-1], \
-            f"{P.shape[:-1]=} != {Q.shape[:-1]=}, {self.setup.k=}, {self.setup.s=}, {self.data.alphabet_size()=}"
+        # assert P.shape[:-1] == Q.shape[:-1], \
+        #     f"{P.shape[:-1]=} != {Q.shape[:-1]=}, {self.setup.k=}, {self.setup.s=}, {self.data.alphabet_size()=}"
         
         P = tf.math.log(tf.maximum(P, self.epsilon)) # avoid log(0)
-        Q = tf.math.log(tf.maximum(Q, self.epsilon)) # avoid log(0)
+        # Q = tf.math.log(tf.maximum(Q, self.epsilon)) # avoid log(0)
         
         X1 = tf.expand_dims(X,-1) # 1 input channel   shape: (ntiles, N, 6, tile_size, alphabet_size, 1)
         P1 = tf.expand_dims(P,-2) # 1 input channel   shape: (k, alphabet_size, 1, U)
-        Q1 = tf.expand_dims(Q,-2) # 1 input channel   shape: (k, alphabet_size, 1, 1)
+        # Q1 = tf.expand_dims(Q,-2) # 1 input channel   shape: (k, alphabet_size, 1, 1)
 
         # X1: (batch_shape (ntiles, N, 6), in_height (tile_size),     in_width (alphabet_size), in_channels (1))
         # R1:                                 (filter_height (k), filter_width (alphabet_size), in_channels (1), out_channels (U))
         # Z1: (batch_shape (ntiles, N, 6), tile_size-k+1, 1, U)
         Z1 = tf.nn.conv2d(X1, P1, strides=1,
                           padding='VALID', data_format="NHWC", name="Z")
-        Z2 = tf.nn.conv2d(X1, Q1, strides=1,
-                          padding='VALID', data_format="NHWC", name="Z")
+        # Z2 = tf.nn.conv2d(X1, Q1, strides=1,
+        #                   padding='VALID', data_format="NHWC", name="Z")
         
         Z_P = tf.squeeze(Z1, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, U)
-        Z_Q = tf.squeeze(Z2, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, 1)
+        # Z_Q = tf.squeeze(Z2, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, 1)      
 
-        Z = Z_P - Z_Q # shape (ntiles, N, 6, tile_size-k+1, U)
+        Z = Z_P - self.Z_Q # shape (ntiles, N, 6, tile_size-k+1, U)
 
         if tf.reduce_any(tf.math.is_nan(X)):
             logging.debug("[model.getZ] >>> nan in X")
@@ -402,11 +407,17 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                profile and summed over all genomes. 
             Pass P_logit _instead of softmaxed P_, as the L2 regularization is weaker with value ranges close to 0. For
                KLD regularization, P_logit is softmaxed when calculating the regularization term. """
-        # shape of Z: ntiles x N x f x tile_size-k+1 x U 
+        # shape of Z: B x ntiles x N x f x tile_size-k+1 x U 
+        assert len(Z.shape) == 6, f"{Z.shape=}, expected shape (B, ntiles, N, f, tile_size-k+1, U)"
+        assert Z.shape[1:6] == (self.setup.data.tiles_per_X, self.setup.data.N(), 
+                                self.setup.data.frame_dimension_size(), self.setup.data.tile_size - self.setup.k + 1), \
+            f"{Z.shape=}[1:6] != ({self.setup.data.tiles_per_X}, {self.setup.data.N()}, " \
+                + f"{self.setup.data.frame_dimension_size()}, {self.setup.data.tile_size - self.setup.k + 1})"
+        
         S = tf.reduce_max(Z, axis=[0,2,3]) # N x U
         score = tf.reduce_sum(S)
         
-        Z = tf.transpose(Z, [1,4,0,2,3]) # shape N x U x ntiles x f x tile_size-k+1
+        Z = tf.transpose(Z, [2,5,0,1,3,4]) # shape N x U x B x ntiles x f x tile_size-k+1
         Z = tf.reshape(Z, [Z.shape[0], Z.shape[1], -1]) # shape N x U x -1
         Zsm = tf.nn.softmax(self.setup.gamma*Z, axis=-1) # softmax for each profile in each genome 
         # logging.debug(f"[model.lossfun] >>> \nZ: {Z},\nZsm: {Zsm}")
@@ -451,10 +462,13 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
 
         if self.setup.kld != 0:
+            if self.setup.Q.num_models != 1 and self.setup.Q.order != 0:
+                raise ValueError("[model.lossfun] >>> KLD regularization is currently only supported for a single Q model with order 0")
             # Kullback-Leibler divergence regularization 
             #   (adjusted implementation of https://www.tensorflow.org/api_docs/python/tf/keras/losses/KLD)
             # Use softmaxed P instead of P_logit, as the KLD is not defined for logits
-            Q = tf.clip_by_value(self.data.Q, self.epsilon, 1.0) # avoid numerical issues (log(0), division by zero)
+            # Q = tf.clip_by_value(self.data.Q, self.epsilon, 1.0) # avoid numerical issues (log(0), division by zero)
+            Q = tf.clip_by_value(self.setup.Q.get_avg_Q(), self.epsilon, 1.0) # avoid numerical issues (log(0), division by zero)
             Q1 = tf.repeat(tf.expand_dims(Q, axis=0), P_logit.shape[0], axis=0)    # shape: (k+2s, alphabet_size)
             Q2 = tf.repeat(tf.expand_dims(Q1, axis=-1), P_logit.shape[2], axis=-1) # shape: (k+2s, alphabet_size, U)
             P = tf.clip_by_value(tf.nn.softmax(P_logit, axis=1), self.epsilon, 1.0) # avoid numerical issues
@@ -507,12 +521,11 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             steps = 0
             ds_train = self.data.getDataset(repeat = True)
             epochHist = EpochHistory()
-            for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size) # type: ignore
-                for X in batch:       # shape: (ntiles, N, f, tile_size, alphabet_size)
-                    assert len(X.shape) == 5, str(X.shape)
-                    S, R, loss = self.train_step(X) # type: ignore
-                    epochHist.update(S, R, loss.numpy())
-                    
+            for X, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
+                assert len(X.shape) == 6, str(X.shape)
+                S, R, loss = self.train_step(X)
+                epochHist.update(S, R, loss.numpy())
+                
                 steps += 1
                 if steps >= self.setup.steps_per_epoch:
                     break
@@ -620,21 +633,23 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             assert posTrack.shape != (1, 0), str(posTrack.shape)+" -- use batch dataset with position tracking!"
             assert X.shape[0:4] == posTrack.shape[0:4], f"{X.shape=} != {posTrack.shape=}"
             ntiles = np.prod(posTrack.shape[1:4]) # tilesPerX * N * f
-            for b in range(X.shape[0]): # iterate samples in batch
-                _, _, Z = self.call(X[b], P)               # Z: (ntiles, N, f, tile_size-k+1, U)
-                _, loss_by_unit = self.lossfun(Z, P_logit) # (U)
+            # for b in range(X.shape[0]): # iterate samples in batch
+            #     _, _, Z = self.call(X[b], P)               # Z: (ntiles, N, f, tile_size-k+1, U)
 
-                # (tilePerX, N, f) -> -1 if tile was exhausted -> False if exhausted -> 1 for valid tile, else 0
-                W = tf.cast(posTrack[b,:,:,:,0] != -1, tf.float32) # binary mask for valid tiles, (tilePerX, N, f)
-                W = tf.reduce_sum(W) / ntiles # weight for the tile, scalar
-                W = tf.broadcast_to(W, (U, 1)) # weight for the tile, (U, 1)
-                
-                losses = tf.concat([losses, tf.expand_dims(loss_by_unit, -1)], axis=1)
-                weights = tf.concat([weights, W], axis=1)
+            _, _, Z = self.call(X, P)                  # (B, ntiles, N, f, tile_size-k+1, U)
+            _, loss_by_unit = self.lossfun(Z, P_logit) # (U)
+
+            # (tilePerX, N, f) -> -1 if tile was exhausted -> False if exhausted -> 1 for valid tile, else 0
+            W = tf.cast(posTrack[:,:,:,:,0] != -1, tf.float32) # binary mask for valid tiles, (tilePerX, N, f)
+            W = tf.reduce_sum(W) / ntiles # weight for the tile, scalar
+            W = tf.broadcast_to(W, (U, 1)) # weight for the tile, (U, 1)
             
-                if tf.reduce_any( tf.math.is_nan(Z) ):
-                    logging.debug("[model.get_profile_losses] >>> nan in Z")
-                    logging.debug(f"[model.get_profile_losses] >>> W: {W}")
+            losses = tf.concat([losses, tf.expand_dims(loss_by_unit, -1)], axis=1)
+            weights = tf.concat([weights, W], axis=1)
+        
+            if tf.reduce_any( tf.math.is_nan(Z) ):
+                logging.debug("[model.get_profile_losses] >>> nan in Z")
+                logging.debug(f"[model.get_profile_losses] >>> W: {W}")
 
         return losses, weights
 
@@ -655,15 +670,14 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             Argument `P` must be _softmaxed_, don't pass the logits! """
         U = P.shape[-1]
         scores = None
-        for batch, _ in ds:
-            for X in batch:
-                assert len(X.shape) == 5, str(X.shape)
-                S, _, _ = self.call(X, P)        # shape (ntiles, N, U)
-                S = tf.reduce_max(S, axis=(0,1)) # shape (U)
-                if scores is None:
-                    scores = tf.expand_dims(S, -1)
-                else:
-                    scores = tf.concat([scores, tf.expand_dims(S, -1)], axis=1)
+        for X, _ in ds:
+            assert len(X.shape) == 6, str(X.shape)
+            S, _, _ = self.call(X, P)        # shape (ntiles, N, U)
+            S = tf.reduce_max(S, axis=(0,1)) # shape (U)
+            if scores is None:
+                scores = tf.expand_dims(S, -1)
+            else:
+                scores = tf.concat([scores, tf.expand_dims(S, -1)], axis=1)
                                     
         return scores
     
@@ -759,45 +773,46 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         sites = None
         scores = None
         for batch in ds:
-            X_b = batch[0]        # (B, tilePerX, N, f, tileSize, alphabetSize)
-            posTrack_b = batch[1] # (B, tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
-            assert len(X_b.shape) == 6, str(X_b.shape)
-            assert posTrack_b.shape != (1, 0), f"{posTrack_b.shape=} -- use batch dataset with position tracking!"
-            assert X_b.shape[0:4] == posTrack_b.shape[0:4], f"{X_b.shape} != {posTrack_b.shape}"
-            for b in range(X_b.shape[0]): # iterate samples in batch
-                # get profile match scores, i.e. the sum of the element-wise multiplication of each profile 
-                #   at each sequence position in X --> Z
-                X = X_b[b]                # (tilePerX, N, f, tileSize, alphabetSize)
-                posTrack = posTrack_b[b]  # (tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
-                _, _, Z = self.call(X, P) # (tilePerX, N, f, T-k+1, U)
-                if pIdx is not None:
-                    Z = Z[:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
+            X = batch[0]        # (B, tilePerX, N, f, tileSize, alphabetSize)
+            posTrack = batch[1] # (B, tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
+            assert len(X.shape) == 6, str(X.shape)
+            assert posTrack.shape != (1, 0), f"{posTrack.shape=} -- use batch dataset with position tracking!"
+            assert X.shape[0:5] == posTrack.shape[0:5], f"{X.shape} != {posTrack.shape}"
+            # for b in range(X_b.shape[0]): # iterate samples in batch
+            #     # get profile match scores, i.e. the sum of the element-wise multiplication of each profile 
+            #     #   at each sequence position in X --> Z
+            #     X = X_b[b]                # (tilePerX, N, f, tileSize, alphabetSize)
+            #     posTrack = posTrack_b[b]  # (tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
 
-                # identify matches, i.e. match score >= score_threshold
-                M = tf.greater_equal(Z, score_threshold) # (tilesPerX, N, f, T-k+1, U)
+            _, _, Z = self.call(X, P) # (B, tilePerX, N, f, T-k+1, U)
+            if pIdx is not None:
+                Z = Z[:,:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
 
-                # TODO: to use this in cleanup during training, add an argument to the function to switch this on/off
-                #       also, if this prevents an OOM during profile cleanup, we also need to use this in the remaining
-                #       code for evaluation etc, otherwise we might get an OOM there and runs still crash.
-                # # get a tensor of same shape as Z where only the argmax of dimension 3 (T-k+1) is True
-                # # not ideal as O(memory) might still be worst case if all values are the same, 
-                # #   but let's hope this never happens
-                # M = tf.logical_and(M, tf.equal(Z, tf.reduce_max(Z, axis=3, keepdims=True))) # (tilesPerX, N, f, T-k+1, U)
+            # identify matches, i.e. match score >= score_threshold
+            M = tf.greater_equal(Z, score_threshold) # (B, tilesPerX, N, f, T-k+1, U)
 
-                # index tensor -> 2D tensor with shape (sites, 5) where each row is a match and the columns are indices:
-                I = tf.cast(tf.where(M), tf.int32)       # (sites, <tilesPerX_idx, N_idx, f_idx, T-k+1_idx, U_idx>)
+            # TODO: to use this in cleanup during training, add an argument to the function to switch this on/off
+            #       also, if this prevents an OOM during profile cleanup, we also need to use this in the remaining
+            #       code for evaluation etc, otherwise we might get an OOM there and runs still crash.
+            # # get a tensor of same shape as Z where only the argmax of dimension 3 (T-k+1) is True
+            # # not ideal as O(memory) might still be worst case if all values are the same, 
+            # #   but let's hope this never happens
+            # M = tf.logical_and(M, tf.equal(Z, tf.reduce_max(Z, axis=3, keepdims=True))) # (tilesPerX, N, f, T-k+1, U)
 
-                # build the sites and scores tensors (tensorflow.org/versions/r2.10/api_docs/python/tf/gather_nd)
-                _scores = tf.gather_nd(Z, I)                  # (sites, <score>)
-                _sites = tf.gather_nd(posTrack, I[:,:3])      # (sites, <g,c,f,tspos>) # type: ignore
-                _sites = tf.concat([_sites, I[:,3:]], axis=1) # (sites, <g,c,f,tspos,T-k+1_idx,U_idx>) # type: ignore
+            # index tensor -> 2D tensor with shape (sites, 5) where each row is a match and the columns are indices:
+            I = tf.cast(tf.where(M), tf.int32)       # (sites, <B_idx, tilesPerX_idx, N_idx, f_idx, T-k+1_idx, U_idx>)
 
-                if sites is None:
-                    sites = _sites
-                    scores = _scores
-                else:
-                    sites = tf.concat([sites, _sites], axis=0)
-                    scores = tf.concat([scores, _scores], axis=0)
+            # build the sites and scores tensors (tensorflow.org/versions/r2.10/api_docs/python/tf/gather_nd)
+            _scores = tf.gather_nd(Z, I)                  # (sites, <score>)
+            _sites = tf.gather_nd(posTrack, I[:,:4])      # (sites, <g,c,f,tspos>)
+            _sites = tf.concat([_sites, I[:,4:]], axis=1) # (sites, <g,c,f,tspos,T-k+1_idx,U_idx>)
+
+            if sites is None:
+                sites = _sites
+                scores = _scores
+            else:
+                sites = tf.concat([sites, _sites], axis=0)
+                scores = tf.concat([scores, _scores], axis=0)
 
         if sites is None:
             return tf.constant([], dtype=tf.int32), tf.constant([], dtype=tf.float32)

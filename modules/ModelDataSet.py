@@ -373,7 +373,8 @@ class ModelDataSet:
 
     def __init__(self, data: list[sr.Genome], datamode: DataMode,
                  tile_size: int, tiles_per_X: int, batch_size: int, prefetch: int,
-                 Q: np.ndarray = None, replaceSpaceWithX: bool = False): # type: ignore
+                #  Q: np.ndarray = None, 
+                replaceSpaceWithX: bool = False): # type: ignore
         """
         Note: data needs to be rectangular for tf, so smaller genomes are filled up with empty sequences internally
               such that all genomes have the same number of sequences. Keep this in mind when using .getRawData().
@@ -384,8 +385,8 @@ class ModelDataSet:
             tiles_per_X: int -- number of tiles per X
             batch_size: int -- number of batches to be used during training
             prefetch: int -- number of batches to prefetch
-            Q: np.ndarray -- Q-vector of background frequencies for the data, must be of same length as alphabet.size().
-                             If None, it is calculated from the data
+            # Q: np.ndarray -- Q-vector of background frequencies for the data, must be of same length as alphabet.size().
+            #                  If None, it is calculated from the data
             replaceSpaceWithX: bool -- if True, replaces ' ' with 'X' in translated sequences, only needed in
                                         translated mode!
         """
@@ -402,13 +403,15 @@ class ModelDataSet:
         else:
             self.alphabet = _TRANSLATED_ALPHABET[:-1] # remove stop codon
 
-        if Q is None:
-            self.Q = backgroundFreqs(self.training_data.getTrainingData(), self.alphabet)
+        # if Q is None:
+        #     self.Q = backgroundFreqs(self.training_data.getTrainingData(), self.alphabet)
+        # else:
+        #     self.Q = Q
 
-        assert self.Q.shape == (self.alphabet_size(),), \
-            f"[ModelDataSet] >>> Q-matrix must have shape ({self.alphabet_size()},), not {self.Q.shape}"
-        assert self.Q.min() >= 0, f"[ModelDataSet] >>> Q-matrix must have only non-negative values, not {self.Q.min()}"
-        assert self.Q.max() <= 1, f"[ModelDataSet] >>> Q-matrix must have only values <= 1, not {self.Q.max()}"
+        # assert self.Q.shape == (self.alphabet_size(),), \
+        #     f"[ModelDataSet] >>> Q-matrix must have shape ({self.alphabet_size()},), not {self.Q.shape}"
+        # assert self.Q.min() >= 0, f"[ModelDataSet] >>> Q-matrix must have only non-negative values, not {self.Q.min()}"
+        # assert self.Q.max() <= 1, f"[ModelDataSet] >>> Q-matrix must have only values <= 1, not {self.Q.max()}"
         
         self.tile_size = tile_size
         self.tiles_per_X = tiles_per_X

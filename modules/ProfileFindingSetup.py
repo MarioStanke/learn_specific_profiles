@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import random
 
+from . import background_model
 from . import Links
 from . import ModelDataSet
 from . import plotting
@@ -46,6 +47,15 @@ class ProfileFindingTrainingSetup:
                    # if t==0.0 this prior knowledge is not used
                    # requires amino acid alphabet, in particular k=20
 
+    Q_order: int       # order of background distribution, ignored if Q is not None
+    Q_num_models: int  # number of modes for background distribution, ignored if Q is not None
+    Q_lr: float        # learning rate for background distribution, ignored if Q is not None
+    Q_lr_patience: int # number of epochs to wait for loss decrease before trigger learning rate reduction
+    Q_lr_factor: float # factor to reduce learning rate by for
+    Q_epochs: int      # number of epochs to train background distribution, ignored if Q is not None
+    Q_rand_seed: int = None # random seed for background distribution, ignored if Q is not None
+    Q: background_model.TrainedQ = None # background distribution, learned from data if None (default)
+    
     # TODO: deprecated, remove in future
     alpha: float = 1e-6 # loss norm (deprecated, not used anymore)
     lossStrategy: str = 'experiment' #'score' #'experiment' #'softmax' (deprecated)
@@ -68,6 +78,25 @@ class ProfileFindingTrainingSetup:
         self.initProfiles: np.ndarray = None # type: ignore
         self.initKmerPositions: dict[str, list[Links.Occurrence]] = {}
         self.trackProfiles: list[int] = []
+
+        if self.Q is None:
+            assert self.Q_order >= 0, f"[ERROR] >>> {self.Q_order=} must be >= 0"
+            assert self.Q_num_models > 0, f"[ERROR] >>> {self.Q_num_models=} must be > 0"
+            assert self.Q_lr != 0, f"[ERROR] >>> {self.Q_lr=} must not be 0"
+            assert self.Q_lr_patience > 0, f"[ERROR] >>> {self.Q_lr_patience=} must be > 0"
+            assert self.Q_lr_factor != 0, f"[ERROR] >>> {self.Q_lr_factor=} must not be 0"
+            assert self.Q_epochs > 0, f"[ERROR] >>> {self.Q_epochs=} must be > 0"
+            self.Q = background_model.TrainedQ(self.data, self.Q_num_models, self.Q_order, self.Q_rand_seed)
+            # train background distribution from data
+            self.Q.train(lr=self.Q_lr, lr_factor=self.Q_lr_factor, lr_patience=self.Q_lr_patience, epochs=self.Q_epochs)
+        else:
+            self.Q_num_models = self.Q.num_models
+            self.Q_order = self.Q.order
+            self.Q_lr = 0.0 # not used, Q is already set
+            self.Q_lr_patience = 0 # not used, Q is already set
+            self.Q_lr_factor = 0.0 # not used, Q is already set
+            self.Q_epochs = 0 # not used, Q is already set
+            self.Q_rand_seed = self.Q.rand_seed
 
 
 
@@ -127,8 +156,9 @@ class ProfileFindingTrainingSetup:
                                 "Using all kmers plus random kmers.")
                 midKmers = list(kmerToOcc.keys())
                 # add randomly generated kmers
-                randKmers = [''.join(random.choices(list(alphabet), list(self.data.Q), k=self.midK)) \
-                                for _ in range(self.U-len(kmerToOcc))]
+                # randKmers = [''.join(random.choices(list(alphabet), list(self.data.Q), k=self.midK)) \
+                #                 for _ in range(self.U-len(kmerToOcc))]
+                randKmers = [self.Q.generate_sequence(self.midK) for _ in range(self.U-len(kmerToOcc))]
                 midKmers.extend(randKmers)
             else:
                 midKmers = [t[0] for t in kmerCount[:self.U]]
@@ -179,7 +209,7 @@ class ProfileFindingTrainingSetup:
         if len(self.trackProfiles) == 0:
             self.trackProfiles = list(range(len(midKmers)))
 
-        self.initProfiles = getCustomMidProfiles(midKmers, alphabet, self.k+(2*self.s), self.data.Q, 
+        self.initProfiles = getCustomMidProfiles(midKmers, alphabet, self.k+(2*self.s), self.Q, 
                                                  mid_factor=4, bg_factor=1)
         
         if self.n_best_profiles > self.initProfiles.shape[2]:
@@ -197,37 +227,38 @@ class ProfileFindingTrainingSetup:
     
 
 
-    def initializeProfiles_seeds(self, rand_seed: int = None): # type: ignore
-        """ Used to be model.seed_P_genome. Initializes the profiles with seeds from the genomes. 
-            Sets self.initProfiles. Sets self.trackProfiles to all profiles."""
-        import tensorflow as tf
+    # === DEPRECATED with new background_model, but also not used anywhere so should be fine ===
+    # def initializeProfiles_seeds(self, rand_seed: int = None): # type: ignore
+    #     """ Used to be model.seed_P_genome. Initializes the profiles with seeds from the genomes. 
+    #         Sets self.initProfiles. Sets self.trackProfiles to all profiles."""
+    #     import tensorflow as tf
 
-        flatg = []
-        for seqs in self.data.getRawData():
-            for frameseqs in seqs:
-                flatg.extend(frameseqs)
+    #     flatg = []
+    #     for seqs in self.data.getRawData():
+    #         for frameseqs in seqs:
+    #             flatg.extend(frameseqs)
 
-        lensum = sum([len(s) for s in flatg])
-        weights = [len(s)/lensum for s in flatg]
-        weights = tf.nn.softmax(weights).numpy() # type: ignore
-        nprng = np.random.default_rng(rand_seed)
-        seqs = nprng.choice(len(flatg), self.U, replace=True, p=weights)
-        ks = self.k + (2*self.s) # trained profile width (k +- shift)
+    #     lensum = sum([len(s) for s in flatg])
+    #     weights = [len(s)/lensum for s in flatg]
+    #     weights = tf.nn.softmax(weights).numpy() # type: ignore
+    #     nprng = np.random.default_rng(rand_seed)
+    #     seqs = nprng.choice(len(flatg), self.U, replace=True, p=weights)
+    #     ks = self.k + (2*self.s) # trained profile width (k +- shift)
 
-        oneProfile_logit_like_Q = np.log(self.data.Q)
-        P_logit_init = np.zeros((ks, self.data.alphabet_size(), self.U), dtype=np.float32)
-        for j in range(self.U):
-            i = seqs[j] # seq index
-            assert len(flatg[i]) > ks, str(len(flatg[i]))
-            pos = nprng.choice(len(flatg[i])-ks, 1)[0]
-            seedseq = flatg[i][pos:pos+ks]
-            OH = oneHot(seedseq, self.data.alphabet)
-            assert OH.shape == (ks, self.data.alphabet_size()), f"{OH.shape} != {(ks, self.data.alphabet_size())}"
-            seed = self.rho * OH + oneProfile_logit_like_Q + nprng.normal(scale=self.sigma, size=OH.shape)
-            P_logit_init[:,:,j] = seed
+    #     oneProfile_logit_like_Q = np.log(self.data.Q)
+    #     P_logit_init = np.zeros((ks, self.data.alphabet_size(), self.U), dtype=np.float32)
+    #     for j in range(self.U):
+    #         i = seqs[j] # seq index
+    #         assert len(flatg[i]) > ks, str(len(flatg[i]))
+    #         pos = nprng.choice(len(flatg[i])-ks, 1)[0]
+    #         seedseq = flatg[i][pos:pos+ks]
+    #         OH = oneHot(seedseq, self.data.alphabet)
+    #         assert OH.shape == (ks, self.data.alphabet_size()), f"{OH.shape} != {(ks, self.data.alphabet_size())}"
+    #         seed = self.rho * OH + oneProfile_logit_like_Q + nprng.normal(scale=self.sigma, size=OH.shape)
+    #         P_logit_init[:,:,j] = seed
 
-        self.initProfiles = P_logit_init
-        self.trackProfiles = list(range(self.U))
+    #     self.initProfiles = P_logit_init
+    #     self.trackProfiles = list(range(self.U))
 
 
     
@@ -242,7 +273,7 @@ class ProfileFindingTrainingSetup:
 
 # General functions
 
-def getCustomMidProfiles(midSeqs: list[str], alphabet: list[str], k: int, Q: np.ndarray, 
+def getCustomMidProfiles(midSeqs: list[str], alphabet: list[str], k: int, Q_model: background_model.TrainedQ, 
                          mid_factor: float = 1, bg_factor: float = 0):
     """ Generate profiles in which the middle positions are based on a kmer. 
     
@@ -259,11 +290,12 @@ def getCustomMidProfiles(midSeqs: list[str], alphabet: list[str], k: int, Q: np.
     """
 
     assert max([len(m) for m in midSeqs]) <= k, "[ERROR] >>> mid element lengths cannot exceed k"
-    assert len(Q) == len(alphabet), f"[ERROR] >>> Q must have {len(alphabet)} elements"
+    # assert len(Q) == len(alphabet), f"[ERROR] >>> Q must have {len(alphabet)} elements"
     assert mid_factor > 0, "[ERROR] >>> mid_factor must be > 0"
     assert bg_factor >= 0, "[ERROR] >>> bg_factor must be >= 0"
     
     U = len(midSeqs)
+    Q = Q_model.get_avg_Q() # TODO: is this sensible?
     profiles = np.repeat([Q], repeats=k, axis=0)        # -> (k, alphabet_size)
     profiles = np.repeat([profiles], repeats=U, axis=0) # -> (U, k, alphabet_size)
     profiles = np.transpose(profiles, (1,2,0))          # -> (k, alphabet_size, U)

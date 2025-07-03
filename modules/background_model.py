@@ -2,6 +2,7 @@
 
 from Bio import SeqIO
 import numpy as np
+import os
 from pathlib import Path
 from time import time
 
@@ -232,10 +233,13 @@ class TrainedQ(tf.keras.Model): # type: ignore
         assert order >= 0, f"Order must be greater than or equal to 0, got {order}"
 
         # setting random seeds if desired
-        self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
         if rand_seed is not None:
             logging.debug(f"[model.__init__] >>> setting tf global seed to {rand_seed}")
+            os.environ['TF_DETERMINISTIC_OPS'] = '1'
             tf.random.set_seed(rand_seed)
+
+        self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
+        self.rand_seed = rand_seed # store the seed for later use
 
         self.data = data
         self.num_models = num_models
@@ -310,7 +314,12 @@ class TrainedQ(tf.keras.Model): # type: ignore
         return S, loss#, grad
 
 
-    def train(self, lr=2, epochs=50, verbose=True, verbose_freq=10):
+    def train(self, lr=0.01, lr_factor=0.75, lr_patience=10, epochs=50, verbose=True, verbose_freq=10):
+        assert epochs > 0, f"Number of epochs must be greater than 0, got {epochs}"
+        assert lr != 0, f"Learning rate must not be 0, got {lr}"
+        assert lr_factor != 0, f"Learning rate factor must not be 0, got {lr_factor}"
+        assert lr_patience >= 0, f"Learning rate patience must be greater than or equal to 0, got {lr_patience}"
+        
         def setLR(learning_rate):
             logging.debug(f"[model.train.setLR] >>> Setting learning rate to {learning_rate}")
             self.opt.learning_rate.assign(learning_rate)
@@ -358,15 +367,15 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
             # check if learning rate should decrease
             lr_reduction_cooldown -= 1
-            if lr_reduction_cooldown <= 0 and len(losses) > 10:
-                lastmin = losses[-11] # loss before the last lr_patience epochs
-                if not any([l < lastmin for l in losses[-10:]]):
+            if lr_reduction_cooldown <= 0 and len(losses) > lr_patience:
+                lastmin = losses[-(lr_patience+1)] # loss before the last lr_patience epochs
+                if not any([l < lastmin for l in losses[-lr_patience:]]):
                     logging.info("[background_model.train] >>> Loss did not decrease for " + \
-                                 f"{10} epochs, reducing learning rate from {learning_rate} to " + \
-                                 f"{0.75*learning_rate}")
-                    learning_rate *= 0.75
+                                 f"{lr_patience} epochs, reducing learning rate from {learning_rate} to " + \
+                                 f"{lr_factor*learning_rate}")
+                    learning_rate *= lr_factor
                     setLR(learning_rate)
-                    lr_reduction_cooldown = 10 # do not immediately reduce again after a reduction
+                    lr_reduction_cooldown = lr_patience # do not immediately reduce again after a reduction
 
             # determine if training should continue
             epoch_count += 1
@@ -428,3 +437,64 @@ class TrainedQ(tf.keras.Model): # type: ignore
         scores = tf.concat(scores, axis=0) # concatenate the scores for all batches
         # logging.debug(f"[background_model.scan_data] >>> Final scores shape: {scores.shape}")
         return scores.numpy() # convert to numpy array and return
+    
+
+
+    def generate_sequence(self, length: int) -> str:
+        """
+        Generate a random sequence of a given length using the background model.
+        Args:
+            length (int): length of the sequence to generate
+        Returns:
+            str: generated sequence
+        """
+        assert length > 0, f"Length must be greater than 0, got {length}"
+        assert length > self.order, f"Length {length} must be greater than {self.order=}"
+        mi = np.random.choice(list(range(self.num_models)), size=None, p=self.getM().numpy())
+        Q = self.getQ()[mi] # shape: (alphabet_size,)*(order+1)
+
+        if self.order == 0:
+            # 0-mer model, i.e. nucleotide frequencies
+            seq = "".join(self.nprng.choice(self.alphabet, size=length, p=Q))
+        else:
+            # get k-mer frequencies, ATTENTION: seems not to yield the correct results, but should be fine for now
+            eq_dist = np.linalg.matrix_power(Q, 50)
+            pair_prob = eq_dist * Q
+
+            freqs_arr = pair_prob.reshape((len(self.alphabet)**(self.order+1),))
+            freqs_arr = freqs_arr / freqs_arr.sum() # normalize frequencies to sum to 1
+            kmer_i = self.nprng.choice(list(range(len(freqs_arr))), size=None, p=freqs_arr)
+        
+            idx_seq = list(np.unravel_index(kmer_i, (len(self.alphabet),)*(self.order+1))) # construct the start k-mer from the indices
+            for i in range(self.order+1, length):
+                jmer_idcs = tuple(idx_seq[-self.order:]) # get the last order indices
+                idx_seq.append(self.nprng.choice(list(range(len(self.alphabet))), size=None, p=Q[jmer_idcs]))
+
+            seq = "".join([self.alphabet[i] for i in idx_seq]) # construct the sequence from the indices
+
+        assert len(seq) == length, f"Expected sequence length {length}, got {len(seq)}"
+        return seq
+    
+
+
+    def get_avg_Q(self):
+        """
+        Get the average 0-order Q from the background models.
+        Returns:
+            np.ndarray: average Q of shape (alphabet_size,)
+        """
+        # note: for num_models = 1 and order = 0, Q_avg should be just self.getQ()[0]
+        Q = self.getQ().numpy() # shape: (K,)+(alphabet_size,)*(order+1)
+        m = self.getM().numpy() # shape: (K,)
+        for _ in range(self.k_dims):
+            m = np.expand_dims(m, axis=-1)
+        assert len(Q.shape) == len(m.shape) == self.k_dims + 1, \
+            f"Expected Q and m shape {self.k_dims+1}, got {Q.shape=} and m shape {m.shape=}"
+        Q_avg = np.mean(Q*m, axis=0) # shape: (alphabet_size,)*(order+1)
+        Q_avg = np.mean(Q_avg, axis=tuple(range(self.order))) # average over the first order dimensions, shape: (alphabet_size,)
+
+        assert len(Q_avg.shape) == 1, f"Expected Q_avg shape (alphabet_size,), got {Q_avg.shape}"
+        assert Q_avg.shape[0] == len(self.alphabet), f"Expected Q_avg shape ({len(self.alphabet)},), got {Q_avg.shape}"
+        Q_avg = Q_avg / Q_avg.sum()  # normalize to sum to 1
+        assert np.isclose(Q_avg.sum(), 1.0), f"Expected sum of Q_avg to be 1.0, got {Q_avg.sum()}"
+        return Q_avg

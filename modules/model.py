@@ -338,8 +338,9 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         """ Performs the convolution. Returns Z (ntiles, N, f, tile_size-k+1, U). 
             Argument `P` must be _softmaxed_, don't pass the logits! """
         
-        assert P.shape == (self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U), \
-            f"{P.shape=} != {(self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U)}"
+        assert len(P.shape) == 3, f"{P.shape=}, expected shape (k, alphabet_size, U)"
+        assert P.shape[:-1] == (self.setup.k+(2*self.setup.s), self.data.alphabet_size()), \
+            f"{P.shape=} != {(self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U)}" # not necessarily U in last dimension (e.g. during cleanup)
         assert self.data.Q.shape == (self.data.alphabet_size(),), \
             f"{self.data.Q.shape=} != {(self.data.alphabet_size(),)}"
         

@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 def run_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs: pd.DataFrame, jolma: Path,
-                   jobname: str, n: int, mem: int, partition: str, time: str, pf_config: Path = None,
+                   jobname: str, n: int, mem: int, partition: str, time: str, array: str = None, pf_config: Path = None,
                    run_pf: bool = True, run_streme: bool = True, run_pf_init: bool = True):
     (wd / 'slurmout').mkdir(parents=True, exist_ok=True)
 
@@ -69,6 +69,7 @@ popd
 """
 
     # Create the SLURM script for an array job
+    arrayopt = f"{array}" if array else f"0-{len(ref_motifs.index)-1}" 
     script = f"""#!/bin/bash
 
 #SBATCH --job-name={jobname}
@@ -76,7 +77,7 @@ popd
 #SBATCH -n {n}
 #SBATCH --mem={mem}
 #SBATCH --partition={partition}
-#SBATCH --array=0-{len(ref_motifs.index)-1}
+#SBATCH --array={arrayopt}
 #SBATCH --time={time}
 #SBATCH -o {wd}/slurmout/%A_%a.out
 #SBATCH -e {wd}/slurmout/%A_%a.err
@@ -140,6 +141,9 @@ def main():
                         default = 72)
     parser.add_argument('--time', help = 'Time to allocate for the job, as string accepted by `#SBATCH --time=`', 
                         required = False, type = str, default = '3-00:00:00')
+    parser.add_argument('--array', help = 'Provide a SLURM --array argument to overwrite the default behaviour of' \
+                        + 'creating an array with one job per experiment per run.', required=False, type=str, 
+                        default=None)
     parser.add_argument('--skip-pf-init', help = 'Skip the ProfileFinding do-not-train run', action='store_true',
                         default = False)
     parser.add_argument('--skip-pf', help = 'Skip the ProfileFinding run', action='store_true', default = False)
@@ -189,6 +193,7 @@ def main():
                     mem=args.mem,
                     partition=args.partition,
                     time=args.time,
+                    array=args.array,
                     pf_config=config,
                     run_pf=not args.skip_pf,
                     run_streme=not args.skip_streme,
@@ -215,6 +220,7 @@ def main():
                             mem=args.mem,
                             partition=args.partition,
                             time=args.time,
+                            array=args.array,
                             pf_config=config,
                             run_pf=not args.skip_pf,
                             run_streme=not args.skip_streme,
@@ -247,6 +253,7 @@ def main():
                             mem=args.mem,
                             partition=args.partition,
                             time=args.time,
+                            array=args.array,
                             pf_config=config,
                             run_pf=not args.skip_pf,
                             run_streme=not args.skip_streme,
@@ -283,6 +290,7 @@ def main():
                     mem=args.mem,
                     partition=args.partition,
                     time=args.time,
+                    array=args.array,
                     pf_config=config,
                     run_pf=not args.skip_pf,
                     run_streme=not args.skip_streme,

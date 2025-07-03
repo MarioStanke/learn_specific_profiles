@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import logging
 import numpy as np
+import os
 import tensorflow as tf
 from time import time
 
@@ -205,6 +206,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         # setting random seeds if desired
         if rand_seed is not None:
             logging.debug(f"[model.__init__] >>> setting tf global seed to {rand_seed}")
+            os.environ['TF_DETERMINISTIC_OPS'] = '1'
             tf.random.set_seed(rand_seed)
 
         self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS

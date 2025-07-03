@@ -382,7 +382,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         """ Returns S, R, Z; shapes are (ntiles, N, U), (k, alphabet_size, U) and (ntiles, N, f, tile_size-k+1, U). 
             Argument `P` must be _softmaxed_, don't pass the logits! """
         if self.legacy_Z:
-            Z, R = self.getZ(X, P)
+            Z, R = self.getZ_legacy(X, P)
         else:
             Z = self.getZ(X, P)
             R = np.zeros(P.shape, dtype=np.float32) # placeholder for R, not used in legacy mode

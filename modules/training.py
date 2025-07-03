@@ -559,6 +559,21 @@ def trainAndEvaluate(runID,
             )
 
         if outdir is not None:
+            # draw profile logos
+            # plot logos
+            try:
+                logging.info(f"[training.trainAndEvaluate] >>> Plotting logos")
+                # create plt axes, one for each motif
+                nmotifs = profile_report.P.shape[2]
+                fig, axs = plt.subplots(nmotifs, 1, figsize=(16, 9*nmotifs))
+                plotting.plotLogo(profile_report.P, trainsetup.data.alphabet, pLosses = profile_report.loss, ax=axs)
+                fig.savefig(os.path.join(outdir, outprefix+"logos.png"), dpi=300, bbox_inches='tight')
+                plt.close(fig)
+            except Exception as e:
+                logging.error("[training.trainAndEvaluate] >>> Plotting logos failed.")
+                logging.error(f"[training.trainAndEvaluate] >>> Exception:\n{e}")
+                logging.debug(full_stack())
+
             # draw link image
             kmerSites: list[Links.Occurrence] = []
             for kmer in trainsetup.initKmerPositions:

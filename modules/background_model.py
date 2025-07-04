@@ -390,7 +390,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
         Args:
             window_size (int): size of the sliding window to use for scanning the data
         Returns:
-            np.ndarray: scores for each tile in the dataset, shape (batches, ntiles, N, f, tile_size-window_size+1, K)
+            np.ndarray: scores for each tile in the dataset, shape (batches, ntiles, N, f, tile_size-window_size+1, 1)
         """ 
         assert window_size > 0, f"Window size must be greater than 0, got {window_size}"
         assert window_size <= self.data.tile_size, \
@@ -431,6 +431,9 @@ class TrainedQ(tf.keras.Model): # type: ignore
             # logging.debug(f"[background_model.scan_data] >>> S shape after sum: {S.shape}")
             assert S.shape[-2:] == (self.data.tile_size - window_size + 1, self.num_models), \
                 f"Expected ({self.data.tile_size - window_size + 1}, {self.num_models}) in scores, got {S.shape}"
+
+            # we're only interested in the best model match at each position, so we take the max over the last dimension
+            S = tf.reduce_max(S, axis=-1, keepdims=True) # shape: (batch_size, ntiles, N, f, tile_size-width+1, 1)
 
             scores.append(S) # append the scores for this batch
 

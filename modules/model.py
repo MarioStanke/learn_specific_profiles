@@ -375,7 +375,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         Z_P = tf.squeeze(Z1, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, U)
         # Z_Q = tf.squeeze(Z2, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, 1)      
 
-        Z = Z_P - self.Z_Q # shape (ntiles, N, 6, tile_size-k+1, ~U~)
+        Z = Z_P - self.Z_Q # shape (ntiles, N, 6, tile_size-k+1, U)
 
         if tf.reduce_any(tf.math.is_nan(X)):
             logging.debug("[model.getZ] >>> nan in X")

@@ -375,7 +375,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         Z_P = tf.squeeze(Z1, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, U)
         # Z_Q = tf.squeeze(Z2, 4) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, 1)      
 
-        Z = Z_P - self.Z_Q # shape (ntiles, N, 6, tile_size-k+1, U)
+        Z = Z_P - self.Z_Q # shape (ntiles, N, 6, tile_size-k+1, ~U~)
 
         if tf.reduce_any(tf.math.is_nan(X)):
             logging.debug("[model.getZ] >>> nan in X")
@@ -414,7 +414,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             f"{Z.shape=}[1:6] != ({self.setup.data.tiles_per_X}, {self.setup.data.N()}, " \
                 + f"{self.setup.data.frame_dimension_size()}, {self.setup.data.tile_size - self.setup.k + 1})"
         
-        S = tf.reduce_max(Z, axis=[0,2,3]) # N x U
+        S = tf.reduce_max(Z, axis=[0,1,3,4]) # N x U
         score = tf.reduce_sum(S)
         
         Z = tf.transpose(Z, [2,5,0,1,3,4]) # shape N x U x B x ntiles x f x tile_size-k+1
@@ -462,7 +462,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             loss_by_unit = tf.math.add(loss_by_unit, L2)      # U
 
         if self.setup.kld != 0:
-            if self.setup.Q.num_models != 1 and self.setup.Q.order != 0:
+            if self.setup.Q.num_models != 1 or self.setup.Q.order != 0:
                 raise ValueError("[model.lossfun] >>> KLD regularization is currently only supported for a single Q model with order 0")
             # Kullback-Leibler divergence regularization 
             #   (adjusted implementation of https://www.tensorflow.org/api_docs/python/tf/keras/losses/KLD)

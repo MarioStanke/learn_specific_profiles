@@ -374,7 +374,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         
         Z_P = tf.squeeze(Z1, -2) # remove input channel dimension   shape (B, ntiles, N, 6, tile_size-k+1, U)
         # Z_Q = tf.squeeze(Z2, -2) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, 1)      
-
+        assert Z_P.shape == self.Z_Q.shape, f"{Z_P.shape=} != {self.Z_Q.shape=}"
         Z = Z_P - self.Z_Q # shape (B, ntiles, N, 6, tile_size-k+1, U)
 
         if tf.reduce_any(tf.math.is_nan(X)):
@@ -398,8 +398,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
         S = tf.reduce_max(Z, axis=[-3,-2])   # shape (B, ntiles, N, U)
         assert len(S.shape) == 4, f"{S.shape=}, expected shape (B, ntiles, N, U)"
-        assert S.shape[2:] == (self.setup.data.N(), self.setup.U), \
-            f"{S.shape[2:]=} != {(self.setup.data.N(), self.setup.U)}"
+        assert S.shape[2:] == (self.setup.data.N(), P.shape[-1]), \
+            f"{S.shape=}[2:] != {(self.setup.data.N(), P.shape[-1])}"
         
         return S, R, Z
     

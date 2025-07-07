@@ -409,10 +409,10 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                KLD regularization, P_logit is softmaxed when calculating the regularization term. """
         # shape of Z: B x ntiles x N x f x tile_size-k+1 x U 
         assert len(Z.shape) == 6, f"{Z.shape=}, expected shape (B, ntiles, N, f, tile_size-k+1, U)"
-        assert Z.shape[1:6] == (self.setup.data.tiles_per_X, self.setup.data.N(), 
+        assert Z.shape[1:5] == (self.setup.data.tiles_per_X, self.setup.data.N(), 
                                 self.setup.data.frame_dimension_size(), self.setup.data.tile_size - self.setup.k + 1), \
-            f"{Z.shape=}[1:6] != ({self.setup.data.tiles_per_X}, {self.setup.data.N()}, " \
-                + f"{self.setup.data.frame_dimension_size()}, {self.setup.data.tile_size - self.setup.k + 1})"
+            f"{Z.shape=}[1:5] != (..., {self.setup.data.tiles_per_X}, {self.setup.data.N()}, " \
+                + f"{self.setup.data.frame_dimension_size()}, {self.setup.data.tile_size - self.setup.k + 1}, ...)"
         
         S = tf.reduce_max(Z, axis=[0,1,3,4]) # N x U
         score = tf.reduce_sum(S)

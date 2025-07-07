@@ -783,7 +783,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             posTrack = batch[1] # (B, tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
             assert len(X.shape) == 6, str(X.shape)
             assert posTrack.shape != (1, 0), f"{posTrack.shape=} -- use batch dataset with position tracking!"
-            assert X.shape[0:5] == posTrack.shape[0:5], f"{X.shape} != {posTrack.shape}"
+            assert X.shape[0:4] == posTrack.shape[0:4], f"{X.shape} != {posTrack.shape}"
             # for b in range(X_b.shape[0]): # iterate samples in batch
             #     # get profile match scores, i.e. the sum of the element-wise multiplication of each profile 
             #     #   at each sequence position in X --> Z

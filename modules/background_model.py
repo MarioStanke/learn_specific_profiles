@@ -234,7 +234,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
         # setting random seeds if desired
         if rand_seed is not None:
-            logging.debug(f"[model.__init__] >>> setting tf global seed to {rand_seed}")
+            logging.debug(f"[TrainedQ.__init__] >>> setting tf global seed to {rand_seed}")
             os.environ['TF_DETERMINISTIC_OPS'] = '1'
             tf.random.set_seed(rand_seed)
 

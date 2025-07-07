@@ -155,7 +155,9 @@ def main():
     # handle arguments
     if args.rand_seed is not None:
         SEED = args.rand_seed
+        logging.debug(f"[20241008_runModel.py] >>> setting tf global seed to {SEED}")
         os.environ['TF_DETERMINISTIC_OPS'] = '1'
+        tf.random.set_seed(SEED)
         random.seed(SEED)
     else:
         SEED = None
@@ -229,7 +231,8 @@ def main():
                                                                  Q_learning_rate = args.Q_learning_rate,
                                                                  Q_lr_patience = args.Q_lr_patience,
                                                                  Q_lr_factor = args.Q_lr_factor,
-                                                                 Q_epochs = args.Q_epochs)
+                                                                 Q_epochs = args.Q_epochs,
+                                                                 Q_rand_seed=SEED)
     trainsetup.initializeProfiles_kmers(enforceU=args.enforceU, 
                                         minU=args.minU, minOcc=args.minOcc,
                                         overlapTilesize=args.overlapTilesize,

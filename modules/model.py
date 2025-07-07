@@ -387,7 +387,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
 
     def call(self, X, P):
-        """ Returns S, R, Z; shapes are (ntiles, N, U), (k, alphabet_size, U) and (ntiles, N, f, tile_size-k+1, U). 
+        """ Returns S, R, Z; shapes are (batches, ntiles, N, U), (k, alphabet_size, U) and 
+            (batches, ntiles, N, f, tile_size-k+1, U). 
             Argument `P` must be _softmaxed_, don't pass the logits! """
         if self.legacy_Z:
             Z, R = self.getZ_legacy(X, P)
@@ -395,7 +396,11 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             Z = self.getZ(X, P)
             R = np.zeros(P.shape, dtype=np.float32) # placeholder for R, not used in legacy mode
 
-        S = tf.reduce_max(Z, axis=[2,3])   # shape (ntiles, N, U)
+        S = tf.reduce_max(Z, axis=[-3,-2])   # shape (B, ntiles, N, U)
+        assert len(S.shape) == 4, f"{S.shape=}, expected shape (B, ntiles, N, U)"
+        assert S.shape[2:] == (self.setup.data.N(), self.setup.U), \
+            f"{S.shape[2:]=} != {(self.setup.data.N(), self.setup.U)}"
+        
         return S, R, Z
     
 
@@ -672,12 +677,13 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         scores = None
         for X, _ in ds:
             assert len(X.shape) == 6, str(X.shape)
-            S, _, _ = self.call(X, P)        # shape (ntiles, N, U)
-            S = tf.reduce_max(S, axis=(0,1)) # shape (U)
-            if scores is None:
-                scores = tf.expand_dims(S, -1)
-            else:
-                scores = tf.concat([scores, tf.expand_dims(S, -1)], axis=1)
+            Sb, _, _ = self.call(X, P)          # shape (B, ntiles, N, U)
+            for S in Sb: # iterate samples in batch
+                S = tf.reduce_max(S, axis=(0,1)) # shape (U)
+                if scores is None:
+                    scores = tf.expand_dims(S, -1)
+                else:
+                    scores = tf.concat([scores, tf.expand_dims(S, -1)], axis=1)
                                     
         return scores
     

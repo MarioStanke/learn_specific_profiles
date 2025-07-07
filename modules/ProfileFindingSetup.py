@@ -49,7 +49,7 @@ class ProfileFindingTrainingSetup:
 
     Q_order: int       # order of background distribution, ignored if Q is not None
     Q_num_models: int  # number of modes for background distribution, ignored if Q is not None
-    Q_lr: float        # learning rate for background distribution, ignored if Q is not None
+    Q_learning_rate: float        # learning rate for background distribution, ignored if Q is not None
     Q_lr_patience: int # number of epochs to wait for loss decrease before trigger learning rate reduction
     Q_lr_factor: float # factor to reduce learning rate by for
     Q_epochs: int      # number of epochs to train background distribution, ignored if Q is not None
@@ -82,17 +82,18 @@ class ProfileFindingTrainingSetup:
         if self.Q is None:
             assert self.Q_order >= 0, f"[ERROR] >>> {self.Q_order=} must be >= 0"
             assert self.Q_num_models > 0, f"[ERROR] >>> {self.Q_num_models=} must be > 0"
-            assert self.Q_lr != 0, f"[ERROR] >>> {self.Q_lr=} must not be 0"
+            assert self.Q_learning_rate != 0, f"[ERROR] >>> {self.Q_learning_rate=} must not be 0"
             assert self.Q_lr_patience > 0, f"[ERROR] >>> {self.Q_lr_patience=} must be > 0"
             assert self.Q_lr_factor != 0, f"[ERROR] >>> {self.Q_lr_factor=} must not be 0"
             assert self.Q_epochs > 0, f"[ERROR] >>> {self.Q_epochs=} must be > 0"
             self.Q = background_model.TrainedQ(self.data, self.Q_num_models, self.Q_order, self.Q_rand_seed)
             # train background distribution from data
-            self.Q.train(lr=self.Q_lr, lr_factor=self.Q_lr_factor, lr_patience=self.Q_lr_patience, epochs=self.Q_epochs)
+            self.Q.train(lr=self.Q_learning_rate, lr_factor=self.Q_lr_factor, lr_patience=self.Q_lr_patience, 
+                         epochs=self.Q_epochs)
         else:
             self.Q_num_models = self.Q.num_models
             self.Q_order = self.Q.order
-            self.Q_lr = 0.0 # not used, Q is already set
+            self.Q_learning_rate = 0.0 # not used, Q is already set
             self.Q_lr_patience = 0 # not used, Q is already set
             self.Q_lr_factor = 0.0 # not used, Q is already set
             self.Q_epochs = 0 # not used, Q is already set

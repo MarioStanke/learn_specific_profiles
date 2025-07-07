@@ -922,7 +922,7 @@ def testMotifs(runID, motifwrapper: MotifWrapper,
             midK = k, s = 0, epochs=1, gamma=1.0, l2=0.0, kld=0.0, mellowmax_alpha=1.0, match_score_factor=0, 
             learning_rate=0, lr_patience=0, lr_factor=0, rho=0, sigma=0, profile_plateau=0, profile_plateau_dev=0, 
             n_best_profiles=1, phylo_t=0, 
-            Q_order=0, Q_num_models=1, Q_lr=0.01, Q_lr_patience=0, Q_lr_factor=1, Q_epochs=1)
+            Q_order=0, Q_num_models=1, Q_learning_rate=0.01, Q_lr_patience=0, Q_lr_factor=1, Q_epochs=1)
         dummy_setup.initProfiles = motifs # should be the logits, but we don't actually use them so it's fine
         dummy_model = model.SpecificProfile(dummy_setup)
         

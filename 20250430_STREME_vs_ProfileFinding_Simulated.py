@@ -111,6 +111,7 @@ refmotifs=({ref_motifs['ref'].str.cat(sep=' ')})
 refmotif=${{refmotifs[$SLURM_ARRAY_TASK_ID]}}
 
 source ~/Software/load_MEME.sh
+source /home/ebelm/genomegraph/.venv/bin/activate
 
 """
     

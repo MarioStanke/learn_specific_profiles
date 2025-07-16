@@ -309,7 +309,10 @@ class TrainedQ(tf.keras.Model): # type: ignore
         grad = tape.gradient(loss, [self.Q_logit, self.m_logit])
         # logging.debug(f"[background_model.train_step] >>> S:\n{S}\n\nloss:\n{loss}\n\ngrad:\n{grad}")
         # logging.debug(f"[background_model.train_step] >>> grad shape: {[g.shape for g in grad]}")
-        self.opt.apply(grad, [self.Q_logit, self.m_logit])
+        if hasattr(self.opt, "apply") and callable(getattr(self.opt, "apply")):
+            self.opt.apply(grad, [self.Q_logit, self.m_logit])
+        else:
+            self.opt.apply_gradients(zip(grad, [self.Q_logit, self.m_logit]))
         
         return S, loss#, grad
 

@@ -340,21 +340,23 @@ class TrainedQ(tf.keras.Model): # type: ignore
             steps = 0
             ds_train = self.data.getDataset(k = self.order+1, flatten_kmers=False, repeat = True)
             _bshape = None
+            lossls = []
             for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size**(order+1)
                 assert len(batch.shape) == 5+self.k_dims, f"Expected shape of length {5+self.k_dims}, got {batch.shape}"
                 _bshape = batch.shape
-                self.train_step(batch)
+                _, loss = self.train_step(batch)
+                lossls.append(loss)
 
                 steps += 1
                 if steps >= steps_per_epoch:
                     break
                     
-            lossls = []
-            ds_loss = self.data.getDataset(k = self.order+1, flatten_kmers=False, repeat = False)
-            for batch, _ in ds_loss: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size**(order+1)
-                assert len(batch.shape) == 5+self.k_dims, f"Expected shape of length {5+self.k_dims}, got {batch.shape}"
-                S = self.call(batch)
-                lossls.append(self.lossfun(S))
+            # lossls = []
+            # ds_loss = self.data.getDataset(k = self.order+1, flatten_kmers=False, repeat = False)
+            # for batch, _ in ds_loss: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size**(order+1)
+            #     assert len(batch.shape) == 5+self.k_dims, f"Expected shape of length {5+self.k_dims}, got {batch.shape}"
+            #     S = self.call(batch)
+            #     lossls.append(self.lossfun(S))
 
             losses.append(tf.reduce_mean(lossls).numpy())
 

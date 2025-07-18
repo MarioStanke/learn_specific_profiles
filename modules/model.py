@@ -195,6 +195,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
         # === ONLY FOR DEVELOPMENT PURPOSES ===
         self.legacy_Z = False # manually set to True if the legacy Z calculation should be used
+        self.debug_mode = False # manually set to True if the model should run in debug mode
         # =====================================
 
         self.setup = setup
@@ -498,6 +499,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         grad = tape.gradient(loss, self.P_logit)
         self.opt.apply_gradients([(grad, self.P_logit)])
         
+        if self.debug_mode:
+            return S, R, loss, grad
         return S, R, loss
     
 

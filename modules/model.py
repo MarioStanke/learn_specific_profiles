@@ -500,6 +500,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         self.opt.apply_gradients([(grad, self.P_logit)])
         
         if self.debug_mode:
+            logging.debug(f"[model.train_step] >>> loss: {loss.numpy()}, score: {score.numpy()}, grad[0,:,0]: {grad.numpy()[0,:,0]}")
+            logging.debug(f"[model.train_step] >>> P_logit[0,:,0]: {self.P_logit.numpy()[0,:,0]}, P[0,:,0]: {self.getP().numpy()[0,:,0]}")
             return S, R, loss, grad
         return S, R, loss
     
@@ -531,7 +533,10 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             epochHist = EpochHistory()
             for X, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
                 assert len(X.shape) == 6, str(X.shape)
-                S, R, loss = self.train_step(X)
+                if self.debug_mode:
+                    S, R, loss, _ = self.train_step(X)
+                else:
+                    S, R, loss = self.train_step(X)
                 epochHist.update(S, R, loss.numpy())
                 
                 steps += 1

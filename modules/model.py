@@ -79,6 +79,7 @@ class ProfileTracking:
         self.tracking_ids = tracking_ids
         self.epoch = []
         self.P = np.zeros((k, alphabet_size, len(tracking_ids), 0), dtype=np.float32) # (k, alphabet_size, U', n_epochs)
+        self.P_logit = np.zeros((k, alphabet_size, len(tracking_ids), 0), dtype=np.float32) # (k, alphabet_size, U', n_epochs)
         self.max_scores = np.zeros((len(tracking_ids), 0), dtype=np.float32)  # (U', n_epochs)
         self.mean_losses = np.zeros((len(tracking_ids), 0), dtype=np.float32) # (U', n_epochs)
         self.masked_sites = np.zeros((0, 6), dtype=np.int32)          # (n, 6)
@@ -86,12 +87,13 @@ class ProfileTracking:
         self.masked_sites_epoch = np.zeros((0, 1), dtype=np.int32)    # (n, 1), assigning the sites to the epoch
 
 
-    def addEpoch(self, epoch: int, P: np.ndarray, max_scores: np.ndarray, mean_losses: np.ndarray, 
+    def addEpoch(self, epoch: int, P: np.ndarray, P_logit: np.ndarray, max_scores: np.ndarray, mean_losses: np.ndarray, 
                  masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None): # type: ignore
         """ Add a profile to the tracking. Required shapes:
-            P: (k, alphabet_size, U'), max_scores: (U',), mean_losses: (U',), masked_sites: (n, 6), 
+            P: (k, alphabet_size, U'), P_logit: (k, alphabet_size, U'), max_scores: (U',), mean_losses: (U',), masked_sites: (n, 6), 
             masked_sites_scores: (n,) where U' == len(tracking_ids). """
         assert P.shape == (self.P.shape[:-1]), f"{P.shape=}"
+        assert P_logit.shape == (self.P_logit.shape[:-1]), f"{P_logit.shape=}"
         assert max_scores.shape == (len(self.tracking_ids),), f"{max_scores.shape=}"
         assert mean_losses.shape == (len(self.tracking_ids),), f"{mean_losses.shape=}"
         if masked_sites is not None or masked_sites_scores is not None:
@@ -105,6 +107,7 @@ class ProfileTracking:
 
         self.epoch.append(epoch)
         self.P = np.concatenate([self.P, np.expand_dims(P, -1)], axis=3)
+        self.P_logit = np.concatenate([self.P_logit, np.expand_dims(P_logit, -1)], axis=3)
         self.max_scores = np.concatenate([self.max_scores, np.expand_dims(max_scores, -1)], axis=1)
         self.mean_losses = np.concatenate([self.mean_losses, np.expand_dims(mean_losses, -1)], axis=1)
         if masked_sites is not None:
@@ -275,7 +278,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             # sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking=True), Pt, 
             #                                                   self.setup.match_score_factor * scores)
             # self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy()) # type: ignore
-            self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses) # do not track sites, possiblyt responsible for OOM
+            self.profile_tracking.addEpoch(-1, Pt.numpy(), Pt_logit, scores, losses) # do not track sites, possiblyt responsible for OOM
 
     
 
@@ -355,8 +358,19 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         if tf.reduce_any(tf.math.is_nan(Z)):
             logging.debug("[model.getZ] >>> nan in Z")
 
-        if self.debug_mode:
+        if self.debug_mode and self.ndigits is not None:
+            Z_orig = Z.numpy() # keep original Z for debugging
             Z = cut_float_digits(Z, self.ndigits) # truncate float values to avoid precision issues
+            assert np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits)), \
+                f"[model.getZ] >>> Z values not close enough after truncation: {np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits))}, " + \
+                f"{Z_orig.shape=}, {Z.shape=}, {np.max(np.abs(Z_orig - Z.numpy()))=}, " + \
+                f"{np.max(np.abs(Z_orig))=}, {np.max(np.abs(Z.numpy()))=}, " + \
+                f"{np.min(Z_orig)=}, {np.max(Z_orig)=}, {np.min(Z.numpy())=}, {np.max(Z.numpy())=}"
+            assert not (Z_orig == Z.numpy()).all(), \
+                f"[model.getZ] >>> Z values are not truncated, original and truncated are equal: {np.all(Z_orig == Z.numpy())}, " + \
+                f"{Z_orig.shape=}, {Z.shape=}, {np.max(np.abs(Z_orig - Z.numpy()))=}, " + \
+                f"{np.max(np.abs(Z_orig))=}, {np.max(np.abs(Z.numpy()))=}, " + \
+                f"{np.min(Z_orig)=}, {np.max(Z_orig)=}, {np.min(Z.numpy())=}, {np.max(Z.numpy())=}"
         
         return Z, R
 
@@ -403,8 +417,19 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         if tf.reduce_any(tf.math.is_nan(Z)):
             logging.debug("[model.getZ] >>> nan in Z")
 
-        if self.debug_mode:
+        if self.debug_mode and self.ndigits is not None:
+            Z_orig = Z.numpy() # keep original Z for debugging
             Z = cut_float_digits(Z, self.ndigits) # truncate float values to avoid precision issues
+            assert np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits)), \
+                f"[model.getZ] >>> Z values not close enough after truncation: {np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits))}, " + \
+                f"{Z_orig.shape=}, {Z.shape=}, {np.max(np.abs(Z_orig - Z.numpy()))=}, " + \
+                f"{np.max(np.abs(Z_orig))=}, {np.max(np.abs(Z.numpy()))=}, " + \
+                f"{np.min(Z_orig)=}, {np.max(Z_orig)=}, {np.min(Z.numpy())=}, {np.max(Z.numpy())=}"
+            assert not (Z_orig == Z.numpy()).all(), \
+                f"[model.getZ] >>> Z values are not truncated, original and truncated are equal: {np.all(Z_orig == Z.numpy())}, " + \
+                f"{Z_orig.shape=}, {Z.shape=}, {np.max(np.abs(Z_orig - Z.numpy()))=}, " + \
+                f"{np.max(np.abs(Z_orig))=}, {np.max(np.abs(Z.numpy()))=}, " + \
+                f"{np.min(Z_orig)=}, {np.max(Z_orig)=}, {np.min(Z.numpy())=}, {np.max(Z.numpy())=}"
         
         return Z
 
@@ -576,6 +601,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             self.history.update(epochHist, learning_rate, mean_losses.numpy())
             if len(self.profile_tracking.tracking_ids) > 0:
                 Pt = tf.gather(self.getP(), self.profile_tracking.tracking_ids, axis=2)
+                Pt_logit = tf.gather(self.P_logit, self.profile_tracking.tracking_ids, axis=2)
                 scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), P = Pt), axis=1 ).numpy()
                 losses = tf.gather(mean_losses, self.profile_tracking.tracking_ids, axis=0).numpy()
                 # sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking = True), Pt, 
@@ -583,7 +609,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                 # self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses, 
                 #                                sites.numpy(), site_scores.numpy()) # type: ignore
                 # vvv do not track sites, possibly responsible for OOM
-                self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses)
+                self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), Pt_logit.numpy(), scores, losses)
 
             # check if a profile can be reported and report it
             if profilePerfCache.epoch_count >= self.setup.profile_plateau \

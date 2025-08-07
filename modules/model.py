@@ -178,6 +178,22 @@ class ProfileReport:
         self.nlinks.append(nlinks)
 
 
+# DEBUG: truncate float values to a given number of digits, to avoid precision issues when comparing implmentations
+def cut_float_digits(x, num_digits):
+    """
+    Cuts a float value to a specified number of digits after the decimal point.
+
+    Args:
+        x: A TensorFlow tensor (float or int).
+        num_digits: The number of digits to keep after the decimal point.
+
+    Returns:
+        A TensorFlow tensor with the float values cut to the specified number of digits.
+    """
+    factor = tf.pow(10.0, tf.cast(num_digits, tf.float32))
+    truncated = tf.floor(tf.multiply(x, factor)) / factor
+    return truncated
+
 # === Model Class ======================================================================================================
 
 class SpecificProfile(tf.keras.Model): # type: ignore
@@ -196,6 +212,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         # === ONLY FOR DEVELOPMENT PURPOSES ===
         self.legacy_Z = False # manually set to True if the legacy Z calculation should be used
         self.debug_mode = False # manually set to True if the model should run in debug mode
+        self.ndigits = 5
         # =====================================
 
         self.setup = setup
@@ -337,6 +354,9 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             logging.debug("[model.getZ] >>> nan in X")
         if tf.reduce_any(tf.math.is_nan(Z)):
             logging.debug("[model.getZ] >>> nan in Z")
+
+        if self.debug_mode:
+            Z = cut_float_digits(Z, self.ndigits) # truncate float values to avoid precision issues
         
         return Z, R
 
@@ -382,6 +402,9 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             logging.debug("[model.getZ] >>> nan in X")
         if tf.reduce_any(tf.math.is_nan(Z)):
             logging.debug("[model.getZ] >>> nan in Z")
+
+        if self.debug_mode:
+            Z = cut_float_digits(Z, self.ndigits) # truncate float values to avoid precision issues
         
         return Z
 

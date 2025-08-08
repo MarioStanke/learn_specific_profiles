@@ -182,19 +182,37 @@ class ProfileReport:
 
 
 # DEBUG: truncate float values to a given number of digits, to avoid precision issues when comparing implmentations
-def cut_float_digits(x, num_digits):
+# Compute the order of magnitude of a tensor and scale it between 1 and 10
+def scale_to_1_10(tensor: tf.Tensor):
+    max_val = tf.reduce_max(tf.abs(tensor))
+    if max_val == 0:
+        return tf.zeros_like(tensor), 0
+    exponent = int(tf.floor(tf.math.log(max_val) / tf.math.log(10.0)))
+    factor = 10 ** (-exponent)
+    scaled = tensor * factor
+    return scaled, factor
+
+def cut_float_digits(x, num_digits, scale_first: bool):
     """
     Cuts a float value to a specified number of digits after the decimal point.
 
     Args:
         x: A TensorFlow tensor (float or int).
         num_digits: The number of digits to keep after the decimal point.
+        scale_first: If True, scales the (max) value of x into the range [1, 10] before truncating.
 
     Returns:
         A TensorFlow tensor with the float values cut to the specified number of digits.
     """
+    if scale_first:
+        x, scale_factor = scale_to_1_10(x)
+
     factor = tf.pow(10.0, tf.cast(num_digits, tf.float32))
     truncated = tf.floor(tf.multiply(x, factor)) / factor
+
+    if scale_first:
+        truncated = truncated / scale_factor
+
     return truncated
 
 # === Model Class ======================================================================================================
@@ -360,7 +378,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
         if self.debug_mode and self.ndigits is not None:
             Z_orig = Z.numpy() # keep original Z for debugging
-            Z = cut_float_digits(Z, self.ndigits) # truncate float values to avoid precision issues
+            Z = cut_float_digits(Z, self.ndigits, scale_first=True) # truncate float values to avoid precision issues
             assert np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits)), \
                 f"[model.getZ] >>> Z values not close enough after truncation: {np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits))}, " + \
                 f"{Z_orig.shape=}, {Z.shape=}, {np.max(np.abs(Z_orig - Z.numpy()))=}, " + \
@@ -419,7 +437,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
         if self.debug_mode and self.ndigits is not None:
             Z_orig = Z.numpy() # keep original Z for debugging
-            Z = cut_float_digits(Z, self.ndigits) # truncate float values to avoid precision issues
+            Z = cut_float_digits(Z, self.ndigits, scale_first=True) # truncate float values to avoid precision issues
             assert np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits)), \
                 f"[model.getZ] >>> Z values not close enough after truncation: {np.allclose(Z_orig, Z.numpy(), atol=10**(-self.ndigits))}, " + \
                 f"{Z_orig.shape=}, {Z.shape=}, {np.max(np.abs(Z_orig - Z.numpy()))=}, " + \

@@ -308,7 +308,7 @@ def drawGeneLinks(links: list[Links.Link | Links.MultiLink],
 
 
 
-def makeVideo(path, video_name, fps = 1):
+def makeVideo(path, video_name, fps=1, codec='H264'):
     """
     Given a directory containing images, create a video from these images and store it there
 
@@ -327,7 +327,7 @@ def makeVideo(path, video_name, fps = 1):
     # the width, height of first image
     height, width, _ = frame.shape
 
-    video = cv2.VideoWriter(os.path.join(path, video_name), cv2.VideoWriter_fourcc(*'H264'), fps, (width, height))
+    video = cv2.VideoWriter(os.path.join(path, video_name), cv2.VideoWriter_fourcc(*codec), fps, (width, height))
 
     # Appending the images to the video one by one
     for image in images:

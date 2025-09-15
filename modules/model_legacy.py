@@ -36,11 +36,15 @@ class EpochHistory:
     def __init__(self):
         self.Smin = float('inf')
         self.Smax = float('-inf')
+        self.Rmin = float('inf')
+        self.Rmax = float('-inf')
         self.losses: list[float] = []
 
-    def update(self, S: tf.Tensor, loss: float):
+    def update(self, S: tf.Tensor, R: tf.Tensor, loss: float):
         self.Smin = min(self.Smin, tf.reduce_min(S).numpy())
         self.Smax = max(self.Smax, tf.reduce_max(S).numpy())
+        self.Rmin = min(self.Rmin, tf.reduce_min(R).numpy())
+        self.Rmax = max(self.Rmax, tf.reduce_max(R).numpy())
         self.losses.append(loss)
 
 
@@ -49,6 +53,8 @@ class TrainingHistory:
     def __init__(self, U): # TODO: <-- copilot code, review and adjust
         self._U: int = U
         self.loss: list[float] = []
+        self.Rmin: list[float] = []
+        self.Rmax: list[float] = []
         self.Smin: list[float] = []
         self.Smax: list[float] = []
         self.learning_rate: list[float] = []
@@ -58,6 +64,8 @@ class TrainingHistory:
         """ Add the metrics of a single epoch to the history. Required shapes of profile_losses: (U,) """
         assert profile_losses.shape == (self._U,), f"{profile_losses.shape=}"
         self.loss.append(np.mean(epochHist.losses)) # type: ignore
+        self.Rmin.append(epochHist.Rmin)
+        self.Rmax.append(epochHist.Rmax)
         self.Smin.append(epochHist.Smin)
         self.Smax.append(epochHist.Smax)
         self.learning_rate.append(learning_rate)
@@ -292,6 +300,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
 
     def _getRandomProfiles(self):
         """ Returns a random profile matrix of shape (k+(2*s), alphabet_size, U). """
+        # Q = tf.maximum(self.data.Q, self.epsilon) # avoid log(0)
         Q = tf.maximum(self.setup.Q.get_avg_Q(), self.epsilon) # avoid log(0) # TODO: is this sensible?
         Q1 = tf.expand_dims(Q, 0)
         Q2 = tf.expand_dims(Q1, -1) # shape: (1, alphabet_size, 1)
@@ -323,48 +332,63 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         return P2 # shape: (k, alphabet_size, U)
 
 
-    
-    def getZ(self, X, P):
-        """ Performs the convolution. Returns Z (batches, ntiles, N, f, tile_size-k+1, U). 
-            Argument `P` must be _softmaxed_, don't pass the logits! """
-        
-        assert len(P.shape) == 3, f"{P.shape=}, expected shape (k, alphabet_size, U)"
-        assert P.shape[:-1] == (self.setup.k+(2*self.setup.s), self.data.alphabet_size()), \
-            f"{P.shape=} != {(self.setup.k+(2*self.setup.s), self.data.alphabet_size(), self.setup.U)}" # not necessarily U in last dimension (e.g. during cleanup)
-        
-        X1 = tf.expand_dims(X,-1) # 1 input channel   shape: (B, ntiles, N, 6, tile_size, alphabet_size, 1)
-        P = tf.math.log(tf.maximum(P, self.epsilon)) # avoid log(0)
-        P1 = tf.expand_dims(P,-2) # 1 input channel   shape: (k, alphabet_size, 1, U)
-        
-        # X1: (batch_shape (B, ntiles, N, 6), in_height (tile_size),     in_width (alphabet_size), in_channels (1))
-        # P1:                                (    filter_height (k), filter_width (alphabet_size), in_channels (1), out_channels (U))
-        # Z1: (batch_shape (B, ntiles, N, 6), tile_size-k+1, 1, U)
-        Z1 = tf.nn.conv2d(X1, P1, strides=1,
-                          padding='VALID', data_format="NHWC", name="Z")
-        
-        Z_P = tf.squeeze(Z1, -2) # remove input channel dimension   shape (B, ntiles, N, 6, tile_size-k+1, U)
-        assert Z_P.shape[:-1] == self.Z_Q.shape[:-1], f"{Z_P.shape=}[:-1] != {self.Z_Q.shape=}[:-1]"
-        Z = Z_P - self.Z_Q # shape (B, ntiles, N, 6, tile_size-k+1, U)
 
+    def getR(self, P):
+        """ Returns R (k, alphabet_size, U). Argument `P` must be _softmaxed_, don't pass the logits! """
+        # Q = tf.maximum(self.data.Q, self.epsilon) # avoid division by 0
+        Q = tf.maximum(self.setup.Q.get_avg_Q(), self.epsilon) # avoid division by 0 TODO: is this sensible?
+        Q1 = tf.expand_dims(Q, 0)
+        Q2 = tf.expand_dims(Q1, -1)
+        # Limit the odds-ratio, to prevent problem with log(0).
+        # Very bad matches of profiles are irrelevant anyways.
+        ratio = tf.maximum(P/Q2, self.epsilon)
+        R = tf.math.log(ratio)
+        if tf.reduce_any(tf.math.is_nan(P)):
+            logging.debug(f"[model.getR] >>> nan in P: {tf.reduce_any(tf.math.is_nan(P), axis=[0,1])} " + \
+                          f"{tf.boolean_mask(P, tf.reduce_any(tf.math.is_nan(P), axis=[0,1]), axis=2)}")
+            logging.debug(f"[model.getR] >>> Q: {Q}")
+            
+        return R # shape: (k, alphabet_size, U)
+
+
+
+    def getZ(self, X, P):
+        """ Performs the convolution. Returns Z (batches, ntiles, N, f, tile_size-k+1, U) and R (k, alphabet_size, U). 
+            Argument `P` must be _softmaxed_, don't pass the logits! """
+        R = self.getR(P)
+
+        X1 = tf.expand_dims(X,-1) # 1 input channel   shape: (ntiles, N, 6, tile_size, alphabet_size, 1)
+        R1 = tf.expand_dims(R,-2) # 1 input channel   shape: (k, alphabet_size, 1, U)
+
+        # X1: (batch_shape (B, ntiles, N, 6), in_height (tile_size),     in_width (alphabet_size), in_channels (1))
+        # R1:                                (    filter_height (k), filter_width (alphabet_size), in_channels (1), out_channels (U))
+        # Z1: (batch_shape (B, ntiles, N, 6), tile_size-k+1, 1, U)
+        Z1 = tf.nn.conv2d(X1, R1, strides=1,
+                          padding='VALID', data_format="NHWC", name="Z")
+        Z = tf.squeeze(Z1, -2) # remove input channel dimension   shape (ntiles, N, 6, tile_size-k+1, U)
+        
+        if tf.reduce_any(tf.math.is_nan(R)):
+            logging.debug("[model.getZ] >>> nan in R")
         if tf.reduce_any(tf.math.is_nan(X)):
             logging.debug("[model.getZ] >>> nan in X")
         if tf.reduce_any(tf.math.is_nan(Z)):
             logging.debug("[model.getZ] >>> nan in Z")
-
-        return Z
+        
+        return Z, R
 
 
 
     def call(self, X, P):
-        """ Returns S, Z; shapes are (batches, ntiles, N, U) and (batches, ntiles, N, f, tile_size-k+1, U). 
+        """ Returns S, R, Z; shapes are (batches, ntiles, N, U), (k, alphabet_size, U) and 
+            (batches, ntiles, N, f, tile_size-k+1, U). 
             Argument `P` must be _softmaxed_, don't pass the logits! """
-        Z = self.getZ(X, P)
+        Z, R = self.getZ(X, P)
         S = tf.reduce_max(Z, axis=[-3,-2])   # shape (B, ntiles, N, U)
         assert len(S.shape) == 4, f"{S.shape=}, expected shape (B, ntiles, N, U)"
         assert S.shape[2:] == (self.setup.data.N(), P.shape[-1]), \
             f"{S.shape=}[2:] != {(self.setup.data.N(), P.shape[-1])}"
         
-        return S, Z
+        return S, R, Z
     
 
 
@@ -452,7 +476,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
     @tf.function()
     def train_step(self, X):
         with tf.GradientTape() as tape:
-            S, Z = self.call(X, self.getP())
+            S, R, Z = self.call(X, self.getP())
             score, loss_by_unit = self.lossfun(Z, self.P_logit)
             # Mario's loss
             #loss = -score
@@ -465,7 +489,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             logging.debug(f"[model.train_step] >>> loss: {loss.numpy()}, score: {score.numpy()}, grad[0,:,0]: {grad.numpy()[0,:,0]}")
             logging.debug(f"[model.train_step] >>> P_logit[0,:,0]: {self.P_logit.numpy()[0,:,0]}, P[0,:,0]: {self.getP().numpy()[0,:,0]}")
             
-        return S, loss, grad # only return grad for debug purposes, remove later
+        return S, R, loss, grad # DEBUG: return grad for debugging purposes, remove later
     
 
 
@@ -495,8 +519,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             epochHist = EpochHistory()
             for X, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
                 assert len(X.shape) == 6, str(X.shape)
-                S, loss, _ = self.train_step(X)
-                epochHist.update(S, loss.numpy())
+                S, R, loss, _ = self.train_step(X)
+                epochHist.update(S, R, loss.numpy())
                 
                 steps += 1
                 if steps >= self.setup.steps_per_epoch:
@@ -563,6 +587,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                              + f"with mean loss {best_profile_mean_loss}")
                 logging.info(f"[model.train] >>> epoch {epoch_count:>5} sum of profile tile losses " + \
                              f"= {tf.reduce_sum(losses).numpy():.4f}," + \
+                             f" max R: {epochHist.Rmax:.3f}, min R: {epochHist.Rmin:.3f}," + \
                              f" time: {tnow-training_start_time:.2f}s") 
 
             # check if learning rate should decrease
@@ -608,7 +633,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             # for b in range(X.shape[0]): # iterate samples in batch
             #     _, _, Z = self.call(X[b], P)               # Z: (ntiles, N, f, tile_size-k+1, U)
 
-            _, Z = self.call(X, P)                  # (B, ntiles, N, f, tile_size-k+1, U)
+            _, _, Z = self.call(X, P)                  # (B, ntiles, N, f, tile_size-k+1, U)
             _, loss_by_unit = self.lossfun(Z, P_logit) # (U)
 
             # (tilePerX, N, f) -> -1 if tile was exhausted -> False if exhausted -> 1 for valid tile, else 0
@@ -644,7 +669,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         scores = None
         for X, _ in ds:
             assert len(X.shape) == 6, str(X.shape)
-            Sb, _ = self.call(X, P)          # shape (B, ntiles, N, U)
+            Sb, _, _ = self.call(X, P)          # shape (B, ntiles, N, U)
             for S in Sb: # iterate samples in batch
                 S = tf.reduce_max(S, axis=(0,1)) # shape (U)
                 if scores is None:
@@ -757,7 +782,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             #     X = X_b[b]                # (tilePerX, N, f, tileSize, alphabetSize)
             #     posTrack = posTrack_b[b]  # (tilePerX, N, f, <genomeIdx, contigIdx, frameIdx, TileStartPos>)
 
-            _, Z = self.call(X, P) # (B, tilePerX, N, f, T-k+1, U)
+            _, _, Z = self.call(X, P) # (B, tilePerX, N, f, T-k+1, U)
             if pIdx is not None:
                 Z = Z[:,:,:,:,:,pIdx:(pIdx+1)] # only single profile, but keep dimensions
 

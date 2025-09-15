@@ -39,13 +39,18 @@ class EpochHistory:
         self.Rmin = float('inf')
         self.Rmax = float('-inf')
         self.losses: list[float] = []
+        self.grads: np.ndarray = None # will be (batch_size, k, alphabet_size, U) after first update
 
-    def update(self, S: tf.Tensor, R: tf.Tensor, loss: float):
+    def update(self, S: tf.Tensor, R: tf.Tensor, loss: float, grad: np.ndarray):
         self.Smin = min(self.Smin, tf.reduce_min(S).numpy())
         self.Smax = max(self.Smax, tf.reduce_max(S).numpy())
         self.Rmin = min(self.Rmin, tf.reduce_min(R).numpy())
         self.Rmax = max(self.Rmax, tf.reduce_max(R).numpy())
         self.losses.append(loss)
+        if self.grads is None:
+            self.grads = np.expand_dims(grad, 0)
+        else:
+            self.grads = np.concatenate([self.grads, np.expand_dims(grad, 0)], axis=0)
 
 
 class TrainingHistory:
@@ -75,11 +80,12 @@ class TrainingHistory:
 
 class ProfileTracking:
     """ For debugging purposes, track desired profiles and their performance during training. """
-    def __init__(self, tracking_ids: list, k: int, alphabet_size: int):
+    def __init__(self, tracking_ids: list, k: int, alphabet_size: int, n_batches: int):
         self.tracking_ids = tracking_ids
         self.epoch = []
         self.P = np.zeros((k, alphabet_size, len(tracking_ids), 0), dtype=np.float32) # (k, alphabet_size, U', n_epochs)
         self.P_logit = np.zeros((k, alphabet_size, len(tracking_ids), 0), dtype=np.float32) # (k, alphabet_size, U', n_epochs)
+        self.grad = np.zeros((0, n_batches, k, alphabet_size, len(tracking_ids)), dtype=np.float32) # (n_epochs, n_batches, k, alphabet_size, U')
         self.max_scores = np.zeros((len(tracking_ids), 0), dtype=np.float32)  # (U', n_epochs)
         self.mean_losses = np.zeros((len(tracking_ids), 0), dtype=np.float32) # (U', n_epochs)
         self.masked_sites = np.zeros((0, 6), dtype=np.int32)          # (n, 6)
@@ -87,13 +93,16 @@ class ProfileTracking:
         self.masked_sites_epoch = np.zeros((0, 1), dtype=np.int32)    # (n, 1), assigning the sites to the epoch
 
 
-    def addEpoch(self, epoch: int, P: np.ndarray, P_logit: np.ndarray, max_scores: np.ndarray, mean_losses: np.ndarray, 
+    # TODO: grad already has the more sensible shape (batch dim first, then profile dim), change that for all others as well!
+    def addEpoch(self, epoch: int, P: np.ndarray, P_logit: np.ndarray, grad: np.ndarray, 
+                 max_scores: np.ndarray, mean_losses: np.ndarray, 
                  masked_sites: np.ndarray = None, masked_sites_scores: np.ndarray = None): # type: ignore
         """ Add a profile to the tracking. Required shapes:
             P: (k, alphabet_size, U'), P_logit: (k, alphabet_size, U'), max_scores: (U',), mean_losses: (U',), masked_sites: (n, 6), 
             masked_sites_scores: (n,) where U' == len(tracking_ids). """
         assert P.shape == (self.P.shape[:-1]), f"{P.shape=}"
         assert P_logit.shape == (self.P_logit.shape[:-1]), f"{P_logit.shape=}"
+        assert grad.shape == (self.grad.shape[1:]), f"{grad.shape=}"
         assert max_scores.shape == (len(self.tracking_ids),), f"{max_scores.shape=}"
         assert mean_losses.shape == (len(self.tracking_ids),), f"{mean_losses.shape=}"
         if masked_sites is not None or masked_sites_scores is not None:
@@ -108,6 +117,7 @@ class ProfileTracking:
         self.epoch.append(epoch)
         self.P = np.concatenate([self.P, np.expand_dims(P, -1)], axis=3)
         self.P_logit = np.concatenate([self.P_logit, np.expand_dims(P_logit, -1)], axis=3)
+        self.grad = np.concatenate([self.grad, np.expand_dims(grad, 0)], axis=0)
         self.max_scores = np.concatenate([self.max_scores, np.expand_dims(max_scores, -1)], axis=1)
         self.mean_losses = np.concatenate([self.mean_losses, np.expand_dims(mean_losses, -1)], axis=1)
         if masked_sites is not None:
@@ -282,8 +292,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
         self.profile_report = ProfileReport(self.setup.k, self.data.alphabet_size())
         self.whole_profile_report = ProfileReport(self.setup.k+2*self.setup.s, self.data.alphabet_size())
         self.discarded_profile_report = ProfileReport(self.setup.k, self.data.alphabet_size())
-        self.profile_tracking = ProfileTracking(self.setup.trackProfiles, 
-                                                self.setup.k+2*self.setup.s, self.data.alphabet_size())
+        self.profile_tracking = ProfileTracking(self.setup.trackProfiles, self.setup.k+2*self.setup.s, 
+                                                self.data.alphabet_size(), self.data.getStepsPerEpoch())
 
         # add initial profile tracking
         if len(self.setup.trackProfiles) > 0:
@@ -294,7 +304,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             # sites, site_scores = self.get_profile_match_sites(self.data.getDataset(withPosTracking=True), Pt, 
             #                                                   self.setup.match_score_factor * scores)
             # self.profile_tracking.addEpoch(-1, Pt.numpy(), scores, losses, sites.numpy(), site_scores.numpy()) # type: ignore
-            self.profile_tracking.addEpoch(-1, Pt.numpy(), Pt_logit, scores, losses) # do not track sites, possiblyt responsible for OOM
+            self.profile_tracking.addEpoch(-1, Pt.numpy(), Pt_logit, np.zeros((self.data.getStepsPerEpoch(),)+Pt.shape),
+                                           scores, losses) # do not track sites, possiblyt responsible for OOM
 
     
 
@@ -519,8 +530,8 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             epochHist = EpochHistory()
             for X, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size)
                 assert len(X.shape) == 6, str(X.shape)
-                S, R, loss, _ = self.train_step(X)
-                epochHist.update(S, R, loss.numpy())
+                S, R, loss, grad = self.train_step(X)
+                epochHist.update(S, R, loss.numpy(), grad.numpy())
                 
                 steps += 1
                 if steps >= self.setup.steps_per_epoch:
@@ -544,7 +555,7 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                 # self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), scores, losses, 
                 #                                sites.numpy(), site_scores.numpy()) # type: ignore
                 # vvv do not track sites, possibly responsible for OOM
-                self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), Pt_logit.numpy(), scores, losses)
+                self.profile_tracking.addEpoch(epoch_count, Pt.numpy(), Pt_logit.numpy(), epochHist.grads, scores, losses)
 
             # check if a profile can be reported and report it
             if profilePerfCache.epoch_count >= self.setup.profile_plateau \

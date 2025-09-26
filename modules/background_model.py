@@ -215,14 +215,15 @@ import tensorflow_text as tftext
 
 class TrainedQ(tf.keras.Model): # type: ignore
     def __init__(self, 
-                 data: ModelDataSet.ModelDataSet,
+                #  data: ModelDataSet.ModelDataSet,
+                 alphabet: list[str],
                  num_models: int = 2, # K
                  order: int = 0, # k-1, i.e. order of the models
                  rand_seed: int = None, **kwargs): # type: ignore
         """
         Set up model and most metaparamters
             Parameters:
-                data (ModelDataSet.ModelDataSet): dataset to use for training and scanning
+                # data (ModelDataSet.ModelDataSet): dataset to use for training and scanning
                 num_models (int): number of models to train, i.e. K
                 order (int): order of the models, i.e. k-1, where k is the k-mer length
                 rand_seed (int): optional set a seed for tensorflow's rng
@@ -241,11 +242,11 @@ class TrainedQ(tf.keras.Model): # type: ignore
         self.nprng = np.random.default_rng(rand_seed) # if rand_seed is None, unpredictable entropy is pulled from OS
         self.rand_seed = rand_seed # store the seed for later use
 
-        self.data = data
+        # self.data = data
         self.num_models = num_models
         self.order = order # order of the models, i.e. k-mer-length - 1 # TODO: adapt usage of this in model.py!
         self.k_dims = self.order + 1 # number of dimensions for k-mer encoding
-        self.alphabet = data.alphabet # alphabet used for the model, e.g. ['A', 'C', 'G', 'T'] for DNA
+        self.alphabet = alphabet # alphabet used for the model, e.g. ['A', 'C', 'G', 'T'] for DNA
 
         self.Q_logit = tf.Variable(tf.random.uniform(shape=(self.num_models,)+(len(self.alphabet),)*(self.order+1),
                                                      minval=-0.1, maxval=0.1, dtype=tf.float32), 
@@ -317,18 +318,21 @@ class TrainedQ(tf.keras.Model): # type: ignore
         return S, loss#, grad
 
 
-    def train(self, lr=0.01, lr_factor=0.75, lr_patience=10, epochs=50, verbose=True, verbose_freq=10):
+    def train(self, data: ModelDataSet.ModelDataSet, lr=0.01, lr_factor=0.75, lr_patience=10, epochs=50, verbose=True, 
+              verbose_freq=10):
         assert epochs > 0, f"Number of epochs must be greater than 0, got {epochs}"
         assert lr != 0, f"Learning rate must not be 0, got {lr}"
         assert lr_factor != 0, f"Learning rate factor must not be 0, got {lr_factor}"
         assert lr_patience >= 0, f"Learning rate patience must be greater than or equal to 0, got {lr_patience}"
+        assert self.alphabet == data.alphabet, \
+            f"Alphabet of model {self.alphabet} does not match alphabet of data {data.alphabet}"
         
         def setLR(learning_rate):
             logging.debug(f"[model.train.setLR] >>> Setting learning rate to {learning_rate}")
             self.opt.learning_rate.assign(learning_rate)
 
         max_epochs = epochs
-        steps_per_epoch = self.data.getStepsPerEpoch() # use the steps_per_epoch from the dataset, this should be accurate
+        steps_per_epoch = data.getStepsPerEpoch() # use the steps_per_epoch from the dataset, this should be accurate
         learning_rate = lr # gets altered during training
         setLR(learning_rate) # reset learning rate to initial value for safety
 
@@ -341,7 +345,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
         while run:
             # run an epoch
             steps = 0
-            ds_train = self.data.getDataset(k = self.order+1, flatten_kmers=False, repeat = True)
+            ds_train = data.getDataset(k = self.order+1, flatten_kmers=False, repeat = True)
             _bshape = None
             lossls = []
             for batch, _ in ds_train: # shape: (batchsize, ntiles, N, f, tile_size, alphabet_size**(order+1)
@@ -390,18 +394,22 @@ class TrainedQ(tf.keras.Model): # type: ignore
 
 
 
-    def scan_data(self, window_size: int):
+    def scan_data(self, data: ModelDataSet.ModelDataSet, window_size: int, original_data: bool = False) -> np.ndarray:
         """ Perform a scan over the data and return the scores. This is needed for training the SpecificProfile model.
         Args:
+            data (ModelDataSet.ModelDataSet): dataset to scan
             window_size (int): size of the sliding window to use for scanning the data
+            original_data (bool): if True, use the original data without any modifications (i.e. sofmasking from reporting)
         Returns:
             np.ndarray: scores for each tile in the dataset, shape (batches, ntiles, N, f, tile_size-window_size+1, 1)
         """ 
         assert window_size > 0, f"Window size must be greater than 0, got {window_size}"
-        assert window_size <= self.data.tile_size, \
-            f"Window size {window_size} must be less than or equal to tile size {self.data.tile_size}"
+        assert window_size <= data.tile_size, \
+            f"Window size {window_size} must be less than or equal to tile size {data.tile_size}"
+        assert self.alphabet == data.alphabet, \
+            f"Alphabet of model {self.alphabet} does not match alphabet of data {data.alphabet}"
         
-        ds = self.data.getDataset(k = self.order+1, flatten_kmers=False, repeat = False)
+        ds = data.getDataset(k = self.order+1, flatten_kmers=False, repeat = False, original_data=original_data)
         Qsm = tf.maximum(self.getQ(), 1e-10)  # shape: (K,)+(alphabet_size,)*(order+1), avoid numerical issues in log
         Q = tf.math.log(Qsm)
         
@@ -416,15 +424,15 @@ class TrainedQ(tf.keras.Model): # type: ignore
             shape[ts_dim] = self.order
             Xz = tf.zeros(tuple(shape), dtype=batch.dtype) # shape: (batch_size, ntiles, N, f, order)+(alphabet_size,)*(order+1)
             X = tf.concat([Xz, batch], axis=ts_dim)
-            assert X.shape[ts_dim] == self.data.tile_size, \
-                f"Expected tile size {self.data.tile_size} in X, got {X.shape=}"
+            assert X.shape[ts_dim] == data.tile_size, \
+                f"Expected tile size {data.tile_size} in X, got {X.shape=}"
             
             batch_dims = len(X.shape) - (1+self.k_dims) # number of batch dimensions, e.g. 4 for (batch_size, ntiles, N, f, tile_size)+(alphabet_size,)*(order+1)
             Q1 = tf.reshape(Q, ((1,)*batch_dims)+(1,)+Q.shape) # shape: (         1,      1, 1, 1,         1, K)+(alphabet_size,)*(order+1)
             X1 = tf.expand_dims(X, -(self.k_dims+1)) #           shape: (batch_size, ntiles, N, f, tile_size, 1)+(alphabet_size,)*(order+1)
             R = tf.multiply(X1, Q1) # shape: (batch_size, ntiles, N, f, tile_size, K)+(alphabet_size,)*(order+1)
-            assert R.shape == X.shape[:ts_dim] + (self.data.tile_size,) + Q.shape, \
-                f"Expected shape {X.shape[:ts_dim] + (self.data.tile_size,) + Q.shape}, got {R.shape}"
+            assert R.shape == X.shape[:ts_dim] + (data.tile_size,) + Q.shape, \
+                f"Expected shape {X.shape[:ts_dim] + (data.tile_size,) + Q.shape}, got {R.shape}"
             R1 = tf.reduce_sum(R, axis=list(range(-self.k_dims,0))) # shape: (batch_size, ntiles, N, f, tile_size, K), sum over alphabet_size dimensions
             
             # at this point, each kmer in X was multiplied with Q and the result is in R1
@@ -434,8 +442,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
             # logging.debug(f"[background_model.scan_data] >>> S shape after sliding window: {S.shape}")
             S = tf.reduce_sum(S, axis=-2) # shape: (batch_size, ntiles, N, f, tile_size-width+1, K), sum over new width dimension
             # logging.debug(f"[background_model.scan_data] >>> S shape after sum: {S.shape}")
-            assert S.shape[-2:] == (self.data.tile_size - window_size + 1, self.num_models), \
-                f"Expected ({self.data.tile_size - window_size + 1}, {self.num_models}) in scores, got {S.shape}"
+            assert S.shape[-2:] == (data.tile_size - window_size + 1, self.num_models), \
+                f"Expected ({data.tile_size - window_size + 1}, {self.num_models}) in scores, got {S.shape}"
 
             # we're only interested in the best model match at each position, so we take the max over the last dimension
             S = tf.reduce_max(S, axis=-1, keepdims=True) # shape: (batch_size, ntiles, N, f, tile_size-width+1, 1)

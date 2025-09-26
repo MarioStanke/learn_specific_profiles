@@ -710,6 +710,9 @@ class SpecificProfile(tf.keras.Model): # type: ignore
                     logging.warning(f"[model.profile_cleanup] >>> Match sequence has wrong length: {len(matchseq)}" \
                                     + f", expected {self.setup.k}. Site {site} seems out of bounds")
                     
+            # do the scan of the data with the background models _again_ to update self.Z_Q, otherwise training would be faulty from now on
+            self.Z_Q = self.setup.Q.scan_data(window_size=self.P_logit.shape[0]) # shape (batches, ntiles, N, 6, tile_size-k+1, 1)
+                    
             # for debugging purpose, report the whole k+2s-profile as well
             whole_scores = tf.reduce_max( self.get_profile_scores(self.data.getDataset(), self.getP()), axis=1 ).numpy()
             whole_losses, _ = self.get_profile_losses(self.data.getDataset(withPosTracking=True), 

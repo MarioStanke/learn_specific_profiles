@@ -267,9 +267,6 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             self.P_logit_init = self.setup.initProfiles # shape: (k, alphabet_size, U)
             self.P_logit = tf.Variable(self.P_logit_init, trainable=True, name="P_logit")
 
-        # do a one-time scan of the data with the background models
-        self.Z_Q = self.setup.Q.scan_data(window_size=self.P_logit.shape[0]) # shape (batches, ntiles, N, 6, tile_size-k+1, 1)
-
         # initialize phylogenetic model
         if self.setup.phylo_t > 0.0:
             if self.setup.k != 20:
@@ -494,10 +491,16 @@ class SpecificProfile(tf.keras.Model): # type: ignore
             loss = tf.reduce_sum(loss_by_unit)
             
         grad = tape.gradient(loss, self.P_logit)
+
+        if self.debug_mode:
+            pre_P_logit = self.P_logit.numpy()
+            pre_P = self.getP().numpy()
+
         self.opt.apply_gradients([(grad, self.P_logit)])
         
         if self.debug_mode:
-            logging.debug(f"[model.train_step] >>> loss: {loss.numpy()}, score: {score.numpy()}, grad[0,:,0]: {grad.numpy()[0,:,0]}")
+            logging.debug(f"[model.train_step] >>> loss_by_unit: {loss_by_unit.numpy()}, loss: {loss.numpy()}, score: {score.numpy()}, grad[0,:,0]: {grad.numpy()[0,:,0]}")
+            logging.debug(f"[model.train_step] >>> pre P_logit[0,:,0]: {pre_P_logit[0,:,0]}, pre P[0,:,0]: {pre_P[0,:,0]}")
             logging.debug(f"[model.train_step] >>> P_logit[0,:,0]: {self.P_logit.numpy()[0,:,0]}, P[0,:,0]: {self.getP().numpy()[0,:,0]}")
             
         return S, R, loss, grad # DEBUG: return grad for debugging purposes, remove later

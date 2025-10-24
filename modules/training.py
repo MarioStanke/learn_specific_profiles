@@ -11,6 +11,7 @@ from time import time
 
 from . import Links
 from . import model
+from . import model_legacy
 from . import ModelDataSet
 from . import plotting
 from . import ProfileFindingSetup as setup
@@ -480,13 +481,15 @@ def trainAndEvaluate(runID,
     # build and randomly initialize profile model
     tf.keras.backend.clear_session()  # type: ignore # avoid memory cluttering by remains of old models
     logging.info(f"[training.trainAndEvaluate] >>> Num GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
-    specProModel = model.SpecificProfile(setup = trainsetup,
-                                         rand_seed = rand_seed)
     
     if legacy_Z:
-        specProModel.legacy_Z = True
+        specProModel = model_legacy.SpecificProfile(setup = trainsetup,
+                                                    rand_seed = rand_seed)
         logging.info("[training.trainAndEvaluate] >>> Using legacy Z-score calculation for training.")
-
+    else:
+        specProModel = model.SpecificProfile(setup = trainsetup,
+                                             rand_seed = rand_seed)
+        
     # start training
     start = time()
     try:
@@ -496,7 +499,7 @@ def trainAndEvaluate(runID,
             # do not train, but return best initial profiles
             for _ in range(trainsetup.n_best_profiles):
                 mean_losses = specProModel.get_mean_losses(specProModel.data.getDataset(withPosTracking = True), 
-                                                        specProModel.getP(), specProModel.P_logit) # (U)
+                                                           specProModel.getP(), specProModel.P_logit) # (U)
                 best_profile = tf.argmin(mean_losses).numpy()
                 specProModel.profile_cleanup(best_profile, 0)
 

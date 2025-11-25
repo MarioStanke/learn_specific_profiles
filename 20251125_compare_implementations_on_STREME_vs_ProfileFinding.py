@@ -21,9 +21,9 @@ def run_experiment(legacy_Z: bool,
         'pf': None,
         'pf_init': None
     }
-    confstr = '' if pf_config is None else f"  --config {pf_config}"
-    legacystr = '\\\n  --legacy-Z' if legacy_Z else ''
-    for k, add_wd, add_opt in [('pf', '', ''), ('pf_init', '_init', '\\\n  --do-not-train')]:
+    confstr = '' if pf_config is None else f"--config {pf_config}"
+    legacystr = ' \\\n  --legacy-Z' if legacy_Z else ''
+    for k, add_wd, add_opt in [('pf', '', ''), ('pf_init', '_init', ' \\\n  --do-not-train')]:
         parts[k] = f"""# run ProfileFinding{add_wd}
 
 mkdir -p {wd}/${{basename}}/profilefinding{add_wd}

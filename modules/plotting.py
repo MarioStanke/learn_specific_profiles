@@ -53,8 +53,11 @@ def plotHistory(history):
     ax[0].set_title('Training loss')
     ax[0].legend()
 
-    ax[1].plot(epochs, history.Rmax, 'bo', label = 'Rmax')
-    ax[1].plot(epochs, history.Rmin, 'b+', label = 'Rmin')
+    try: # in new model, there is no R anymore
+        ax[1].plot(epochs, history.Rmax, 'bo', label = 'Rmax')
+        ax[1].plot(epochs, history.Rmin, 'b+', label = 'Rmin')
+    except AttributeError:
+        pass
     ax[1].plot(epochs, history.Smax, 'go', label = 'Smax')
     ax[1].plot(epochs, history.Smin, 'g+', label = 'Smin')
     ax[1].set_title('Training R and S')

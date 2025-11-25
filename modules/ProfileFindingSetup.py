@@ -86,7 +86,7 @@ class ProfileFindingTrainingSetup:
             assert self.Q_lr_patience > 0, f"[ERROR] >>> {self.Q_lr_patience=} must be > 0"
             assert self.Q_lr_factor != 0, f"[ERROR] >>> {self.Q_lr_factor=} must not be 0"
             assert self.Q_epochs > 0, f"[ERROR] >>> {self.Q_epochs=} must be > 0"
-            self.Q = background_model.TrainedQ(self.data, self.Q_num_models, self.Q_order, self.Q_rand_seed)
+            self.Q = background_model.TrainedQ(self.data.alphabet, self.Q_num_models, self.Q_order, self.Q_rand_seed)
             # train background distribution from data
             self.Q.train(lr=self.Q_learning_rate, lr_factor=self.Q_lr_factor, lr_patience=self.Q_lr_patience, 
                          epochs=self.Q_epochs)

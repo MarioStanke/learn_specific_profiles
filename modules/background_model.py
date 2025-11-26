@@ -500,18 +500,35 @@ class TrainedQ(tf.keras.Model): # type: ignore
             np.ndarray: average Q of shape (alphabet_size,)
         """
         # note: for num_models = 1 and order = 0, Q_avg should be just self.getQ()[0]
-        try:
-            Q = self.getQ().numpy() # shape: (K,)+(alphabet_size,)*(order+1)
-            m = self.getM().numpy() # shape: (K,)
-        except Exception as e:
-            logging.error(f"[background_model.get_avg_Q] >>> Error converting Q or m to numpy: {e}")
-            logging.info(f"[background_model.get_avg_Q] >>> Trying to convert using tf.make_ndarray instead")
+        # Prefer direct .numpy() when tensors are eager tensors, otherwise use K.get_value
+        # which will evaluate tensors in graph mode (SymbolicTensor) or eager mode.
+        Q_t = self.getQ()  # shape: (K,)+(alphabet_size,)*(order+1)
+        m_t = self.getM()  # shape: (K,)
+        if hasattr(Q_t, "numpy") and hasattr(m_t, "numpy"):
+            # eager tensors expose .numpy()
+            Q = Q_t.numpy()
+            m = m_t.numpy()
+        else:
+            # fallback for graph/symbolic tensors: try to get concrete values
             try:
-                Q = tf.make_ndarray(self.getQ()) # shape: (K,)+(alphabet_size,)*(order+1)
-                m = tf.make_ndarray(self.getM()) # shape: (K,)
+                # get_value is a safe fallback for individual tensors
+                Q = tf.keras.backend.get_value(Q_t)
+                m = tf.keras.backend.get_value(m_t)
             except Exception as e:
-                logging.error(f"[background_model.get_avg_Q] >>> Error converting Q or m to numpy using tf.make_ndarray: {e}")
-                raise e
+                logging.debug(f"[background_model.get_avg_Q] >>> Could not get tensor values via K.get_value: {e}")
+                logging.debug(f"[background_model.get_avg_Q] >>> Trying to force eager execution temporarily...")
+                # last resort: temporarily force functions to run eagerly to evaluate tensors
+                try:
+                    orig_eager = tf.config.functions_run_eagerly()
+                    tf.config.run_functions_eagerly(True)
+                except Exception as e:
+                    orig_eager = None
+                try:
+                    Q = Q_t.numpy()
+                    m = m_t.numpy()
+                finally:
+                    if orig_eager is not None:
+                        tf.config.run_functions_eagerly(orig_eager)
         
         for _ in range(self.k_dims):
             m = np.expand_dims(m, axis=-1)

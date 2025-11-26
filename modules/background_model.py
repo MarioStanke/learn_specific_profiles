@@ -500,10 +500,19 @@ class TrainedQ(tf.keras.Model): # type: ignore
             np.ndarray: average Q of shape (alphabet_size,)
         """
         # note: for num_models = 1 and order = 0, Q_avg should be just self.getQ()[0]
-        # Q = self.getQ().numpy() # shape: (K,)+(alphabet_size,)*(order+1)
-        # m = self.getM().numpy() # shape: (K,)
-        Q = tf.make_ndarray(self.getQ()) # shape: (K,)+(alphabet_size,)*(order+1)
-        m = tf.make_ndarray(self.getM()) # shape: (K,)
+        try:
+            Q = self.getQ().numpy() # shape: (K,)+(alphabet_size,)*(order+1)
+            m = self.getM().numpy() # shape: (K,)
+        except Exception as e:
+            logging.error(f"[background_model.get_avg_Q] >>> Error converting Q or m to numpy: {e}")
+            logging.info(f"[background_model.get_avg_Q] >>> Trying to convert using tf.make_ndarray instead")
+            try:
+                Q = tf.make_ndarray(self.getQ()) # shape: (K,)+(alphabet_size,)*(order+1)
+                m = tf.make_ndarray(self.getM()) # shape: (K,)
+            except Exception as e:
+                logging.error(f"[background_model.get_avg_Q] >>> Error converting Q or m to numpy using tf.make_ndarray: {e}")
+                raise e
+        
         for _ in range(self.k_dims):
             m = np.expand_dims(m, axis=-1)
         assert len(Q.shape) == len(m.shape) == self.k_dims + 1, \

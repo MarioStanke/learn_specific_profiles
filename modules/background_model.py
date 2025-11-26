@@ -500,8 +500,10 @@ class TrainedQ(tf.keras.Model): # type: ignore
             np.ndarray: average Q of shape (alphabet_size,)
         """
         # note: for num_models = 1 and order = 0, Q_avg should be just self.getQ()[0]
-        Q = self.getQ().numpy() # shape: (K,)+(alphabet_size,)*(order+1)
-        m = self.getM().numpy() # shape: (K,)
+        # Q = self.getQ().numpy() # shape: (K,)+(alphabet_size,)*(order+1)
+        # m = self.getM().numpy() # shape: (K,)
+        Q = tf.make_ndarray(self.getQ()) # shape: (K,)+(alphabet_size,)*(order+1)
+        m = tf.make_ndarray(self.getM()) # shape: (K,)
         for _ in range(self.k_dims):
             m = np.expand_dims(m, axis=-1)
         assert len(Q.shape) == len(m.shape) == self.k_dims + 1, \

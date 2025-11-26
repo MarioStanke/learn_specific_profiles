@@ -512,23 +512,11 @@ class TrainedQ(tf.keras.Model): # type: ignore
             # fallback for graph/symbolic tensors: try to get concrete values
             try:
                 # get_value is a safe fallback for individual tensors
-                Q = tf.keras.backend.get_value(Q_t)
-                m = tf.keras.backend.get_value(m_t)
+                Q = tf.identity(Q_t).numpy()
+                m = tf.identity(m_t).numpy()
             except Exception as e:
-                logging.debug(f"[background_model.get_avg_Q] >>> Could not get tensor values via K.get_value: {e}")
-                logging.debug(f"[background_model.get_avg_Q] >>> Trying to force eager execution temporarily...")
-                # last resort: temporarily force functions to run eagerly to evaluate tensors
-                try:
-                    orig_eager = tf.config.functions_run_eagerly()
-                    tf.config.run_functions_eagerly(True)
-                except Exception as e:
-                    orig_eager = None
-                try:
-                    Q = Q_t.numpy()
-                    m = m_t.numpy()
-                finally:
-                    if orig_eager is not None:
-                        tf.config.run_functions_eagerly(orig_eager)
+                logging.error(f"[background_model.get_avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
+                raise e
         
         for _ in range(self.k_dims):
             m = np.expand_dims(m, axis=-1)

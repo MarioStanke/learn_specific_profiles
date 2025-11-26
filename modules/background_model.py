@@ -521,11 +521,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
         else:
             # fallback for graph/symbolic tensors: try to get concrete values
             try:
-                # get_value is a safe fallback for individual tensors
-                Qi = _idt(Q_t)
-                Q = Qi.numpy()
-                mi = _idt(m_t)
-                m = mi.numpy()
+                Q = tf.nn.softmax(self.Q_logit.numpy(), axis=-1, name="Q").numpy()
+                m = tf.nn.softmax(self.m_logit.numpy(), axis=0, name="m").numpy()
             except Exception as e:
                 logging.error(f"[background_model.get_avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
                 raise e

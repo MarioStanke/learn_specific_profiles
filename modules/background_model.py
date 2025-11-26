@@ -522,8 +522,10 @@ class TrainedQ(tf.keras.Model): # type: ignore
             # fallback for graph/symbolic tensors: try to get concrete values
             try:
                 # get_value is a safe fallback for individual tensors
-                Q = _idt(Q_t).numpy()
-                m = _idt(m_t).numpy()
+                Qi = _idt(Q_t)
+                Q = Qi.numpy()
+                mi = _idt(m_t)
+                m = mi.numpy()
             except Exception as e:
                 logging.error(f"[background_model.get_avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
                 raise e

@@ -213,6 +213,16 @@ import logging
 import tensorflow as tf
 import tensorflow_text as tftext
 
+
+
+@tf.function
+def _idt(tensor):
+    # Inside the function, you can't directly use .numpy()
+    identity_tensor = tf.identity(tensor)
+    return identity_tensor  # Return a tensor that's representable outside the function
+
+
+
 class TrainedQ(tf.keras.Model): # type: ignore
     def __init__(self, 
                 #  data: ModelDataSet.ModelDataSet,
@@ -512,8 +522,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
             # fallback for graph/symbolic tensors: try to get concrete values
             try:
                 # get_value is a safe fallback for individual tensors
-                Q = tf.identity(Q_t).numpy()
-                m = tf.identity(m_t).numpy()
+                Q = _idt(Q_t).numpy()
+                m = _idt(m_t).numpy()
             except Exception as e:
                 logging.error(f"[background_model.get_avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
                 raise e

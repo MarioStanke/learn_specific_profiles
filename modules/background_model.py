@@ -267,6 +267,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
         logging.debug(f"[background_model.__init__] >>> Q_logit shape: {self.Q_logit.shape}, m_logit shape: {self.m_logit.shape}")
 
         self.opt = tf.keras.optimizers.Adam(learning_rate=float(2))
+        self._avg_Q() # initialize avg_Q, update later after training
 
 
     def getQ(self):
@@ -400,6 +401,8 @@ class TrainedQ(tf.keras.Model): # type: ignore
             epoch_count += 1
             run = (epoch_count < max_epochs)
 
+        self._avg_Q() # update avg. Q
+
         return losses # return the mean losses for each epoch
 
 
@@ -503,11 +506,9 @@ class TrainedQ(tf.keras.Model): # type: ignore
     
 
 
-    def get_avg_Q(self):
+    def _avg_Q(self):
         """
-        Get the average 0-order Q from the background models.
-        Returns:
-            np.ndarray: average Q of shape (alphabet_size,)
+        Compute the average 0-order Q from the background models.
         """
         # note: for num_models = 1 and order = 0, Q_avg should be just self.getQ()[0]
         # Prefer direct .numpy() when tensors are eager tensors, otherwise use K.get_value
@@ -524,7 +525,7 @@ class TrainedQ(tf.keras.Model): # type: ignore
                 Q = tf.nn.softmax(self.Q_logit.numpy(), axis=-1, name="Q").numpy()
                 m = tf.nn.softmax(self.m_logit.numpy(), axis=0, name="m").numpy()
             except Exception as e:
-                logging.error(f"[background_model.get_avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
+                logging.error(f"[background_model._avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
                 raise e
         
         for _ in range(self.k_dims):
@@ -538,4 +539,51 @@ class TrainedQ(tf.keras.Model): # type: ignore
         assert Q_avg.shape[0] == len(self.alphabet), f"Expected Q_avg shape ({len(self.alphabet)},), got {Q_avg.shape}"
         Q_avg = Q_avg / Q_avg.sum()  # normalize to sum to 1
         assert np.isclose(Q_avg.sum(), 1.0), f"Expected sum of Q_avg to be 1.0, got {Q_avg.sum()}"
-        return Q_avg
+        self.Q_avg = Q_avg
+
+
+
+    def get_avg_Q(self):
+        """
+        Get the average 0-order Q from the background models.
+        Returns:
+            np.ndarray: average Q of shape (alphabet_size,)
+        """
+        return self.Q_avg
+
+    # def get_avg_Q(self):
+    #     """
+    #     Get the average 0-order Q from the background models.
+    #     Returns:
+    #         np.ndarray: average Q of shape (alphabet_size,)
+    #     """
+    #     # note: for num_models = 1 and order = 0, Q_avg should be just self.getQ()[0]
+    #     # Prefer direct .numpy() when tensors are eager tensors, otherwise use K.get_value
+    #     # which will evaluate tensors in graph mode (SymbolicTensor) or eager mode.
+    #     Q_t = self.getQ()  # shape: (K,)+(alphabet_size,)*(order+1)
+    #     m_t = self.getM()  # shape: (K,)
+    #     if hasattr(Q_t, "numpy") and hasattr(m_t, "numpy"):
+    #         # eager tensors expose .numpy()
+    #         Q = Q_t.numpy()
+    #         m = m_t.numpy()
+    #     else:
+    #         # fallback for graph/symbolic tensors: try to get concrete values
+    #         try:
+    #             Q = tf.nn.softmax(self.Q_logit.numpy(), axis=-1, name="Q").numpy()
+    #             m = tf.nn.softmax(self.m_logit.numpy(), axis=0, name="m").numpy()
+    #         except Exception as e:
+    #             logging.error(f"[background_model.get_avg_Q] >>> Could not convert tensors to numpy arrays: {e}")
+    #             raise e
+        
+    #     for _ in range(self.k_dims):
+    #         m = np.expand_dims(m, axis=-1)
+    #     assert len(Q.shape) == len(m.shape) == self.k_dims + 1, \
+    #         f"Expected Q and m shape {self.k_dims+1}, got {Q.shape=} and m shape {m.shape=}"
+    #     Q_avg = np.mean(Q*m, axis=0) # shape: (alphabet_size,)*(order+1)
+    #     Q_avg = np.mean(Q_avg, axis=tuple(range(self.order))) # average over the first order dimensions, shape: (alphabet_size,)
+
+    #     assert len(Q_avg.shape) == 1, f"Expected Q_avg shape (alphabet_size,), got {Q_avg.shape}"
+    #     assert Q_avg.shape[0] == len(self.alphabet), f"Expected Q_avg shape ({len(self.alphabet)},), got {Q_avg.shape}"
+    #     Q_avg = Q_avg / Q_avg.sum()  # normalize to sum to 1
+    #     assert np.isclose(Q_avg.sum(), 1.0), f"Expected sum of Q_avg to be 1.0, got {Q_avg.sum()}"
+    #     return Q_avg

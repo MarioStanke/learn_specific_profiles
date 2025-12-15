@@ -147,9 +147,9 @@ def main():
     parser.add_argument('--array', help = 'Provide a SLURM --array argument to overwrite the default behaviour of' \
                         + 'creating an array with one job per experiment per run.', required=False, type=str, 
                         default=None)
-    parser.add_argument('--array-nice', type=int, required=False,
-                        help='If set, limit the number of concurrent array jobs to this number to avoid overloading ' \
-                            + 'the cluster. Effectively adds `%<number>` to the `--array` argument.',)
+    parser.add_argument('--array-nice', help = 'If set, limit the number of concurrent array jobs to this number to ' \
+                        + 'avoid overloading the cluster. Effectively adds `%<number>` to the `--array` argument.',
+                        required = False, type = int, default = None)
     parser.add_argument('--skip-pf-init', help = 'Skip the ProfileFinding do-not-train run', action='store_true',
                         default = False)
     parser.add_argument('--skip-pf', help = 'Skip the ProfileFinding run', action='store_true', default = False)

@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 
 def run_experiment(wd: Path, primary_data: Path, control_data: Path, ref_motifs: pd.DataFrame, jolma: Path,
-                   jobname: str, n: int, mem: int, partition: str, time: str, array: str = None, pf_config: Path = None,
-                   run_pf: bool = True, run_streme: bool = True, run_pf_init: bool = True):
+                   jobname: str, n: int, mem: int, partition: str, time: str, array: str = None, array_nice: int = None,
+                   pf_config: Path = None, run_pf: bool = True, run_streme: bool = True, run_pf_init: bool = True):
     (wd / 'slurmout').mkdir(parents=True, exist_ok=True)
 
     parts = {
@@ -69,7 +69,9 @@ popd
 """
 
     # Create the SLURM script for an array job
-    arrayopt = f"{array}" if array else f"0-{len(ref_motifs.index)-1}" 
+    arrayopt = f"{array}" if array else f"0-{len(ref_motifs.index)-1}"
+    if array_nice is not None:
+        arrayopt += f"%{array_nice}"
     script = f"""#!/bin/bash
 
 #SBATCH --job-name={jobname}
@@ -145,6 +147,9 @@ def main():
     parser.add_argument('--array', help = 'Provide a SLURM --array argument to overwrite the default behaviour of' \
                         + 'creating an array with one job per experiment per run.', required=False, type=str, 
                         default=None)
+    parser.add_argument('--array-nice', type=int, required=False,
+                        help='If set, limit the number of concurrent array jobs to this number to avoid overloading ' \
+                            + 'the cluster. Effectively adds `%<number>` to the `--array` argument.',)
     parser.add_argument('--skip-pf-init', help = 'Skip the ProfileFinding do-not-train run', action='store_true',
                         default = False)
     parser.add_argument('--skip-pf', help = 'Skip the ProfileFinding run', action='store_true', default = False)
@@ -195,6 +200,7 @@ def main():
                     partition=args.partition,
                     time=args.time,
                     array=args.array,
+                    array_nice=args.array_nice,
                     pf_config=config,
                     run_pf=not args.skip_pf,
                     run_streme=not args.skip_streme,
@@ -222,6 +228,7 @@ def main():
                             partition=args.partition,
                             time=args.time,
                             array=args.array,
+                            array_nice=args.array_nice,
                             pf_config=config,
                             run_pf=not args.skip_pf,
                             run_streme=not args.skip_streme,
@@ -255,6 +262,7 @@ def main():
                             partition=args.partition,
                             time=args.time,
                             array=args.array,
+                            array_nice=args.array_nice,
                             pf_config=config,
                             run_pf=not args.skip_pf,
                             run_streme=not args.skip_streme,
@@ -292,6 +300,7 @@ def main():
                     partition=args.partition,
                     time=args.time,
                     array=args.array,
+                    array_nice=args.array_nice,
                     pf_config=config,
                     run_pf=not args.skip_pf,
                     run_streme=not args.skip_streme,

@@ -24,7 +24,7 @@ class SingleRunResult:
 
 
 def load_single_run(wd: Path, require_profileFinding: bool = False, require_streme: bool = False, 
-                    require_profileFinding_init: bool = False) -> SingleRunResult:
+                    require_profileFinding_init: bool = False, allow_failed: bool = True) -> SingleRunResult:
     """ Enter the working directory of a single run containing the (40) experiment dirs and load the results """
     assert wd.is_dir(), f"Working directory {wd} does not exist"
 
@@ -52,21 +52,30 @@ def load_single_run(wd: Path, require_profileFinding: bool = False, require_stre
                 ['profilefinding', 'streme', 'profilefinding_init'],
                 [result.profilefinding, result.streme, result.profilefinding_init]
             ):
+                # check if required directories/files exist and die if necessary
                 if require:
                     assert (expdir / model).is_dir(), f"Required directory {expdir / model} does not exist"
-                    assert (expdir / model / "tomtom").is_dir(), \
-                        f"Required directory {expdir / model / 'tomtom'} does not exist"
-                    assert (expdir / model / "tomtom" / "tomtom.tsv").is_file(), \
-                        f"Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} does not exist"
+                    if not allow_failed:
+                        assert (expdir / model / "tomtom").is_dir(), \
+                            f"Required directory {expdir / model / 'tomtom'} does not exist"
+                        assert (expdir / model / "tomtom" / "tomtom.tsv").is_file(), \
+                            f"Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} does not exist"
                 else:
                     if not (expdir / model).is_dir():
                         # print(f"[DEBUG] >>> Optional directory {expdir / model} does not exist, skipping")
                         continue
                     if not (expdir / model / "tomtom").is_dir():
                         # unexpected, if the model dir exists, the tomtom dir should also exist
+                        if not allow_failed:
+                            raise AssertionError(f"Required directory {expdir / model / 'tomtom'} does not exist")
+                        
                         print(f"[WARNING] >>> Expected directory {expdir / model / 'tomtom'} does not exist, skipping")
                         continue
                     if not (expdir / model / "tomtom" / "tomtom.tsv").is_file():
+                        if not allow_failed:
+                            raise AssertionError(f"Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} " \
+                                                 + "does not exist")
+                        
                         print(f"[WARNING] >>> Expected results file {expdir / model / 'tomtom' / 'tomtom.tsv'} " \
                               + "does not exist, skipping")
                         continue

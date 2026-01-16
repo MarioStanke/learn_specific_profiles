@@ -55,29 +55,23 @@ def load_single_run(wd: Path, require_profileFinding: bool = False, require_stre
                 # check if required directories/files exist and die if necessary
                 if require:
                     assert (expdir / model).is_dir(), f"Required directory {expdir / model} does not exist"
-                    if not allow_failed:
-                        assert (expdir / model / "tomtom").is_dir(), \
-                            f"Required directory {expdir / model / 'tomtom'} does not exist"
-                        assert (expdir / model / "tomtom" / "tomtom.tsv").is_file(), \
-                            f"Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} does not exist"
                 else:
                     if not (expdir / model).is_dir():
                         # print(f"[DEBUG] >>> Optional directory {expdir / model} does not exist, skipping")
                         continue
+
+                if not allow_failed:
+                    assert (expdir / model / "tomtom").is_dir(), \
+                        f"Required directory {expdir / model / 'tomtom'} does not exist"
+                    assert (expdir / model / "tomtom" / "tomtom.tsv").is_file(), \
+                        f"Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} does not exist"
+                else:
                     if not (expdir / model / "tomtom").is_dir():
-                        # unexpected, if the model dir exists, the tomtom dir should also exist
-                        if not allow_failed:
-                            raise AssertionError(f"Required directory {expdir / model / 'tomtom'} does not exist")
-                        
-                        print(f"[WARNING] >>> Expected directory {expdir / model / 'tomtom'} does not exist, skipping")
+                        print(f"[WARNING] >>> Required directory {expdir / model / 'tomtom'} does not exist, skipping")
                         continue
                     if not (expdir / model / "tomtom" / "tomtom.tsv").is_file():
-                        if not allow_failed:
-                            raise AssertionError(f"Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} " \
-                                                 + "does not exist")
-                        
-                        print(f"[WARNING] >>> Expected results file {expdir / model / 'tomtom' / 'tomtom.tsv'} " \
-                              + "does not exist, skipping")
+                        print(f"[WARNING] >>> Required results file {expdir / model / 'tomtom' / 'tomtom.tsv'} " \
+                                + "does not exist, skipping")
                         continue
             
                 # load tomtom results
@@ -109,7 +103,7 @@ def load_trained_motif(wd: Path, load_idx: int = 0) -> TrainedMotif:
     assert wd.is_dir(), f"Working directory {wd} does not exist"
     assert (wd / "tomtom" / "tomtom.tsv").is_file(), \
         f"Required results file {wd / 'tomtom' / 'tomtom.tsv'} does not exist"
-    motiffilename = "profiles.meme" if wd.name == "profilefinding" else "streme.txt"
+    motiffilename = "profiles.meme" if wd.name in ["profilefinding", "profilefinding_init"] else "streme.txt"
     assert (wd / motiffilename).is_file(), f"Required results file {wd / motiffilename} does not exist"
 
     tomtom = pd.read_csv(wd / "tomtom" / "tomtom.tsv", sep="\t", comment="#", header=0)
@@ -173,6 +167,15 @@ def compare_motifs(motifs: list[TrainedMotif], figfile: Path, alphabet: list[str
     if show:
         plt.show()
     plt.close()
+
+
+
+def success_rate(ppvals: list[float], threshold: float = 5) -> float:
+    """ Calculate the success rate (%) of a model given a SingleModelResult 
+    and a ppvalue threshold (usually a number beween 3 and 10) """
+    if len(ppvals) == 0:
+        return 0
+    return 100 * sum([1 for ppval in ppvals if ppval >= threshold]) / len(ppvals)
 
 
 # === DEPRECATED FUNCTIONS BELOW === #

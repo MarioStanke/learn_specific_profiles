@@ -10,6 +10,7 @@ import itertools
 import json
 import os
 from pathlib import Path
+from types import NoneType
 import pandas as pd
 
 def run_experiment(legacy_Z: bool, 
@@ -434,9 +435,9 @@ def main():
     if config:
         with open(config, "r") as f:
             config_data = json.load(f)
-        assert all(isinstance(v, (int, float, str, bool, list)) for v in config_data.values()), \
+        assert all(isinstance(v, (int, float, str, bool, list, NoneType)) for v in config_data.values()), \
             "Config file contains values of unsupported types: " \
-                + f"{set(type(v) for v in config_data.values()) - {int, float, str, bool, list}}"
+                + f"{set(type(v) for v in config_data.values()) - {int, float, str, bool, list, NoneType}}"
         grid_params = {k: v for k, v in config_data.items() if isinstance(v, list)}
         # single_params = {k: v for k, v in config_data.items() if not isinstance(v, list)}
         if grid_params:

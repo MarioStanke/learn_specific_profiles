@@ -6,6 +6,7 @@ new implementation only.
 """ 
 
 import argparse
+import itertools
 import json
 import os
 from pathlib import Path
@@ -134,67 +135,9 @@ source ~/genomegraph/.venv/bin/activate
 
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Run model vs STREME on STREME benchmark data')
-    parser.add_argument('--wd', help = 'Working directory for the run', required = True, type = str)
-    parser.add_argument("--config", metavar="PATH", type=str, required=False, 
-                        help="JSON object with training configuration. Allowed keys: all arguments to " \
-                        + "20241008_runModel.py except `fasta`, `legacy-Z` and `out`. " \
-                        + "Keys may not start with dashes (`--`), otherwise there is no distinction between dashes " \
-                        + "and underscores (`_`) and they are converted as needed.")
-    parser.add_argument('--no-submit', help = 'Do not submit the job, only write the script', action='store_true', 
-                        default = False)
-    parser.add_argument('--mem', help = 'Memory to allocate for the job', required = False, type = int, 
-                        default = 189000)
-    parser.add_argument('--partition', help = 'Partition to use for the job', required = False, type = str,
-                        default = 'snowball')
-    parser.add_argument('--n', help = 'Number of threads to use for the job', required = False, type = int, 
-                        default = 72)
-    parser.add_argument('--time', help = 'Time to allocate for the job, as string accepted by `#SBATCH --time=`', 
-                        required = False, type = str, default = '3-00:00:00')
-    parser.add_argument('--array', help = 'Provide a SLURM --array argument to overwrite the default behaviour of' \
-                        + 'creating an array with one job per experiment per run.', required=False, type=str, 
-                        default=None)
-    parser.add_argument('--array-nice', help = 'If set, limit the number of concurrent array jobs to this number to ' \
-                        + 'avoid overloading the cluster. Effectively adds `%<number>` to the `--array` argument.',
-                        required = False, type = int, default = None)
-    parser.add_argument('--skip-pf-init', help = 'Skip the ProfileFinding do-not-train run', action='store_true',
-                        default = False)
-    parser.add_argument('--skip-pf', help = 'Skip the ProfileFinding run', action='store_true', default = False)
-    parser.add_argument('--skip-streme', help = 'Skip the STREME run', action='store_true', default = False)
-    parser.add_argument('--skip-undiluted', help = 'Skip the undiluted run', action='store_true', default = False)
-    parser.add_argument('--skip-diluted', help = 'Skip the diluted runs', action='store_true', default = False)
-    parser.add_argument('--skip-hybrid', help = 'Skip the hybrid runs', action='store_true', default = False)
-    parser.add_argument('--skip-simulated', help = 'Skip the simulated runs', action='store_true', default = False)
-    parser.add_argument('--simulated-auto-Q-order', help = 'For simulated data, automatically adjust the Q order ' \
-                        + 'in the config based on the directory name (order_X).', action='store_true', default = False)
-    args = parser.parse_args()
-
-    wd = Path(args.wd)
-    wd.mkdir(exist_ok=True)
-
-    datadir = Path("/home/ebelm/genomegraph/data/20250408_STREME_benchmark_revisited")
-    # datadir = Path("/home/matthis/PhD/mnt/brain/genomegraph/data/20250408_STREME_benchmark_revisited") # FOR LOCAL TESTING ONLY!
-    assert datadir.exists(), f"Data directory {datadir} does not exist"
-    assert (datadir / "target_reference_motifs.tsv").exists(), \
-        f"Reference motifs file {datadir / 'target_reference_motifs.tsv'} does not exist"
-    assert (datadir / "target_reference_motifs_hybrid.tsv").exists(), \
-        f"Reference motifs file {datadir / 'target_reference_motifs_hybrid.tsv'} does not exist"
-    assert (datadir / "target_reference_motifs_simulated.tsv").exists(), \
-        f"Reference motifs file {datadir / 'target_reference_motifs_simulated.tsv'} does not exist"
-    assert (datadir / "jolma2013.meme").exists(), f"Jolma motifs file {datadir / 'jolma2013.meme'} does not exist"
-    
-    # check if config file exists
-    config = Path(args.config) if args.config else None
-    if config:
-        assert config.exists(), f"Config file '{config}' does not exist"
-
-    # Load the normal and simulated reference data
-    refs = pd.read_csv(datadir / "target_reference_motifs.tsv", sep="\t", names=['file', 'ref'])
-    refs_simulated = pd.read_csv(datadir / "target_reference_motifs_simulated.tsv", sep="\t", names=['file', 'ref'])
-    
-    # Start runs
-    
+def setup_and_run_jobs(args: argparse.Namespace, wd: Path, datadir: Path, 
+                       refs: pd.DataFrame, refs_simulated: pd.DataFrame,
+                       config: Path):
     if not args.skip_undiluted:
         # check principal existence of the data directories
         assert (datadir / "diluted_dataset" / "1.00" / "primary_sequences").exists(), \
@@ -355,6 +298,153 @@ def main():
                                    run_streme=not args.skip_streme,
                                    run_pf_init=not args.skip_pf_init,
                                    no_submit=args.no_submit)
+
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+
+def generate_grid(grid_config: dict, isolated_optimization: bool = False) -> list[dict]:
+    """Generate a grid of all possible combinations of the given parameters. 
+    
+    The grid is generated by creating a list of dictionaries, where each dictionary represents a combination of 
+    parameters. The keys of the dictionaries are the parameter names and the values are the parameter values.
+
+    If `isolated_optimization` is set to True, only one parameter is varied at a time, while all other parameters are 
+    kept at their default value (the first value in the list). This is useful for isolating the effect of each parameter
+    on the performance of the model and for reducing the total number of runs.
+    """
+    grid = []
+    if isolated_optimization:
+        opt_keys = [k for k in grid_config.keys() if isinstance(grid_config[k], list)]
+        default_config = {k: v[0] if isinstance(v, list) else v for k, v in grid_config.items()}
+        grid.append(default_config)
+        for key in opt_keys:
+            assert len(grid_config[key]) >= 1, f"Parameter {key} has no values in the grid config. " \
+                + "Please provide at least one value for this parameter."
+            if len(grid_config[key]) > 1:
+                # create new grids for this parameter only
+                for value in grid_config[key][1:]:
+                    config = default_config.copy()
+                    config[key] = value
+                    grid.append(config)
+            elif len(grid_config[key]) == 1:
+                print(f"Warning: parameter {key} has only one value in the grid config. " \
+                      + "This parameter will not be optimized, only the single (default) value will be used.")
+
+    else:        
+        keys = list(grid_config.keys())
+        values = [v if isinstance(v, list) else [v] for v in grid_config.values()]
+        gridsize = 1
+        for value in values:
+            gridsize *= len(value)
+        print(f"Grid size: {gridsize} ({len(keys)} parameters)")
+        assert gridsize < 10000, f"Grid size is too large ({gridsize}). Please reduce the number of parameters " \
+                                    + "or the number of values per parameter."
+        assert gridsize > 0, f"Grid size is 0. Please provide at least one value for each parameter in the grid config."
+        # create a grid for all parameters
+        for value_combination in itertools.product(*values):
+            grid.append(dict(zip(keys, value_combination)))
+    
+    return grid
+
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Run model vs STREME on STREME benchmark data')
+    parser.add_argument('--wd', help = 'Working directory for the run', required = True, type = str)
+    parser.add_argument("--config", metavar="PATH", type=str, required=False, 
+                        help="JSON object with training configuration. Allowed keys: all arguments to " \
+                        + "20241008_runModel.py except `fasta`, `legacy-Z` and `out`. " \
+                        + "Keys may not start with dashes (`--`), otherwise there is no distinction between dashes " \
+                        + "and underscores (`_`) and they are converted as needed.")
+    parser.add_argument('--no-submit', help = 'Do not submit the job, only write the script', action='store_true', 
+                        default = False)
+    parser.add_argument('--mem', help = 'Memory to allocate for the job', required = False, type = int, 
+                        default = 189000)
+    parser.add_argument('--partition', help = 'Partition to use for the job', required = False, type = str,
+                        default = 'snowball')
+    parser.add_argument('--n', help = 'Number of threads to use for the job', required = False, type = int, 
+                        default = 72)
+    parser.add_argument('--time', help = 'Time to allocate for the job, as string accepted by `#SBATCH --time=`', 
+                        required = False, type = str, default = '3-00:00:00')
+    parser.add_argument('--array', help = 'Provide a SLURM --array argument to overwrite the default behaviour of' \
+                        + 'creating an array with one job per experiment per run.', required=False, type=str, 
+                        default=None)
+    parser.add_argument('--array-nice', help = 'If set, limit the number of concurrent array jobs to this number to ' \
+                        + 'avoid overloading the cluster. Effectively adds `%<number>` to the `--array` argument.',
+                        required = False, type = int, default = None)
+    parser.add_argument('--skip-pf-init', help = 'Skip the ProfileFinding do-not-train run', action='store_true',
+                        default = False)
+    parser.add_argument('--skip-pf', help = 'Skip the ProfileFinding run', action='store_true', default = False)
+    parser.add_argument('--skip-streme', help = 'Skip the STREME run', action='store_true', default = False)
+    parser.add_argument('--skip-undiluted', help = 'Skip the undiluted run', action='store_true', default = False)
+    parser.add_argument('--skip-diluted', help = 'Skip the diluted runs', action='store_true', default = False)
+    parser.add_argument('--skip-hybrid', help = 'Skip the hybrid runs', action='store_true', default = False)
+    parser.add_argument('--skip-simulated', help = 'Skip the simulated runs', action='store_true', default = False)
+    parser.add_argument('--simulated-auto-Q-order', help = 'For simulated data, automatically adjust the Q order ' \
+                        + 'in the config based on the directory name (order_X).', action='store_true', default = False)
+    parser.add_argument('--grid-isolated-optimization', help = 'If a config file is provided with grid search ' \
+                        + 'parameters (lists of values), perform isolated optimization, i.e., vary only one ' \
+                        + 'parameter at a time while keeping all others at their default value (the first ' \
+                        + 'value in the list).', action='store_true', default = False)
+    args = parser.parse_args()
+
+    wd = Path(args.wd)
+    wd.mkdir(exist_ok=True)
+
+    datadir = Path("/home/ebelm/genomegraph/data/20250408_STREME_benchmark_revisited")
+    # datadir = Path("/home/matthis/PhD/mnt/brain/genomegraph/data/20250408_STREME_benchmark_revisited") # FOR LOCAL TESTING ONLY!
+    assert datadir.exists(), f"Data directory {datadir} does not exist"
+    assert (datadir / "target_reference_motifs.tsv").exists(), \
+        f"Reference motifs file {datadir / 'target_reference_motifs.tsv'} does not exist"
+    assert (datadir / "target_reference_motifs_hybrid.tsv").exists(), \
+        f"Reference motifs file {datadir / 'target_reference_motifs_hybrid.tsv'} does not exist"
+    assert (datadir / "target_reference_motifs_simulated.tsv").exists(), \
+        f"Reference motifs file {datadir / 'target_reference_motifs_simulated.tsv'} does not exist"
+    assert (datadir / "jolma2013.meme").exists(), f"Jolma motifs file {datadir / 'jolma2013.meme'} does not exist"
+    
+    # check if config file exists
+    config = Path(args.config) if args.config else None
+    if config:
+        assert config.exists(), f"Config file '{config}' does not exist"
+
+    # Load the normal and simulated reference data
+    refs = pd.read_csv(datadir / "target_reference_motifs.tsv", sep="\t", names=['file', 'ref'])
+    refs_simulated = pd.read_csv(datadir / "target_reference_motifs_simulated.tsv", sep="\t", names=['file', 'ref'])
+    
+    # check config (if provided) for grid search parameters, i.e. lists of values instead of single values
+    if config:
+        with open(config, "r") as f:
+            config_data = json.load(f)
+        assert all(isinstance(v, (int, float, str, bool, list)) for v in config_data.values()), \
+            "Config file contains values of unsupported types: " \
+                + f"{set(type(v) for v in config_data.values()) - {int, float, str, bool, list}}"
+        grid_params = {k: v for k, v in config_data.items() if isinstance(v, list)}
+        # single_params = {k: v for k, v in config_data.items() if not isinstance(v, list)}
+        if grid_params:
+            print(f"Config file contains grid search parameters: {grid_params.keys()}. Starting a grid search.")
+            grid = generate_grid(config_data, isolated_optimization=args.grid_isolated_optimization)
+            ngrids = len(grid)
+            print(f"Generated grid with {ngrids} configurations.")
+            # run all grid configurations
+            for i, grid_config in enumerate(grid):
+                print(f"Starting grid search run {i+1}/{len(grid)} with config: {grid_config}")
+                # write grid config to new file in working directory
+                grid_wd = wd / f"grid_{i:0{len(str(ngrids))}d}"
+                grid_wd.mkdir(parents=True, exist_ok=True)
+                grid_config_path = grid_wd / f"config_grid_{i}.json"
+                with open(grid_config_path, "w") as f:
+                    json.dump(grid_config, f, indent=2)
+                # start run with this config
+                setup_and_run_jobs(args, grid_wd, datadir, refs, refs_simulated, grid_config_path)
+
+            return # all grid runs have been started, exit main
+        
+    # Start runs (at this point, either no config or config is valid for single run)
+    setup_and_run_jobs(args, wd, datadir, refs, refs_simulated, config)
+    
 
 
 if __name__ == "__main__":

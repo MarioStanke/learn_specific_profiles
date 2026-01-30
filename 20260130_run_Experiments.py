@@ -25,6 +25,22 @@ def run_experiment(legacy_Z: bool,
         'pf_init': None
     }
     confstr = '' if pf_config is None else f"--config {pf_config}"
+    if pf_config is not None:
+        # load appropriate config values from profilefinding config to apply them to STREME as well
+        with open(pf_config, "r") as f:
+            config_data = json.load(f)
+    else:
+        config_data = {}
+
+    streme_conf = {
+        'order': config_data.get('Q_order', 2),
+        'minw': config_data.get('minw', 8),  # ATTENTION: these have to be put in the config as well to be consistent!
+        'maxw': config_data.get('maxw', 12), #            ProfileFinding will ignore them, k has no effect there
+        'nmotifs': config_data.get('n_best_profiles', 5)
+    }
+    streme_confstr = f"--order {streme_conf['order']} --minw {streme_conf['minw']} " \
+                    + f"--maxw {streme_conf['maxw']} --nmotifs {streme_conf['nmotifs']}"
+    
     legacystr = ' \\\n  --legacy-Z' if legacy_Z else ''
     for k, add_wd, add_opt in [('pf', '', ''), ('pf_init', '_init', ' \\\n  --do-not-train')]:
         parts[k] = f"""# run ProfileFinding{add_wd}
@@ -68,7 +84,7 @@ start=`date +%s`
 streme \\
   --p {primary_data}/$basename.fasta \\
   --n {control_data}/$basename.shuf.fasta \\
-  --oc ./streme --order 2 --minw 8 --maxw 12 --nmotifs 5
+  --oc ./streme {streme_confstr}
 
 tomtom -oc ./streme/tomtom -m ${{refmotif}} -png {jolma} streme/streme.txt
 

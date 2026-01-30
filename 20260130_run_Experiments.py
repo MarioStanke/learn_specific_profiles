@@ -6,6 +6,7 @@ new implementation only.
 """ 
 
 import argparse
+import json
 import os
 from pathlib import Path
 import pandas as pd
@@ -165,6 +166,8 @@ def main():
     parser.add_argument('--skip-diluted', help = 'Skip the diluted runs', action='store_true', default = False)
     parser.add_argument('--skip-hybrid', help = 'Skip the hybrid runs', action='store_true', default = False)
     parser.add_argument('--skip-simulated', help = 'Skip the simulated runs', action='store_true', default = False)
+    parser.add_argument('--simulated-auto-Q-order', help = 'For simulated data, automatically adjust the Q order ' \
+                        + 'in the config based on the directory name (order_X).', action='store_true', default = False)
     args = parser.parse_args()
 
     wd = Path(args.wd)
@@ -299,6 +302,18 @@ def main():
                 continue
             try:
                 int(orderdir.name.split("_")[-1])
+                q_order = int(orderdir.name.split("_")[-1])
+                if args.simulated_auto_Q_order and config:
+                    # load config and modify Q order
+                    with open(config, "r") as f:
+                        config_data = json.load(f)
+                    config_data["Q_order"] = q_order
+                    # write modified config to new file in working directory
+                    (wd / "simulated").mkdir(parents=True, exist_ok=True)
+                    new_config = wd / "simulated" / f"config_simulated_order_{q_order}.json"
+                    with open(new_config, "w") as f:
+                        json.dump(config_data, f, indent=2)
+                    config = new_config
             except ValueError:
                 print(f"Simulated experiments: Skipping {orderdir} as it is not a valid order directory")
                 continue
@@ -323,23 +338,23 @@ def main():
 
                     print(f"Running STREME vs ProfileFinding on {mfreq}")
                     run_experiment(legacy_Z=False,
-                                wd=wd / "simulated" / orderdir.name / "wgEncodeAwgTfbsSydhK562Gata1UcdUniPk.narrowPeak" / mfreq.name,
-                                primary_data=mfreq / "primary_sequences",
-                                control_data=mfreq / "control_sequences",
-                                ref_motifs=refs_simulated,
-                                jolma=datadir / "jolma2013.meme",
-                                jobname=f"simulated_SvPF_{mfreq.name}",
-                                n=args.n,
-                                mem=args.mem,
-                                partition=args.partition,
-                                time=args.time,
-                                array=args.array,
-                                array_nice=args.array_nice,
-                                pf_config=config,
-                                run_pf=not args.skip_pf,
-                                run_streme=not args.skip_streme,
-                                run_pf_init=not args.skip_pf_init,
-                                no_submit=args.no_submit)
+                                   wd=wd / "simulated" / orderdir.name / "wgEncodeAwgTfbsSydhK562Gata1UcdUniPk.narrowPeak" / mfreq.name,
+                                   primary_data=mfreq / "primary_sequences",
+                                   control_data=mfreq / "control_sequences",
+                                   ref_motifs=refs_simulated,
+                                   jolma=datadir / "jolma2013.meme",
+                                   jobname=f"simulated_SvPF_{mfreq.name}",
+                                   n=args.n,
+                                   mem=args.mem,
+                                   partition=args.partition,
+                                   time=args.time,
+                                   array=args.array,
+                                   array_nice=args.array_nice,
+                                   pf_config=config,
+                                   run_pf=not args.skip_pf,
+                                   run_streme=not args.skip_streme,
+                                   run_pf_init=not args.skip_pf_init,
+                                   no_submit=args.no_submit)
 
 
 if __name__ == "__main__":

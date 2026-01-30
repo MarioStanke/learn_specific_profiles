@@ -139,12 +139,12 @@ source ~/genomegraph/.venv/bin/activate
         script += parts['streme']
 
     # Write the script to a file
-    with open(wd / "run_STREME.sh", "w") as f:
+    with open(wd / "run_experiment_slurm.sh", "w") as f:
         f.write(script)
 
     # Submit the job
     if not no_submit:
-        os.system(f"sbatch {wd / 'run_STREME.sh'}")
+        os.system(f"sbatch {wd / 'run_experiment_slurm.sh'}")
 
 
 

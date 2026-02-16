@@ -198,6 +198,9 @@ def get_pretraining_time_from_logs(wd: Path, raise_error: bool = True) -> float:
             match = re.match(r".*background_model\.train.*time: (\d+\.\d+)s", line)
             if match:
                 runtime = float(match.group(1)) # the last occurrence is our closest estimate of the pretraining time
+            elif re.match(r".*\[main\] Start training and evaluation", line):
+                # if we reach the main training loop, we can stop looking for pretraining times
+                break
     
     if runtime is not None:
         return runtime

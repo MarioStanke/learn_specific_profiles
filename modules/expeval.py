@@ -180,14 +180,44 @@ def success_rate(ppvals: list[float], threshold: float = 5) -> float:
 
 
 
-def get_runtime(wd: Path, raise_error: bool = True) -> float:
-    """ Get the runtime in seconds of a single run by reading the logfile.txt file in the given working directory. """
+def get_pretraining_time_from_logs(wd: Path, raise_error: bool = True) -> float:
+    """ Get the pre-training time in seconds of a single run by reading the logfile.txt file 
+    in the given working directory. """
     assert wd.is_dir(), f"Working directory {wd} does not exist"
     logfile = wd / "logfile.txt"
     if raise_error:
-        assert logfile.is_file(), f"Runtime file {logfile} does not exist"
+        assert logfile.is_file(), f"Logfile {logfile} does not exist"
     elif not logfile.is_file():
-        print(f"[WARNING] >>> Runtime file {logfile} does not exist, returning None")
+        print(f"[WARNING] >>> Logfile {logfile} does not exist, returning None")
+        return None
+    
+    # The relevant line is: "[...] [background_model.train] >>> epoch     <N> mean loss = <LOSS>, time: <FLOAT>s"
+    runtime = None
+    with open(logfile, "r") as f:
+        for line in f:
+            match = re.match(r".*background_model\.train.*time: (\d+\.\d+)s", line)
+            if match:
+                runtime = float(match.group(1)) # the last occurrence is our closest estimate of the pretraining time
+    
+    if runtime is not None:
+        return runtime
+    
+    if raise_error:
+        raise ValueError(f"Could not find pre-training time in logfile {logfile}")
+    else:
+        print(f"[WARNING] >>> Could not find pre-training time in logfile {logfile}, returning None")
+        return None
+
+
+
+def get_training_time_from_logs(wd: Path, raise_error: bool = True) -> float:
+    """ Get the training in seconds of a single run by reading the logfile.txt file in the given working directory. """
+    assert wd.is_dir(), f"Working directory {wd} does not exist"
+    logfile = wd / "logfile.txt"
+    if raise_error:
+        assert logfile.is_file(), f"Logfile {logfile} does not exist"
+    elif not logfile.is_file():
+        print(f"[WARNING] >>> Logfile {logfile} does not exist, returning None")
         return None
     
     # The relevant line is: "[...] [training.trainAndEvaluate] >>> Training time: <float>"
@@ -199,9 +229,9 @@ def get_runtime(wd: Path, raise_error: bool = True) -> float:
                 return runtime
     
     if raise_error:
-        raise ValueError(f"Could not find training time in runtime file {logfile}")
+        raise ValueError(f"Could not find training time in logfile {logfile}")
     else:
-        print(f"[WARNING] >>> Could not find training time in runtime file {logfile}, returning None")
+        print(f"[WARNING] >>> Could not find training time in logfile {logfile}, returning None")
         return None
         
 

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import re
 
 from . import utils, plotting
 
@@ -177,6 +178,32 @@ def success_rate(ppvals: list[float], threshold: float = 5) -> float:
         return 0
     return 100 * sum([1 for ppval in ppvals if ppval >= threshold]) / len(ppvals)
 
+
+
+def get_runtime(wd: Path, raise_error: bool = True) -> float:
+    """ Get the runtime in seconds of a single run by reading the logfile.txt file in the given working directory. """
+    assert wd.is_dir(), f"Working directory {wd} does not exist"
+    logfile = wd / "logfile.txt"
+    if raise_error:
+        assert logfile.is_file(), f"Runtime file {logfile} does not exist"
+    elif not logfile.is_file():
+        print(f"[WARNING] >>> Runtime file {logfile} does not exist, returning None")
+        return None
+    
+    # The relevant line is: "[...] [training.trainAndEvaluate] >>> Training time: <float>"
+    with open(logfile, "r") as f:
+        for line in f:
+            match = re.match(r".*Training time: (\d+\.\d+)", line)
+            if match:
+                runtime = float(match.group(1))
+                return runtime
+    
+    if raise_error:
+        raise ValueError(f"Could not find training time in runtime file {logfile}")
+    else:
+        print(f"[WARNING] >>> Could not find training time in runtime file {logfile}, returning None")
+        return None
+        
 
 # === DEPRECATED FUNCTIONS BELOW === #
 
